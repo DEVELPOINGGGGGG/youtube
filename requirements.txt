@@ -1,2 +1,4 @@
 Flask
 yt-dlp
+celery[redis]
+redis
