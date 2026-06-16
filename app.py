@@ -493,16 +493,31 @@ HTML_TEMPLATE = """
                 else { stat.innerText = "Saved!"; stat.style.color = "green"; window.location.href = '/api/serve?file=' + encodeURIComponent(data.file); }
             } catch(e) { stat.innerText = "Error"; }
         }
-        async function pasteLink() {
+      async function pasteLink() {
     try {
+        // 1. Check if the browser supports the Clipboard API
+        if (!navigator.clipboard) {
+            alert("Your browser does not support automatic pasting. Please use Ctrl+V.");
+            return;
+        }
+
+        // 2. Try to read the clipboard
         const text = await navigator.clipboard.readText();
+        
+        // 3. Paste the text
         const urlInput = document.getElementById('url');
         urlInput.value = text;
         
-        // This triggers your existing auto-fetch logic
-        triggerFetch(); 
+        // 4. Trigger the fetch logic
+        // We use a tiny delay so the browser finishes the animation of the prompt
+        setTimeout(() => {
+            triggerFetch();
+        }, 100);
+        
     } catch (err) {
-        alert("Clipboard access denied. Please right-click and paste manually.");
+        // This is where you see the "Not allowed" warning.
+        // If this happens, your site doesn't have permission yet.
+        alert("Permission denied! Click the 'Lock' icon in the URL bar and set 'Clipboard' to 'Allow'.");
     }
 }
     </script>
