@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V14 - DEVICE ISOLATION & 15-MIN CLEANUP)
+# YOUTUBE DOWNLOADER (V15 - SMART SEARCH & AUTO-TYPING)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -10,7 +10,6 @@ import threading
 import uuid
 import logging
 import traceback
-import re
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
@@ -21,18 +20,16 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# Global Task Queue (Now supports client tracking)
+# Global Task Queue
 active_tasks = {}
 
 def cleanup_worker():
-    # V14 Fix: Wakes up every 60 seconds to check for 15-minute old files
     while True:
         time.sleep(60) 
         now = time.time()
         try:
             for filename in os.listdir(DOWNLOAD_DIR):
                 filepath = os.path.join(DOWNLOAD_DIR, filename)
-                # 900 seconds = exactly 15 minutes
                 if os.path.isfile(filepath) and os.stat(filepath).st_mtime < now - 900:
                     try: 
                         os.remove(filepath)
@@ -89,7 +86,6 @@ HTML_TEMPLATE = """
         .hamburger-btn:hover { transform: scale(1.1); }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        /* Sidebar */
         .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
@@ -98,13 +94,11 @@ HTML_TEMPLATE = """
         .side-nav a.external { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
-        /* Scrollable Tabs */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
         .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
         .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
         
-        /* Inputs & Buttons */
         .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
         input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
         input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79, 172, 254, 0.4); background: white; }
@@ -120,14 +114,16 @@ HTML_TEMPLATE = """
         
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; transition: 0.3s; }
         
-        /* Item Lists & Progress */
         #single-ui { display: none; }
         .list-container { display: none; flex-direction: column; gap: 10px; }
-        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent; }
+        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent; overflow:hidden;}
         .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
         .list-item img:hover { filter: brightness(0.7); transform: scale(1.05); }
-        .item-info { flex: 1; min-width: 0; }
-        .item-info h4 { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* V15 Scrolling Title Fix */
+        .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom:3px;}
+        .scrolling-title::-webkit-scrollbar { display: none; }
         
         .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
         .btn-scroll-container::-webkit-scrollbar { display: none; }
@@ -142,7 +138,6 @@ HTML_TEMPLATE = """
         .image-wrapper:hover::after { opacity: 1; }
         .image-wrapper img { width: 100%; display: block; }
         
-        /* Floating Button & Modals */
         .fab { position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 25px rgba(17, 153, 142, 0.5); cursor: pointer; z-index: 1000; display: flex; align-items: center; gap: 10px; }
         .fab:hover { transform: scale(1.05); }
         .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
@@ -209,7 +204,7 @@ HTML_TEMPLATE = """
 
         <div id="single-ui">
             <div class="image-wrapper" onclick="openPlayer(currentVideoId, -1)"><img id="s-thumb" src=""></div>
-            <h3 id="s-title" style="margin-bottom: 15px;"></h3>
+            <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
                 <button class="action-btn btn-mp3" onclick="openQuality(-1, 'mp3')">DOWNLOAD MP3</button>
@@ -270,7 +265,7 @@ HTML_TEMPLATE = """
 
     <script>
         // ---------------------------------------------------------
-        // V14: DEVICE ISOLATION LOGIC (Unique Client ID)
+        // DEVICE ISOLATION LOGIC
         // ---------------------------------------------------------
         let clientId = localStorage.getItem('yt_dl_client_id');
         if (!clientId) {
@@ -278,9 +273,9 @@ HTML_TEMPLATE = """
             localStorage.setItem('yt_dl_client_id', clientId);
         }
 
-        // PWA SERVICE WORKER
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
+        // PWA Share Target Listener
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
@@ -289,17 +284,21 @@ HTML_TEMPLATE = """
                 if (urlMatch) {
                     switchTab('single');
                     document.getElementById('url').value = urlMatch[0];
-                    handleInput();
+                    handleInput(urlMatch[0]);
                 }
             }
         });
 
+        // ---------------------------------------------------------
+        // GLOBAL VARIABLES
+        // ---------------------------------------------------------
         let currentMode = 'single';
         let currentData = []; 
         let currentVideoId = ""; 
         let handledDownloads = [];
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
+        let typingTimer; // For the 3-second auto-fetch
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -317,12 +316,13 @@ HTML_TEMPLATE = """
             if(mode === 'search') buttons[2].classList.add('active');
             
             const input = document.getElementById('url');
-            input.placeholder = mode === 'search' ? "Type query and hit GO..." : "Paste YouTube URL...";
+            input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
             input.value = ''; 
             
             document.getElementById('list-container').style.display = 'none';
             document.getElementById('single-ui').style.display = 'none';
             
+            // Adjust buttons for Search vs Link mode
             if(mode === 'search') {
                 document.getElementById('pasteBtn').style.display = 'none';
                 document.getElementById('goBtn').style.display = 'block';
@@ -340,20 +340,47 @@ HTML_TEMPLATE = """
             b.innerText = msg; b.style.background = isError ? '#ffebee' : '#eee'; b.style.color = isError ? '#c62828' : '#333';
         }
 
+        function isValidYouTubeUrl(url) { return url.includes('youtube.com') || url.includes('youtu.be'); }
+
+        // V15: 3-Second Typing Auto-Fetch
+        document.getElementById('url').addEventListener('input', (e) => {
+            clearTimeout(typingTimer);
+            let val = e.target.value.trim();
+            
+            if(!val) {
+                document.getElementById('single-ui').style.display = 'none';
+                document.getElementById('list-container').style.display = 'none';
+                setStatus("Awaiting Input...");
+                return;
+            }
+            
+            setStatus("Waiting 3 seconds after typing to Auto-Fetch...");
+            typingTimer = setTimeout(() => {
+                handleInput(val);
+            }, 3000); // Exactly 3 seconds
+        });
+
+        // Instant Paste
         async function pasteLink() {
             try {
                 const text = await navigator.clipboard.readText();
                 document.getElementById('url').value = text;
-                handleInput(); 
+                clearTimeout(typingTimer); // Cancel the 3-second timer if they pasted
+                handleInput(text); 
             } catch (err) {
-                alert("Clipboard access denied. Please paste manually and hit Enter.");
+                alert("Clipboard access denied. Please paste manually.");
             }
         }
 
-        function isValidYouTubeUrl(url) { return url.includes('youtube.com') || url.includes('youtu.be'); }
+        function formatViews(views) {
+            if(!views) return '0 Views';
+            if(views >= 1000000) return (views/1000000).toFixed(1) + 'M Views';
+            if(views >= 1000) return (views/1000).toFixed(1) + 'K Views';
+            return views + ' Views';
+        }
 
-        async function handleInput() {
-            let val = document.getElementById('url').value.trim();
+        async function handleInput(forcedValue = null) {
+            let val = forcedValue || document.getElementById('url').value.trim();
             if(!val) return setStatus("Input empty.", true);
             
             if(currentMode !== 'search' && !isValidYouTubeUrl(val)) {
@@ -380,7 +407,12 @@ HTML_TEMPLATE = """
                     document.getElementById('bulk-actions').style.display = 'none';
                 } else {
                     currentData = data.entries;
-                    document.getElementById('bulk-actions').style.display = 'flex';
+                    // V15: Hide Bulk Actions if in Search mode
+                    if(currentMode === 'search') {
+                        document.getElementById('bulk-actions').style.display = 'none';
+                    } else {
+                        document.getElementById('bulk-actions').style.display = 'flex';
+                    }
                     renderItems();
                     document.getElementById('list-container').style.display = 'flex';
                 }
@@ -394,19 +426,28 @@ HTML_TEMPLATE = """
             
             currentData.forEach((item, i) => {
                 const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
+                
+                // Rich details injection
+                const uploader = item.uploader || 'Unknown Channel';
+                const viewsStr = formatViews(item.views);
+                const duration = item.duration || '--:--';
+                
                 const html = `
                     <div class="list-item">
-                        ${currentMode !== 'single' ? `<input type="checkbox" class="pl-checkbox" value="${i}" style="margin-top:10px;">` : ''}
+                        ${currentMode !== 'single' && currentMode !== 'search' ? `<input type="checkbox" class="pl-checkbox" value="${i}" style="margin-top:10px;">` : ''}
                         
                         <div class="image-wrapper" onclick="openPlayer('${videoId}', ${i})" style="margin-bottom:0; min-width: 150px; width:150px;">
                             <img src="${item.thumbnail}" onerror="this.src='https://via.placeholder.com/150x84?text=No+Thumb'">
                         </div>
                         
                         <div class="item-info">
-                            <h4 title="${item.title}">${item.title}</h4>
-                            <p style="font-size:0.8rem; color:#888;">${videoId ? 'ID: ' + videoId : ''}</p>
+                            <h4 class="scrolling-title" title="${item.title}">${item.title}</h4>
+                            <p style="font-size:0.8rem; color:#666; margin-bottom:5px;">
+                                👤 <strong>${uploader}</strong><br>
+                                ⏱️ ${duration} | 👁️ ${viewsStr}
+                            </p>
                             
-                            <div class="btn-scroll-container" style="padding-bottom:0; margin-top:10px;">
+                            <div class="btn-scroll-container" style="padding-bottom:0; margin-top:5px;">
                                 <button class="action-btn btn-mp4" style="padding:10px 20px; font-size:0.9rem;" onclick="openQuality(${i}, 'mp4')">MP4</button>
                                 <button class="action-btn btn-mp3" style="padding:10px 20px; font-size:0.9rem;" onclick="openQuality(${i}, 'mp3')">MP3</button>
                             </div>
@@ -453,13 +494,14 @@ HTML_TEMPLATE = """
             if (type === 'mp4') {
                 document.getElementById('modalTitle').innerText = "Select MP4 Video Quality";
                 
+                // If specific qualities are missing, auto-fetch them for THIS exact video
                 if (!currentData[actualIndex].formats) {
                     setStatus("Fetching available formats for this video...");
                     try {
                         const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url, mode: 'single'}) });
                         const data = await res.json();
                         if(data.formats) currentData[actualIndex].formats = data.formats;
-                        setStatus("Ready.");
+                        setStatus("Formats fetched.");
                     } catch(e) { setStatus("Failed to fetch specific formats.", true); }
                 }
 
@@ -484,7 +526,7 @@ HTML_TEMPLATE = """
             document.getElementById('qualityModal').style.display = 'none';
             const item = currentData[pendingDownloadTarget.actualIndex];
             const reqData = {
-                client_id: clientId, // V14: SEND CLIENT ID
+                client_id: clientId, 
                 url: item.url || item.webpage_url || document.getElementById('url').value,
                 title: item.title || "Unknown Task",
                 type: pendingDownloadTarget.type,
@@ -508,8 +550,6 @@ HTML_TEMPLATE = """
                     document.getElementById(`progBox-${pendingDownloadTarget.actualIndex}`).style.display = 'block';
                 }
             }
-            
-            document.getElementById('taskModal').style.display = 'flex'; 
         }
 
         async function downloadBulk(type) {
@@ -531,17 +571,14 @@ HTML_TEMPLATE = """
                     document.getElementById(`progBox-${idx}`).style.display = 'block';
                 }
             });
-            
             setStatus(`Dispatched ${checkboxes.length} items to Tasks.`);
-            document.getElementById('taskModal').style.display = 'flex';
         }
 
         // ---------------------------------------------------------
-        // REAL-TIME SYNC (INLINE + TASK MANAGER)
+        // REAL-TIME SYNC ENGINE
         // ---------------------------------------------------------
         setInterval(async () => {
             try {
-                // V14: Request only tasks for this specific browser session
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
                 const tasks = await res.json();
                 
@@ -619,31 +656,15 @@ HTML_TEMPLATE = """
 """
 
 # ==============================================================================
-# PWA FILES (SHARE TARGET CONFIGURED)
+# BACKEND ROUTES
 # ==============================================================================
 @app.route('/manifest.json')
 def serve_manifest():
     manifest_data = {
-        "name": "YouTube Downloader",
-        "short_name": "YT Downloader",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#1e3c72",
-        "theme_color": "#1e3c72",
-        "icons": [{
-            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E",
-            "sizes": "512x512",
-            "type": "image/svg+xml"
-        }],
-        "share_target": {
-            "action": "/",
-            "method": "GET",
-            "params": {
-                "title": "title",
-                "text": "text",
-                "url": "url"
-            }
-        }
+        "name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone",
+        "background_color": "#1e3c72", "theme_color": "#1e3c72",
+        "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml"}],
+        "share_target": { "action": "/", "method": "GET", "params": { "title": "title", "text": "text", "url": "url" } }
     }
     return jsonify(manifest_data)
 
@@ -651,16 +672,12 @@ def serve_manifest():
 def serve_sw():
     return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
-# ==============================================================================
-# BACKEND FLASK ROUTES
-# ==============================================================================
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
-    # V14: Filter tasks so users ONLY see tasks initiated by their own browser session
     client_id = request.args.get('client_id')
     filtered_tasks = {k: v for k, v in active_tasks.items() if v.get('client_id') == client_id}
     return jsonify(filtered_tasks)
@@ -690,7 +707,28 @@ def get_info():
                 for e in info.get('entries', []):
                     if not e: continue
                     thumb = e.get('thumbnails', [{'url': ''}])[-1]['url'] if e.get('thumbnails') else ''
-                    entries.append({'id': e.get('id'), 'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb})
+                    
+                    # V15: RICH METADATA EXTRACTION
+                    uploader = e.get('uploader') or e.get('channel') or 'Unknown Channel'
+                    view_count = e.get('view_count') or 0
+                    
+                    duration_sec = e.get('duration')
+                    if duration_sec:
+                        m, s = divmod(int(duration_sec), 60)
+                        h, m = divmod(m, 60)
+                        duration_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
+                    else:
+                        duration_str = "--:--"
+
+                    entries.append({
+                        'id': e.get('id'), 
+                        'title': e.get('title', 'Unknown'), 
+                        'url': e.get('url'), 
+                        'thumbnail': thumb,
+                        'uploader': uploader,
+                        'views': view_count,
+                        'duration': duration_str
+                    })
                 return jsonify({'entries': entries})
                 
             else:
@@ -742,7 +780,7 @@ def background_downloader(task_id, url, dl_type, quality):
 @app.route('/api/download', methods=['POST'])
 def trigger_download():
     task_id = str(uuid.uuid4())
-    client_id = request.json.get('client_id', 'unknown') # V14: Bind Task to Client
+    client_id = request.json.get('client_id', 'unknown')
     
     active_tasks[task_id] = {
         'client_id': client_id,
@@ -759,7 +797,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50)
-    print(" 🔥 YOUTUBE DOWNLOADER SERVER ONLINE 🔥")
-    print("="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V15 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
