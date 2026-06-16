@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template_string, send_file
+from flask import Flask, request, jsonify, render_template_string, send_file, Response
 import yt_dlp
 import os
 import time
@@ -33,27 +33,32 @@ def progress_hook(d):
         downloaded = d.get('downloaded_bytes', 0)
         if total > 0: download_state['percent'] = round((downloaded / total) * 100, 1)
         
-        # Clean terminal color codes
         download_state['speed'] = str(d.get('_speed_str', '0 MB/s')).replace('\x1b[0;94m', '').replace('\x1b[0m', '').strip()
         download_state['eta'] = str(d.get('_eta_str', '00:00')).replace('\x1b[0;93m', '').replace('\x1b[0m', '').strip()
         
     elif d['status'] == 'finished':
-        # FIX: Reset stats when merging starts
         download_state['status'] = 'processing'
         download_state['percent'] = 100
         download_state['speed'] = "0 MB/s"
         download_state['eta'] = "--:--"
 
 # ==========================================
-# V7: SUCCESS GUI + IFRAME PLAYER
+# V9: PWA APP UI (INSTALLABLE)
 # ==========================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Downloader V7</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nexus Downloader</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E">
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
@@ -62,18 +67,26 @@ HTML_TEMPLATE = """
             background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3);
             background-size: 400% 400%; animation: gradientBG 15s ease infinite;
             display: flex; justify-content: center; align-items: flex-start; min-height: 100vh;
-            color: #333; padding: 40px 20px;
+            color: #333; padding: 20px;
         }
 
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
         .glass-card {
             background: rgba(255, 255, 255, 0.95); border-radius: 24px; padding: 30px;
-            width: 100%; max-width: 800px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-            position: relative;
+            width: 100%; max-width: 800px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); position: relative;
         }
 
-        h2 { font-weight: 800; font-size: 2rem; margin-bottom: 20px; text-align: center; }
+        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h2 { font-weight: 800; font-size: 1.8rem; text-align: left; margin: 0;}
+        
+        #installBtn {
+            display: none; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white; border: none; padding: 8px 15px; border-radius: 12px;
+            font-weight: 800; cursor: pointer; box-shadow: 0 5px 15px rgba(56, 239, 125, 0.4);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 15px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
@@ -86,8 +99,6 @@ HTML_TEMPLATE = """
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center;}
 
         #single-ui { display: none; }
-        
-        /* CLICKABLE THUMBNAIL CSS */
         .image-wrapper { 
             border-radius: 16px; overflow: hidden; margin-bottom: 20px; 
             box-shadow: 0 10px 20px rgba(0,0,0,0.1); position: relative; cursor: pointer;
@@ -98,7 +109,6 @@ HTML_TEMPLATE = """
             font-weight: 800; font-size: 1.2rem; opacity: 0; transition: 0.3s;
         }
         .image-wrapper:hover::after { opacity: 1; }
-        .image-wrapper:hover img { transform: scale(1.05); filter: brightness(0.7); }
         .image-wrapper img { width: 100%; display: block; transition: all 0.3s; }
 
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
@@ -106,7 +116,6 @@ HTML_TEMPLATE = """
         .btn-mp4 { background: #667eea; } .btn-mp3 { background: #ff0844; }
         .action-btn:disabled { background: #ccc !important; cursor: not-allowed; opacity: 0.7; }
 
-        /* ALL MODALS (Quality, Success, Video) */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 1000;
@@ -115,15 +124,11 @@ HTML_TEMPLATE = """
         .modal-box {
             background: white; width: 100%; max-width: 450px; border-radius: 20px; padding: 30px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.3); position: relative;
-            animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        @keyframes popUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        
         .btn-close { 
             background: #ff0844; color: white; border: none; width: 35px; height: 35px; 
             border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; transition: 0.2s;
         }
-        .btn-close:hover { transform: scale(1.1); background: #d00030; }
 
         .quality-list { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 5px; margin-top: 15px;}
         .quality-item {
@@ -131,18 +136,16 @@ HTML_TEMPLATE = """
             font-weight: 700; color: #333; cursor: pointer; transition: 0.2s; text-align: left;
             display: flex; justify-content: space-between; align-items: center;
         }
-        .quality-item:hover { background: #e0f2fe; border-color: #4facfe; transform: translateY(-2px); }
+        .quality-item:hover { background: #e0f2fe; border-color: #4facfe; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2; }
         .size-badge { background: #ddd; padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; color: #555; }
 
-        /* IFRAME VIDEO MODAL */
         .video-modal-content {
             position: relative; width: 100%; max-width: 800px; background: #000; border-radius: 12px; 
             overflow: hidden; aspect-ratio: 16 / 9; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
         .video-modal-content iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
 
-        /* PROGRESS BAR */
         .progress-container { display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 16px; }
         .progress-bar-bg { width: 100%; height: 16px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin: 10px 0; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
@@ -151,20 +154,30 @@ HTML_TEMPLATE = """
         #playlist-ui { display: none; }
         .pl-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; margin-bottom: 10px; }
         .pl-item img { width: 120px; border-radius: 8px; }
+        
+        /* Mobile Tweaks */
+        @media (max-width: 600px) {
+            .btn-grid { grid-template-columns: 1fr; }
+            .pl-item { flex-direction: column; align-items: flex-start; }
+            .pl-item img { width: 100%; }
+        }
     </style>
 </head>
 <body>
 
     <div class="glass-card">
-        <h2>⚡ NEXUS V7 [AUTO & FIXES]</h2>
+        <div class="header-area">
+            <h2>⚡ NEXUS V9</h2>
+            <button id="installBtn">⬇ INSTALL APP</button>
+        </div>
         
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('single')">Single Video</button>
-            <button class="tab-btn" onclick="switchTab('playlist')">Playlist Mode</button>
+            <button class="tab-btn" onclick="switchTab('playlist')">Playlist</button>
         </div>
 
         <div class="input-group">
-            <input type="text" id="url" placeholder="Paste YouTube Link Here (Auto-Fetches)..." autocomplete="off">
+            <input type="text" id="url" placeholder="Paste YouTube Link (Auto-Fetches)..." autocomplete="off">
         </div>
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
@@ -173,7 +186,6 @@ HTML_TEMPLATE = """
             <div class="image-wrapper" onclick="openPlayer()">
                 <img id="s-thumb" src="" alt="Thumbnail">
             </div>
-            
             <h3 id="s-title" style="margin-bottom: 15px;"></h3>
             
             <div class="btn-grid" id="s-btns" style="display:none;">
@@ -189,9 +201,12 @@ HTML_TEMPLATE = """
         </div>
 
         <div id="playlist-ui">
-            <div style="display:flex; justify-content:space-between; margin-bottom: 15px;" id="pl-header">
-                <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> Select All</div>
-                <button class="action-btn" style="background:#333; padding: 8px 15px;" onclick="downloadPlaylist('mp3')">DL Selected MP3</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;" id="pl-header">
+                <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> <strong>Select All</strong></div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="action-btn btn-mp4" style="padding: 8px 15px; font-size: 0.9rem;" onclick="downloadPlaylist('mp4')">DL MP4</button>
+                    <button class="action-btn btn-mp3" style="padding: 8px 15px; font-size: 0.9rem;" onclick="downloadPlaylist('mp3')">DL MP3</button>
+                </div>
             </div>
             <div id="pl-container"></div>
         </div>
@@ -210,7 +225,7 @@ HTML_TEMPLATE = """
     <div class="modal-overlay" id="videoModal" style="flex-direction: column;">
         <button class="action-btn btn-mp3" style="margin-bottom: 20px; align-self: center;" onclick="closePlayer()">✖ CLOSE PLAYER</button>
         <div class="video-modal-content">
-            <iframe id="ytIframe" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            <iframe id="ytIframe" src="" title="YouTube player" frameborder="0" allow="autoplay; encrypted-media; fullscreen"></iframe>
         </div>
     </div>
 
@@ -220,16 +235,38 @@ HTML_TEMPLATE = """
             <div style="font-size: 4rem; margin-bottom: 10px;">✅</div>
             <h3 style="margin-bottom: 10px;">Download Ready!</h3>
             <p style="color: #666; margin-bottom: 20px;">Your file is being pushed to your browser.</p>
-            
             <a id="manualDownloadLink" href="#" style="display: block; margin-bottom: 25px; color: #4facfe; font-weight: bold; text-decoration: underline;">
                 Download not started? Click here.
             </a>
-            
             <button class="action-btn btn-mp4" style="width: 100%;" onclick="window.location.reload()">DOWNLOAD NEW VIDEO</button>
         </div>
     </div>
 
     <script>
+        // --- PWA INSTALLATION LOGIC ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW setup failed', err));
+        }
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBtn').style.display = 'block';
+        });
+
+        document.getElementById('installBtn').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    document.getElementById('installBtn').style.display = 'none';
+                }
+                deferredPrompt = null;
+            }
+        });
+        // ------------------------------
+
         let currentMode = 'single';
         let currentMp4Formats = [];
         let currentVideoId = "";
@@ -255,7 +292,6 @@ HTML_TEMPLATE = """
 
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // AUTO-FETCH
         document.getElementById('url').addEventListener('input', (e) => {
             clearTimeout(fetchTimeout);
             const url = e.target.value.trim();
@@ -268,13 +304,11 @@ HTML_TEMPLATE = """
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: url, mode: currentMode}) });
                 const data = await res.json();
-                
                 if(data.error) return setStatus("Error: " + data.error, true);
 
                 if(currentMode === 'single') {
                     currentMp4Formats = data.formats;
-                    currentVideoId = data.id; // SAVE ID FOR IFRAME
-                    
+                    currentVideoId = data.id; 
                     setStatus("Ready to Download.");
                     document.getElementById('single-ui').style.display = 'block';
                     document.getElementById('s-thumb').src = data.thumbnail;
@@ -288,24 +322,19 @@ HTML_TEMPLATE = """
             } catch(e) { setStatus("Server Error.", true); }
         }
 
-        // ==========================================
-        // V7 MODAL & PLAYER CONTROLS
-        // ==========================================
         function openPlayer() {
             if(!currentVideoId) return;
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1`;
             document.getElementById('videoModal').style.display = 'flex';
         }
-
         function closePlayer() {
             document.getElementById('videoModal').style.display = 'none';
-            document.getElementById('ytIframe').src = ""; // STOPS BACKGROUND AUDIO
+            document.getElementById('ytIframe').src = ""; 
         }
 
         function openQualityModal(type) {
             const list = document.getElementById('qualityList');
             list.innerHTML = ''; 
-
             if (type === 'mp4') {
                 document.getElementById('modalTitle').innerText = "Select MP4 Quality";
                 list.innerHTML += `<button class="quality-item best" onclick="startSingleDownload('mp4', 'best')"><span>⭐ BEST AVAILABLE (Auto)</span></button>`;
@@ -325,7 +354,6 @@ HTML_TEMPLATE = """
         async function startSingleDownload(type, qualityId) {
             closeModal('qualityModal');
             const url = document.getElementById('url').value;
-            
             document.getElementById('mainMp4Btn').disabled = true;
             document.getElementById('mainMp3Btn').disabled = true;
             document.getElementById('progBox').style.display = 'block';
@@ -339,26 +367,25 @@ HTML_TEMPLATE = """
                     body: JSON.stringify({url: url, type: type, quality: qualityId})
                 });
                 const data = await res.json();
-                
                 clearInterval(progressInterval);
                 
                 if(data.error) {
                     setStatus("Error: " + data.error, true);
+                    document.getElementById('mainMp4Btn').disabled = false;
+                    document.getElementById('mainMp3Btn').disabled = false;
                 } else {
-                    setStatus("Complete! Pushing to browser.");
+                    setStatus("Complete!");
                     document.getElementById('progBox').style.display = 'none';
-                    
-                    // V7: POPUP SUCCESS GUI
                     const dlUrl = '/api/serve?file=' + encodeURIComponent(data.file);
                     document.getElementById('manualDownloadLink').href = dlUrl;
                     document.getElementById('successModal').style.display = 'flex';
-                    
-                    // AUTO-TRIGGER BROWSER DOWNLOAD
                     window.location.href = dlUrl;
                 }
             } catch(e) { 
                 clearInterval(progressInterval);
                 setStatus("Download Failed.", true); 
+                document.getElementById('mainMp4Btn').disabled = false;
+                document.getElementById('mainMp3Btn').disabled = false;
             }
         }
 
@@ -366,7 +393,6 @@ HTML_TEMPLATE = """
             try {
                 const res = await fetch('/api/progress');
                 const data = await res.json();
-                
                 const fill = document.getElementById('progFill');
                 const statusTxt = document.getElementById('progStatus');
                 const percentTxt = document.getElementById('progPercent');
@@ -382,7 +408,6 @@ HTML_TEMPLATE = """
                 } else if (data.status === 'processing') {
                     fill.style.width = '100%';
                     percentTxt.innerText = "100%";
-                    // V7 FIX: SPEED AND ETA ARE ZEROED OUT DURING MERGE
                     speedTxt.innerText = "Processing";
                     etaTxt.innerText = "--:--";
                     statusTxt.innerText = "Merging Audio/Video (FFmpeg)...";
@@ -390,7 +415,6 @@ HTML_TEMPLATE = """
             } catch(e) {}
         }
 
-        // --- PLAYLIST RENDERER ---
         function renderPlaylist() {
             const container = document.getElementById('pl-container');
             container.innerHTML = '';
@@ -403,7 +427,10 @@ HTML_TEMPLATE = """
                             <h4 style="font-size:0.95rem; margin-bottom:5px;">${item.title}</h4>
                             <span id="stat-${i}" style="font-size:0.8rem; color:#666;">Ready</span>
                         </div>
-                        <button class="action-btn" style="background:#ff0844; padding:8px 12px; font-size:0.9rem;" onclick="dlItem('${item.url}', ${i})">MP3</button>
+                        <div style="display: flex; gap: 5px;">
+                            <button class="action-btn btn-mp4" style="padding:8px 12px; font-size:0.9rem;" onclick="dlItem('${item.url}', 'mp4', ${i})">MP4</button>
+                            <button class="action-btn btn-mp3" style="padding:8px 12px; font-size:0.9rem;" onclick="dlItem('${item.url}', 'mp3', ${i})">MP3</button>
+                        </div>
                     </div>
                 `;
             });
@@ -412,13 +439,37 @@ HTML_TEMPLATE = """
             const isChecked = document.getElementById('selectAll').checked;
             document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = isChecked);
         }
-        async function dlItem(url, index) {
+        async function downloadPlaylist(type) {
+            const checkboxes = document.querySelectorAll('.pl-checkbox:checked');
+            if(checkboxes.length === 0) return alert("Select at least one video!");
+            for(let i=0; i<checkboxes.length; i++) {
+                let url = checkboxes[i].value;
+                setStatus(`Bulk Downloading: ${i+1} of ${checkboxes.length}`);
+                try {
+                    const res = await fetch('/api/download', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({url: url, type: type, quality: type === 'mp3' ? '320' : 'best'})
+                    });
+                    const data = await res.json();
+                    if(!data.error) {
+                        const link = document.createElement('a');
+                        link.href = '/api/serve?file=' + encodeURIComponent(data.file);
+                        link.download = '';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                } catch(e) { console.log("Failed item", url); }
+            }
+            setStatus("Bulk Download Complete!");
+        }
+        async function dlItem(url, type, index) {
             const stat = document.getElementById(`stat-${index}`);
             stat.innerText = "Downloading..."; stat.style.color = "blue";
             try {
                 const res = await fetch('/api/download', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({url: url, type: 'mp3', quality: '320'})
+                    body: JSON.stringify({url: url, type: type, quality: type === 'mp3' ? '320' : 'best'})
                 });
                 const data = await res.json();
                 if(data.error) { stat.innerText = "Failed"; stat.style.color = "red"; }
@@ -429,6 +480,35 @@ HTML_TEMPLATE = """
 </body>
 </html>
 """
+
+# ==========================================
+# PWA FILES (MANIFEST & SERVICE WORKER)
+# ==========================================
+@app.route('/manifest.json')
+def serve_manifest():
+    manifest = {
+        "name": "Nexus Downloader",
+        "short_name": "Nexus",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#1e3c72",
+        "theme_color": "#1e3c72",
+        "icons": [{
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }]
+    }
+    return jsonify(manifest)
+
+@app.route('/sw.js')
+def serve_sw():
+    # A basic Service Worker that makes the app installable
+    sw_code = """
+    self.addEventListener('install', (e) => { console.log('[Service Worker] Install'); });
+    self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });
+    """
+    return Response(sw_code, mimetype='application/javascript')
 
 # ==========================================
 # SUPERCHARGED BACKEND ROUTES
@@ -447,15 +527,11 @@ def get_progress():
 def get_info():
     url = request.json.get('url')
     mode = request.json.get('mode')
-    
-    if 'list=RD' in url:
-        return jsonify({'error': 'YouTube Mixes are infinite loops and cannot be downloaded.'})
+    if 'list=RD' in url: return jsonify({'error': 'YouTube Mixes are infinite loops and cannot be downloaded.'})
 
     ydl_opts = {
-        'quiet': True, 
-        'color': 'no_color', 
-        'proxy': 'socks5://127.0.0.1:40000', # WARP PROXY
-        # V7 FIX: Explicitly handle Playlist vs Single modes
+        'quiet': True, 'color': 'no_color', 
+        'proxy': 'socks5://127.0.0.1:40000', 
         'extract_flat': 'in_playlist' if mode == 'playlist' else False,
         'noplaylist': mode == 'single' 
     }
@@ -463,7 +539,6 @@ def get_info():
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            
             if mode == 'playlist':
                 if 'entries' not in info: return jsonify({'error': 'Not a valid playlist link.'})
                 entries = []
@@ -472,7 +547,6 @@ def get_info():
                     thumb_url = e.get('thumbnails', [{'url': ''}])[-1]['url'] if e.get('thumbnails') else ''
                     entries.append({'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb_url})
                 return jsonify({'entries': entries})
-                
             else:
                 formats = []
                 for f in info.get('formats', []):
@@ -488,15 +562,10 @@ def get_info():
                         unique_formats.append(f)
                         seen_res.add(f['resolution'])
                 
-                def sort_res(f):
-                    res_str = f['resolution'].replace('p60', '').replace('p', '')
-                    return int(res_str) if res_str.isdigit() else 0
-                
-                unique_formats.sort(key=sort_res, reverse=True)
+                unique_formats.sort(key=lambda f: int(f['resolution'].replace('p60', '').replace('p', '')) if f['resolution'].replace('p60', '').replace('p', '').isdigit() else 0, reverse=True)
                 return jsonify({'id': info.get('id'), 'title': info.get('title'), 'thumbnail': info.get('thumbnail'), 'formats': unique_formats})
     except Exception as e:
-        error_msg = str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')
-        return jsonify({'error': error_msg})
+        return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
 
 @app.route('/api/download', methods=['POST'])
 def run_download():
@@ -506,14 +575,16 @@ def run_download():
     
     ydl_opts = {
         'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s',
-        'quiet': True,
-        'color': 'no_color',
-        'proxy': 'socks5://127.0.0.1:40000', # WARP PROXY
-        'concurrent_fragment_downloads': 5,
+        'quiet': True, 'color': 'no_color',
+        'proxy': 'socks5://127.0.0.1:40000', 
+        'concurrent_fragment_downloads': 10,
         'geo_bypass': True,
-        'ffmpeg_location': '/usr/bin/ffmpeg', # LINUX DOCKER PATH
+        'ffmpeg_location': '/usr/bin/ffmpeg', 
         'progress_hooks': [progress_hook],
-        'noplaylist': True # Always download just the single selected target here
+        'noplaylist': True,
+        'external_downloader': 'aria2c',
+        'external_downloader_args': ['-j', '16', '-x', '16', '-s', '16', '-k', '1M'],
+        'postprocessor_args': ['-threads', '0', '-preset', 'ultrafast', '-strict', 'experimental'],
     }
 
     if dl_type == 'mp4':
@@ -532,8 +603,7 @@ def run_download():
             
         return jsonify({'file': actual_file})
     except Exception as e:
-        error_msg = str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')
-        return jsonify({'error': error_msg})
+        return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
 
 @app.route('/api/serve', methods=['GET'])
 def serve_file():
@@ -542,7 +612,8 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
+    # REMINDER: Must be served over HTTPS (or localhost) for the PWA Install prompt to trigger!
     print("\n=====================================")
-    print(" 🔥 V7 SUCCESS GUI SERVER ONLINE 🔥")
+    print(" 🔥 V9 APP SERVER ONLINE 🔥")
     print("=====================================\n")
     app.run(debug=True, port=5000)
