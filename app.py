@@ -161,6 +161,22 @@ HTML_TEMPLATE = """
             .pl-item { flex-direction: column; align-items: flex-start; }
             .pl-item img { width: 100%; }
         }
+        .input-group { position: relative; }
+
+.paste-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #e2e8f0;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #4a5568;
+}
+.paste-btn:hover { background: #cbd5e0; }
     </style>
 </head>
 <body>
@@ -177,8 +193,9 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="input-group">
-            <input type="text" id="url" placeholder="Paste YouTube Link (Auto-Fetches)..." autocomplete="off">
-        </div>
+    <input type="text" id="url" placeholder="Paste link here..." autocomplete="off">
+    <button class="paste-btn" onclick="pasteLink()">PASTE</button>
+</div>
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
@@ -476,6 +493,18 @@ HTML_TEMPLATE = """
                 else { stat.innerText = "Saved!"; stat.style.color = "green"; window.location.href = '/api/serve?file=' + encodeURIComponent(data.file); }
             } catch(e) { stat.innerText = "Error"; }
         }
+        async function pasteLink() {
+    try {
+        const text = await navigator.clipboard.readText();
+        const urlInput = document.getElementById('url');
+        urlInput.value = text;
+        
+        // This triggers your existing auto-fetch logic
+        triggerFetch(); 
+    } catch (err) {
+        alert("Clipboard access denied. Please right-click and paste manually.");
+    }
+}
     </script>
 </body>
 </html>
