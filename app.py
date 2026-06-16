@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V15 - SMART SEARCH & AUTO-TYPING)
+# YOUTUBE DOWNLOADER (V16 - NATIVE EXPERIENCE & NOTIFICATIONS)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -10,6 +10,7 @@ import threading
 import uuid
 import logging
 import traceback
+import re
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
@@ -120,7 +121,6 @@ HTML_TEMPLATE = """
         .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
         .list-item img:hover { filter: brightness(0.7); transform: scale(1.05); }
         
-        /* V15 Scrolling Title Fix */
         .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
         .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom:3px;}
         .scrolling-title::-webkit-scrollbar { display: none; }
@@ -171,6 +171,7 @@ HTML_TEMPLATE = """
 </head>
 <body>
 
+    <!-- HAMBURGER MENU -->
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
@@ -182,6 +183,7 @@ HTML_TEMPLATE = """
         <a href="https://translator-l3x0.onrender.com" target="_blank" class="external">🌐 Translator App <span>↗</span></a>
     </div>
 
+    <!-- MAIN APP -->
     <div class="glass-card">
         <div class="header-area">
             <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
@@ -202,6 +204,7 @@ HTML_TEMPLATE = """
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
+        <!-- SINGLE UI -->
         <div id="single-ui">
             <div class="image-wrapper" onclick="openPlayer(currentVideoId, -1)"><img id="s-thumb" src=""></div>
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
@@ -217,6 +220,7 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
+        <!-- PLAYLIST / SEARCH UI -->
         <div id="list-container" class="list-container">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;" id="bulk-actions">
                 <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> <strong>Select All</strong></div>
@@ -229,10 +233,12 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- TASK MANAGER FAB -->
     <div class="fab" onclick="document.getElementById('taskModal').style.display='flex'">
         📥 Queue <span class="badge" id="taskBadge">0</span>
     </div>
 
+    <!-- TASK MANAGER MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 2500;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
@@ -243,6 +249,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- QUALITY SELECTION MODAL -->
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -253,6 +260,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- VIDEO PLAYER MODAL WITH DOWNLOAD BUTTON -->
     <div class="modal-overlay" id="videoModal" style="flex-direction: column;">
         <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap; justify-content:center;">
             <button class="action-btn btn-mp4" id="playerDownloadBtn" style="padding: 12px 30px; font-size:1.1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.5);">⬇ DOWNLOAD VIDEO</button>
@@ -265,18 +273,43 @@ HTML_TEMPLATE = """
 
     <script>
         // ---------------------------------------------------------
-        // DEVICE ISOLATION LOGIC
+        // V16: VOLATILE CLIENT ID (QUEUE RESETS ON APP REOPEN)
         // ---------------------------------------------------------
-        let clientId = localStorage.getItem('yt_dl_client_id');
-        if (!clientId) {
-            clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-            localStorage.setItem('yt_dl_client_id', clientId);
+        // By generating a fresh ID every page load instead of saving it,
+        // your queue will ALWAYS be 0 when you open/refresh the app!
+        const clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+        // ---------------------------------------------------------
+        // V16: NATIVE PUSH NOTIFICATION ENGINE
+        // ---------------------------------------------------------
+        function requestNotificationPermission() {
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
         }
+        
+        // Ask for permission the first time they tap anywhere
+        window.addEventListener('click', requestNotificationPermission, {once: true});
+
+        function showNotification(title, bodyText) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(title, {
+                    body: bodyText,
+                    icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E"
+                });
+            }
+        }
+
+        // Tracking which notifications have been sent so we don't spam
+        let notifiedTasks = { started: [], completed: [] };
 
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
         // PWA Share Target Listener
         window.addEventListener('DOMContentLoaded', () => {
+            // Welcome Engagement Notification
+            setTimeout(() => showNotification("Download YouTube Video Today!", "Paste a link or search for a video directly in the app!"), 3000);
+            
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
             if (sharedData) {
@@ -298,7 +331,7 @@ HTML_TEMPLATE = """
         let handledDownloads = [];
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
-        let typingTimer; // For the 3-second auto-fetch
+        let typingTimer; 
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -322,7 +355,6 @@ HTML_TEMPLATE = """
             document.getElementById('list-container').style.display = 'none';
             document.getElementById('single-ui').style.display = 'none';
             
-            // Adjust buttons for Search vs Link mode
             if(mode === 'search') {
                 document.getElementById('pasteBtn').style.display = 'none';
                 document.getElementById('goBtn').style.display = 'block';
@@ -342,7 +374,6 @@ HTML_TEMPLATE = """
 
         function isValidYouTubeUrl(url) { return url.includes('youtube.com') || url.includes('youtu.be'); }
 
-        // V15: 3-Second Typing Auto-Fetch
         document.getElementById('url').addEventListener('input', (e) => {
             clearTimeout(typingTimer);
             let val = e.target.value.trim();
@@ -355,17 +386,14 @@ HTML_TEMPLATE = """
             }
             
             setStatus("Waiting 3 seconds after typing to Auto-Fetch...");
-            typingTimer = setTimeout(() => {
-                handleInput(val);
-            }, 3000); // Exactly 3 seconds
+            typingTimer = setTimeout(() => { handleInput(val); }, 3000); 
         });
 
-        // Instant Paste
         async function pasteLink() {
             try {
                 const text = await navigator.clipboard.readText();
                 document.getElementById('url').value = text;
-                clearTimeout(typingTimer); // Cancel the 3-second timer if they pasted
+                clearTimeout(typingTimer); 
                 handleInput(text); 
             } catch (err) {
                 alert("Clipboard access denied. Please paste manually.");
@@ -407,7 +435,6 @@ HTML_TEMPLATE = """
                     document.getElementById('bulk-actions').style.display = 'none';
                 } else {
                     currentData = data.entries;
-                    // V15: Hide Bulk Actions if in Search mode
                     if(currentMode === 'search') {
                         document.getElementById('bulk-actions').style.display = 'none';
                     } else {
@@ -426,8 +453,6 @@ HTML_TEMPLATE = """
             
             currentData.forEach((item, i) => {
                 const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
-                
-                // Rich details injection
                 const uploader = item.uploader || 'Unknown Channel';
                 const viewsStr = formatViews(item.views);
                 const duration = item.duration || '--:--';
@@ -494,7 +519,6 @@ HTML_TEMPLATE = """
             if (type === 'mp4') {
                 document.getElementById('modalTitle').innerText = "Select MP4 Video Quality";
                 
-                // If specific qualities are missing, auto-fetch them for THIS exact video
                 if (!currentData[actualIndex].formats) {
                     setStatus("Fetching available formats for this video...");
                     try {
@@ -575,7 +599,7 @@ HTML_TEMPLATE = """
         }
 
         // ---------------------------------------------------------
-        // REAL-TIME SYNC ENGINE
+        // REAL-TIME SYNC ENGINE & NOTIFICATIONS
         // ---------------------------------------------------------
         setInterval(async () => {
             try {
@@ -593,6 +617,12 @@ HTML_TEMPLATE = """
                     let sCol = t.status==='completed' ? '#155724' : (t.status==='error' ? '#721c24' : '#004085');
                     let sBg = t.status==='completed' ? '#d4edda' : (t.status==='error' ? '#f8d7da' : '#cce5ff');
                     
+                    // Trigger Native Start Notification
+                    if ((t.status === 'downloading' || t.status === 'processing') && !notifiedTasks.started.includes(id)) {
+                        notifiedTasks.started.push(id);
+                        showNotification("Download Processing 🔄", `Server is working on: ${t.title}`);
+                    }
+
                     html += `
                         <div class="task-item" style="background: ${sBg}; border-color: ${sCol}44;">
                             <div class="task-header" style="color: ${sCol};">
@@ -638,6 +668,13 @@ HTML_TEMPLATE = """
 
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
                         handledDownloads.push(id);
+                        
+                        // Trigger Native Complete Notification
+                        if (!notifiedTasks.completed.includes(id)) {
+                            notifiedTasks.completed.push(id);
+                            showNotification("Download Completed! ✅", `${t.title} is ready. Automatically saving to your device!`);
+                        }
+
                         const link = document.createElement('a');
                         link.href = '/api/serve?file=' + encodeURIComponent(t.file);
                         link.download = ''; document.body.appendChild(link); link.click(); document.body.removeChild(link);
@@ -656,15 +693,34 @@ HTML_TEMPLATE = """
 """
 
 # ==============================================================================
-# BACKEND ROUTES
+# PWA FILES (SHARE TARGET CONFIGURED & ROBUST INSTALLABILITY)
 # ==============================================================================
 @app.route('/manifest.json')
 def serve_manifest():
+    # V16: Added enctype and updated params to ensure Android/iOS detects it natively
     manifest_data = {
-        "name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone",
-        "background_color": "#1e3c72", "theme_color": "#1e3c72",
-        "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml"}],
-        "share_target": { "action": "/", "method": "GET", "params": { "title": "title", "text": "text", "url": "url" } }
+        "name": "YouTube Downloader",
+        "short_name": "YT Downloader",
+        "start_url": "/?source=pwa",
+        "display": "standalone",
+        "background_color": "#1e3c72",
+        "theme_color": "#1e3c72",
+        "icons": [{
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }],
+        "share_target": {
+            "action": "/",
+            "method": "GET",
+            "enctype": "application/x-www-form-urlencoded",
+            "params": {
+                "title": "title",
+                "text": "text",
+                "url": "url"
+            }
+        }
     }
     return jsonify(manifest_data)
 
@@ -672,6 +728,9 @@ def serve_manifest():
 def serve_sw():
     return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
+# ==============================================================================
+# BACKEND FLASK ROUTES
+# ==============================================================================
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -708,7 +767,6 @@ def get_info():
                     if not e: continue
                     thumb = e.get('thumbnails', [{'url': ''}])[-1]['url'] if e.get('thumbnails') else ''
                     
-                    # V15: RICH METADATA EXTRACTION
                     uploader = e.get('uploader') or e.get('channel') or 'Unknown Channel'
                     view_count = e.get('view_count') or 0
                     
@@ -797,5 +855,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V15 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V16 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
