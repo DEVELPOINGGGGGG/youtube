@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V22 - RECOVERY PROTOCOL & BULK QUEUE)
+# YOUTUBE DOWNLOADER (V23 - SMART MEMORY & RECOVERY FIX)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -220,6 +220,7 @@ HTML_TEMPLATE = """
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
+        <!-- SINGLE UI -->
         <div id="single-ui">
             <div class="image-wrapper" onclick="openPlayer(currentVideoId, -1)"><img id="s-thumb" src=""></div>
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
@@ -235,6 +236,7 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
+        <!-- PLAYLIST / SEARCH UI -->
         <div id="list-container" class="list-container">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;" id="bulk-actions">
                 <div style="display:flex; align-items:center; gap:8px;">
@@ -250,10 +252,12 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- TASK MANAGER FAB -->
     <div class="fab" onclick="document.getElementById('taskModal').style.display='flex'">
         📥 Queue <span class="badge" id="taskBadge">0</span>
     </div>
 
+    <!-- RECOVERY MODAL -->
     <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -266,6 +270,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
@@ -285,6 +290,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- TASK MANAGER MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 2500;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
@@ -295,6 +301,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- QUALITY SELECTION MODAL -->
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -312,6 +319,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
+    <!-- VIDEO PLAYER MODAL WITH DOWNLOAD BUTTON -->
     <div class="modal-overlay" id="videoModal" style="flex-direction: column;">
         <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap; justify-content:center;">
             <button class="action-btn btn-mp4" id="playerDownloadBtn" style="padding: 12px 30px; font-size:1.1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.5);">⬇ DOWNLOAD VIDEO</button>
@@ -328,6 +336,20 @@ HTML_TEMPLATE = """
         if (!clientId) {
             clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
             localStorage.setItem('yt_dl_client_id', clientId);
+        }
+
+        // V23: SMART MEMORY FIX - Stores which downloads were already delivered/clicked
+        let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
+        if (handledDownloads.length > 50) { // Keep storage clean
+            handledDownloads = handledDownloads.slice(-50);
+            localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads));
+        }
+
+        function markHandled(id) {
+            if (!handledDownloads.includes(id)) {
+                handledDownloads.push(id);
+                localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads));
+            }
         }
 
         function loadSettings() {
@@ -361,12 +383,10 @@ HTML_TEMPLATE = """
         let currentMode = 'single';
         let currentData = []; 
         let currentVideoId = ""; 
-        let handledDownloads = [];
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
         let typingTimer; 
         
-        // V22 Flags & Queues
         let initialLoad = true;
         let recoveredToDownload = [];
         let deliveryQueue = [];
@@ -388,7 +408,7 @@ HTML_TEMPLATE = """
             }
         });
 
-        // 1-by-1 Smart Delivery System
+        // Smart Delivery Queue
         function processDeliveryQueue() {
             if(isDelivering || deliveryQueue.length === 0) return;
             isDelivering = true;
@@ -412,15 +432,15 @@ HTML_TEMPLATE = """
             list.innerHTML = '';
             files.forEach(f => {
                 list.innerHTML += `<div style="padding:10px; background:#e0f2fe; border-radius:8px; font-weight:bold; font-size:0.85rem; border: 1px solid #a1c4fd;">${f.title}</div>`;
-                recoveredToDownload.push(f.file);
+                recoveredToDownload.push(f);
             });
             document.getElementById('recoveryModal').style.display = 'flex';
         }
 
         function downloadRecovered() {
             document.getElementById('recoveryModal').style.display = 'none';
-            recoveredToDownload.forEach(fUrl => {
-                deliveryQueue.push('/api/serve?file=' + encodeURIComponent(fUrl));
+            recoveredToDownload.forEach(f => {
+                deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file));
             });
             processDeliveryQueue();
             recoveredToDownload = []; // Clear queue
@@ -701,7 +721,7 @@ HTML_TEMPLATE = """
             document.getElementById('taskModal').style.display = 'flex'; 
         }
 
-        // V22: REAL-TIME SYNC & RECOVERY ENGINE
+        // V23: THE SMART SYNC ENGINE
         setInterval(async () => {
             try {
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
@@ -727,12 +747,14 @@ HTML_TEMPLATE = """
                     }
 
                     let isExpired = false;
-                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE FILE NOW</button>`;
+                    // V23 Fix: Manual Button now calls markHandled(id)
+                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE FILE NOW</button>`;
                     
                     if (t.status === 'completed' && t.completed_at) {
-                        if ((nowSec - t.completed_at) > 300) { // Over 5 mins
+                        if ((nowSec - t.completed_at) > 300) { 
                             isExpired = true;
-                            saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 AUTO-SAVE EXPIRED (CLICK TO MANUAL SAVE)</button>`;
+                            // V23 Fix: Expired manual button also calls markHandled(id)
+                            saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 AUTO-SAVE EXPIRED (CLICK TO MANUAL SAVE)</button>`;
                         }
                     }
 
@@ -751,7 +773,6 @@ HTML_TEMPLATE = """
                         </div>
                     `;
 
-                    // Update Inline UI
                     const mapData = taskDOMMap[id];
                     if (mapData) {
                         const prefix = mapData.isSingle ? '-single' : `-${mapData.index}`;
@@ -779,15 +800,15 @@ HTML_TEMPLATE = """
                         }
                     }
 
-                    // V22: RECOVERY OR AUTO-DELIVERY
+                    // V23: Check against the persistent localStorage array
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
-                        
                         if (initialLoad && !isExpired) {
                             // Recovered from closed app state
                             newlyRecovered.push({ id: id, title: t.title, file: t.file });
+                            markHandled(id); // Brand it so it never recovers twice
                         } else if (!initialLoad && !isExpired) {
-                            // Standard auto-delivery (app was open during completion)
-                            handledDownloads.push(id);
+                            // Standard auto-delivery 
+                            markHandled(id);
                             
                             if (!notifiedTasks.completed.includes(id)) {
                                 notifiedTasks.completed.push(id);
@@ -796,17 +817,16 @@ HTML_TEMPLATE = """
                             deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file));
                             processDeliveryQueue();
                         } else if (isExpired) {
-                            // It's too old to auto-deliver or recover via pop-up, mark as handled so we stop checking
-                            handledDownloads.push(id);
+                            markHandled(id); // Too old, stop checking
                         }
                     }
                 }
                 
-                // V22 Trigger Recovery Modal
+                // Trigger Recovery Modal
                 if (initialLoad && newlyRecovered.length > 0) {
                     showRecoveryModal(newlyRecovered);
                 }
-                initialLoad = false; // Turn off initial load flag after first poll
+                initialLoad = false; 
                 
                 if(html === '') html = '<p style="text-align:center; color:#888;">No active downloads.</p>';
                 wrapper.innerHTML = html;
@@ -982,5 +1002,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V22 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V23 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
