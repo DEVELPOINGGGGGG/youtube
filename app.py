@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V21 - HYPER-SPEED SETTINGS & GHOST QUEUE)
+# YOUTUBE DOWNLOADER (V22 - RECOVERY PROTOCOL & BULK QUEUE)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -9,7 +9,6 @@ import time
 import threading
 import uuid
 import logging
-import traceback
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
@@ -24,7 +23,7 @@ if not os.path.exists(DOWNLOAD_DIR):
 active_tasks = {}
 
 def cleanup_worker():
-    # 10-Minute Aggressive Ghost Wipe
+    # 10-Minute Aggressive Ghost Wipe for Files and Tasks
     while True:
         time.sleep(60) 
         now = time.time()
@@ -173,7 +172,7 @@ HTML_TEMPLATE = """
         .video-modal-content iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         
         .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd;}
-        input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #4facfe; }
+        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #4facfe; }
 
         @media (max-width: 600px) { 
             .list-item { flex-direction: column; align-items: stretch; } 
@@ -255,24 +254,34 @@ HTML_TEMPLATE = """
         📥 Queue <span class="badge" id="taskBadge">0</span>
     </div>
 
+    <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="font-size:1.5rem; color:#d32f2f;">⚠️ Unsaved Downloads</h2>
+                <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
+            </div>
+            <p style="margin-bottom:15px; font-size:0.9rem; color:#555;">These videos finished processing while the app was closed. You have less than 5 minutes to save them before they are permanently deleted.</p>
+            <div id="recoveryList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; max-height:200px; overflow-y:auto;"></div>
+            <button class="action-btn btn-mp4" style="width:100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="downloadRecovered()">⬇ DOWNLOAD ALL SAVED VIDEOS</button>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
                 <h2 style="font-size:1.5rem;">App Settings</h2>
                 <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
             </div>
-            
             <div class="switch-container">
                 <div>
                     <label for="audioConvToggle" style="font-weight:800; color:#1e3c72; display:block; cursor:pointer;">Strict Audio Conversion</label>
                     <p style="font-size:0.75rem; color:#666; margin-top:5px;">
                         <strong>ON:</strong> Uses FFmpeg to perfectly encode MP3s (Slower).<br>
-                        <strong>OFF:</strong> Downloads raw audio, injects Metadata/Cover Art, and renames to .mp3 (Blazing Fast, may confuse old speakers).
+                        <strong>OFF:</strong> Downloads raw audio, injects Metadata, and renames to .mp3 (Blazing Fast).
                     </p>
                 </div>
                 <input type="checkbox" id="audioConvToggle" onchange="saveSettings()">
             </div>
-            
         </div>
     </div>
 
@@ -292,7 +301,6 @@ HTML_TEMPLATE = """
                 <h3 id="modalTitle">Select Quality</h3>
                 <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
             </div>
-            
             <div id="subToggle" class="switch-container" style="display:none;">
                 <label for="burnSubs" style="font-weight:700; color:#1e3c72; cursor:pointer;">💬 Burn English Subtitles</label>
                 <input type="checkbox" id="burnSubs">
@@ -300,7 +308,6 @@ HTML_TEMPLATE = """
             <div id="id3Notice" class="switch-container" style="display:none; background:#d4edda; border-color:#28a745;">
                 <label style="font-weight:700; color:#155724;">🎵 Metadata & Cover Art Included</label>
             </div>
-
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
     </div>
@@ -323,10 +330,8 @@ HTML_TEMPLATE = """
             localStorage.setItem('yt_dl_client_id', clientId);
         }
 
-        // V21 SETTINGS MANAGEMENT
         function loadSettings() {
             let audioConv = localStorage.getItem('audio_conversion_enabled');
-            // Default to true if not set
             if (audioConv === null) {
                 audioConv = 'true';
                 localStorage.setItem('audio_conversion_enabled', 'true');
@@ -338,7 +343,6 @@ HTML_TEMPLATE = """
             localStorage.setItem('audio_conversion_enabled', isChecked ? 'true' : 'false');
         }
         
-        // PUSH NOTIFICATIONS
         function requestNotificationPermission() {
             if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
                 Notification.requestPermission();
@@ -361,15 +365,16 @@ HTML_TEMPLATE = """
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
         let typingTimer; 
-
-        // SMART DELIVERY QUEUE
+        
+        // V22 Flags & Queues
+        let initialLoad = true;
+        let recoveredToDownload = [];
         let deliveryQueue = [];
         let isDelivering = false;
 
         window.addEventListener('DOMContentLoaded', () => {
-            loadSettings(); // Load V21 Settings
-            
-            setTimeout(() => showNotification("Download YouTube Video Today!", "Paste a link or search for a video directly in the app!"), 3000);
+            loadSettings(); 
+            setTimeout(() => showNotification("YouTube Downloader", "Ready to fetch videos!"), 3000);
             
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
@@ -383,6 +388,7 @@ HTML_TEMPLATE = """
             }
         });
 
+        // 1-by-1 Smart Delivery System
         function processDeliveryQueue() {
             if(isDelivering || deliveryQueue.length === 0) return;
             isDelivering = true;
@@ -399,6 +405,25 @@ HTML_TEMPLATE = """
                 isDelivering = false;
                 processDeliveryQueue();
             }, 1500); 
+        }
+
+        function showRecoveryModal(files) {
+            const list = document.getElementById('recoveryList');
+            list.innerHTML = '';
+            files.forEach(f => {
+                list.innerHTML += `<div style="padding:10px; background:#e0f2fe; border-radius:8px; font-weight:bold; font-size:0.85rem; border: 1px solid #a1c4fd;">${f.title}</div>`;
+                recoveredToDownload.push(f.file);
+            });
+            document.getElementById('recoveryModal').style.display = 'flex';
+        }
+
+        function downloadRecovered() {
+            document.getElementById('recoveryModal').style.display = 'none';
+            recoveredToDownload.forEach(fUrl => {
+                deliveryQueue.push('/api/serve?file=' + encodeURIComponent(fUrl));
+            });
+            processDeliveryQueue();
+            recoveredToDownload = []; // Clear queue
         }
 
         function toggleMenu() {
@@ -625,8 +650,6 @@ HTML_TEMPLATE = """
         async function startBackgroundDownload(quality) {
             document.getElementById('qualityModal').style.display = 'none';
             const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
-            
-            // V21 Retrieve Settings
             const useAudioConv = document.getElementById('audioConvToggle').checked;
 
             if (pendingDownloadTarget.isBulk) {
@@ -637,15 +660,7 @@ HTML_TEMPLATE = """
                     
                     const res = await fetch('/api/download', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ 
-                            client_id: clientId, 
-                            url: item.url, 
-                            title: item.title, 
-                            type: pendingDownloadTarget.type, 
-                            quality: quality, 
-                            burn_subs: burnSubs,
-                            use_conversion: useAudioConv
-                        })
+                        body: JSON.stringify({ client_id: clientId, url: item.url, title: item.title, type: pendingDownloadTarget.type, quality: quality, burn_subs: burnSubs, use_conversion: useAudioConv })
                     });
                     const data = await res.json();
                     
@@ -686,6 +701,7 @@ HTML_TEMPLATE = """
             document.getElementById('taskModal').style.display = 'flex'; 
         }
 
+        // V22: REAL-TIME SYNC & RECOVERY ENGINE
         setInterval(async () => {
             try {
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
@@ -697,6 +713,8 @@ HTML_TEMPLATE = """
                 let html = '';
                 let activeCount = 0;
                 let nowSec = Date.now() / 1000; 
+                
+                let newlyRecovered = [];
 
                 for (const [id, t] of Object.entries(tasks)) {
                     activeCount++;
@@ -712,7 +730,7 @@ HTML_TEMPLATE = """
                     let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE FILE NOW</button>`;
                     
                     if (t.status === 'completed' && t.completed_at) {
-                        if ((nowSec - t.completed_at) > 300) {
+                        if ((nowSec - t.completed_at) > 300) { // Over 5 mins
                             isExpired = true;
                             saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 AUTO-SAVE EXPIRED (CLICK TO MANUAL SAVE)</button>`;
                         }
@@ -733,6 +751,7 @@ HTML_TEMPLATE = """
                         </div>
                     `;
 
+                    // Update Inline UI
                     const mapData = taskDOMMap[id];
                     if (mapData) {
                         const prefix = mapData.isSingle ? '-single' : `-${mapData.index}`;
@@ -747,7 +766,7 @@ HTML_TEMPLATE = """
                             if (t.status === 'downloading' || t.status === 'processing') {
                                 fill.style.width = t.percent + '%';
                                 percent.innerText = t.percent + '%';
-                                status.innerText = t.status === 'processing' ? 'Processing...' : 'Downloading...';
+                                status.innerText = t.status === 'processing' ? 'Merging...' : 'Downloading...';
                                 speed.innerText = t.speed;
                                 eta.innerText = 'ETA: ' + t.eta;
                             } else if (t.status === 'completed' || t.status === 'error') {
@@ -760,19 +779,34 @@ HTML_TEMPLATE = """
                         }
                     }
 
+                    // V22: RECOVERY OR AUTO-DELIVERY
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
-                        handledDownloads.push(id); 
                         
-                        if (!isExpired) {
+                        if (initialLoad && !isExpired) {
+                            // Recovered from closed app state
+                            newlyRecovered.push({ id: id, title: t.title, file: t.file });
+                        } else if (!initialLoad && !isExpired) {
+                            // Standard auto-delivery (app was open during completion)
+                            handledDownloads.push(id);
+                            
                             if (!notifiedTasks.completed.includes(id)) {
                                 notifiedTasks.completed.push(id);
                                 showNotification("Download Ready! ✅", `${t.title} is being sent to your device.`);
                             }
                             deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file));
                             processDeliveryQueue();
+                        } else if (isExpired) {
+                            // It's too old to auto-deliver or recover via pop-up, mark as handled so we stop checking
+                            handledDownloads.push(id);
                         }
                     }
                 }
+                
+                // V22 Trigger Recovery Modal
+                if (initialLoad && newlyRecovered.length > 0) {
+                    showRecoveryModal(newlyRecovered);
+                }
+                initialLoad = false; // Turn off initial load flag after first poll
                 
                 if(html === '') html = '<p style="text-align:center; color:#888;">No active downloads.</p>';
                 wrapper.innerHTML = html;
@@ -860,9 +894,6 @@ def get_info():
     except Exception as e:
         return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
 
-# ==============================================================================
-# THREADED ISOLATED MEDIA PIPELINE (WITH V21 CHEAT CODE INJECTION)
-# ==============================================================================
 def background_downloader(task_id, url, dl_type, quality, burn_subs, use_conversion):
     ydl_opts = {
         'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s',
@@ -890,45 +921,29 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, use_convers
     elif dl_type == 'mp3':
         ydl_opts['writethumbnail'] = True 
         if use_conversion:
-            # Traditional Audio Conversion Engine
             ydl_opts['format'] = 'bestaudio/best'
-            ydl_opts['postprocessors'] = [
-                {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality},
-                {'key': 'EmbedThumbnail'}, 
-                {'key': 'FFmpegMetadata'}, 
-            ]
+            ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality}, {'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
         else:
-            # V21 CHEAT CODE: Pure Metadata Injection, Zero Re-Encoding
-            logger.info(f"Task {task_id} running Strict Audio Conversion OFF (Instant Mode)")
-            ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio' # Prefer m4a container for metadata stability
-            ydl_opts['postprocessors'] = [
-                {'key': 'EmbedThumbnail'}, 
-                {'key': 'FFmpegMetadata'}, 
-            ]
+            ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'
+            ydl_opts['postprocessors'] = [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
-            
-            # Figure out exactly what yt-dlp named the final file
             base_filename = ydl.prepare_filename(info)
             name_without_ext = os.path.splitext(base_filename)[0]
             
             actual_file = base_filename
-            # The postprocessors might change extensions, find the actual file on disk
             for possible_ext in ['.mp3', '.m4a', '.webm', '.opus', '.mp4', '.mkv']:
                 if os.path.exists(name_without_ext + possible_ext):
                     actual_file = name_without_ext + possible_ext
                     break
 
-            # V21 FORCE RENAME SHORTCUT:
-            # If the user requested an MP3 but disabled conversion, physically rename the file extension to fake it.
             if dl_type == 'mp3' and not use_conversion:
                 final_mp3_path = name_without_ext + '.mp3'
                 if actual_file != final_mp3_path and os.path.exists(actual_file):
-                    os.replace(actual_file, final_mp3_path) # Safe rename over existing files
+                    os.replace(actual_file, final_mp3_path) 
                     actual_file = final_mp3_path
-                    logger.info(f"Task {task_id}: Forced renamed raw file to {actual_file}")
 
             active_tasks[task_id]['status'] = 'completed'
             active_tasks[task_id]['file'] = actual_file
@@ -952,12 +967,8 @@ def trigger_download():
     threading.Thread(
         target=background_downloader, 
         args=(
-            task_id, 
-            request.json.get('url'), 
-            request.json.get('type'), 
-            request.json.get('quality'), 
-            request.json.get('burn_subs', False),
-            request.json.get('use_conversion', True) # Pass the V21 Setting!
+            task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), 
+            request.json.get('burn_subs', False), request.json.get('use_conversion', True)
         ), 
         daemon=True
     ).start()
@@ -971,5 +982,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V21 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V22 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
