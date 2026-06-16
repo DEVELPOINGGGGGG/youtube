@@ -389,7 +389,7 @@ def run_download():
         'proxy': 'socks5://127.0.0.1:40000', # CLOUDFLARE WARP PROXY
         'concurrent_fragment_downloads': 5,
         'geo_bypass': True,
-        'ffmpeg_location': 'C:/ffmpeg/bin',
+        'ffmpeg_location': '/usr/bin/ffmpeg',
     }
 
     if dl_type == 'mp4':
