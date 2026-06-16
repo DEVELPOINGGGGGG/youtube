@@ -43,7 +43,7 @@ def progress_hook(d):
         download_state['eta'] = "--:--"
 
 # ==========================================
-# V9: PWA APP UI (INSTALLABLE)
+# V10: PWA UI WITH VALIDATOR & AUTO-QUEUE
 # ==========================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -56,135 +56,77 @@ HTML_TEMPLATE = """
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1e3c72">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E">
-
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-
         body {
             background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3);
             background-size: 400% 400%; animation: gradientBG 15s ease infinite;
             display: flex; justify-content: center; align-items: flex-start; min-height: 100vh;
             color: #333; padding: 20px;
         }
-
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-
         .glass-card {
             background: rgba(255, 255, 255, 0.95); border-radius: 24px; padding: 30px;
             width: 100%; max-width: 800px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); position: relative;
         }
-
         .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         h2 { font-weight: 800; font-size: 1.8rem; text-align: left; margin: 0;}
-        
         #installBtn {
             display: none; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white; border: none; padding: 8px 15px; border-radius: 12px;
-            font-weight: 800; cursor: pointer; box-shadow: 0 5px 15px rgba(56, 239, 125, 0.4);
-            animation: pulse 2s infinite;
+            color: white; border: none; padding: 8px 15px; border-radius: 12px; font-weight: 800; cursor: pointer;
         }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 15px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
         .tab-btn.active { background: #4facfe; color: white; }
-
-        .input-group { display: flex; gap: 10px; margin-bottom: 20px; position: relative; }
-        input[type="text"] { width: 100%; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; transition: 0.3s;}
+        
+        .input-group { position: relative; margin-bottom: 20px; }
+        input[type="text"] { width: 100%; padding: 18px 90px 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; transition: 0.3s;}
         input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79, 172, 254, 0.4); }
+        .paste-btn {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            background: #e2e8f0; border: none; padding: 8px 15px; border-radius: 8px; font-weight: 600; cursor: pointer; color: #4a5568;
+        }
+        .paste-btn:hover { background: #cbd5e0; }
 
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center;}
-
         #single-ui { display: none; }
-        .image-wrapper { 
-            border-radius: 16px; overflow: hidden; margin-bottom: 20px; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1); position: relative; cursor: pointer;
-        }
-        .image-wrapper::after {
-            content: "▶ PLAY"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8); color: white; padding: 10px 25px; border-radius: 30px;
-            font-weight: 800; font-size: 1.2rem; opacity: 0; transition: 0.3s;
-        }
+        .image-wrapper { border-radius: 16px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); position: relative; cursor: pointer;}
+        .image-wrapper::after { content: "▶ PLAY"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 25px; border-radius: 30px; font-weight: 800; opacity: 0; transition: 0.3s;}
         .image-wrapper:hover::after { opacity: 1; }
         .image-wrapper img { width: 100%; display: block; transition: all 0.3s; }
-
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .action-btn { padding: 15px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; transition: 0.2s; }
         .btn-mp4 { background: #667eea; } .btn-mp3 { background: #ff0844; }
         .action-btn:disabled { background: #ccc !important; cursor: not-allowed; opacity: 0.7; }
 
-        .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 1000;
-            justify-content: center; align-items: center; padding: 20px;
-        }
-        .modal-box {
-            background: white; width: 100%; max-width: 450px; border-radius: 20px; padding: 30px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3); position: relative;
-        }
-        .btn-close { 
-            background: #ff0844; color: white; border: none; width: 35px; height: 35px; 
-            border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; transition: 0.2s;
-        }
-
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center; padding: 20px;}
+        .modal-box { background: white; width: 100%; max-width: 450px; border-radius: 20px; padding: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); position: relative; }
+        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; transition: 0.2s;}
         .quality-list { display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 5px; margin-top: 15px;}
-        .quality-item {
-            background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px;
-            font-weight: 700; color: #333; cursor: pointer; transition: 0.2s; text-align: left;
-            display: flex; justify-content: space-between; align-items: center;
-        }
+        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; color: #333; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center;}
         .quality-item:hover { background: #e0f2fe; border-color: #4facfe; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2; }
         .size-badge { background: #ddd; padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; color: #555; }
 
-        .video-modal-content {
-            position: relative; width: 100%; max-width: 800px; background: #000; border-radius: 12px; 
-            overflow: hidden; aspect-ratio: 16 / 9; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
+        .video-modal-content { position: relative; width: 100%; max-width: 800px; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; }
         .video-modal-content iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-
         .progress-container { display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 16px; }
         .progress-bar-bg { width: 100%; height: 16px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin: 10px 0; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600; color: #555; }
-
         #playlist-ui { display: none; }
         .pl-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; margin-bottom: 10px; }
         .pl-item img { width: 120px; border-radius: 8px; }
-        
-        /* Mobile Tweaks */
-        @media (max-width: 600px) {
-            .btn-grid { grid-template-columns: 1fr; }
-            .pl-item { flex-direction: column; align-items: flex-start; }
-            .pl-item img { width: 100%; }
-        }
-        .input-group { position: relative; }
-
-.paste-btn {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: #e2e8f0;
-    border: none;
-    padding: 8px 15px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    color: #4a5568;
-}
-.paste-btn:hover { background: #cbd5e0; }
+        @media (max-width: 600px) { .pl-item { flex-direction: column; align-items: flex-start; } .pl-item img { width: 100%; } }
     </style>
 </head>
 <body>
 
     <div class="glass-card">
         <div class="header-area">
-            <h2>⚡ NEXUS V9</h2>
-            <button id="installBtn">⬇ INSTALL APP</button>
+            <h2>⚡ NEXUS V10</h2>
+            <button id="installBtn">⬇ INSTALL</button>
         </div>
         
         <div class="tabs">
@@ -193,23 +135,19 @@ HTML_TEMPLATE = """
         </div>
 
         <div class="input-group">
-    <input type="text" id="url" placeholder="Paste link here..." autocomplete="off">
-    <button class="paste-btn" onclick="pasteLink()">PASTE</button>
-</div>
+            <input type="text" id="url" placeholder="Paste YouTube Link Here..." autocomplete="off">
+            <button class="paste-btn" onclick="pasteLink()">PASTE</button>
+        </div>
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
         <div id="single-ui">
-            <div class="image-wrapper" onclick="openPlayer()">
-                <img id="s-thumb" src="" alt="Thumbnail">
-            </div>
+            <div class="image-wrapper" onclick="openPlayer()"><img id="s-thumb" src=""></div>
             <h3 id="s-title" style="margin-bottom: 15px;"></h3>
-            
             <div class="btn-grid" id="s-btns" style="display:none;">
                 <button id="mainMp4Btn" class="action-btn btn-mp4" onclick="openQualityModal('mp4')">DOWNLOAD MP4</button>
                 <button id="mainMp3Btn" class="action-btn btn-mp3" onclick="openQualityModal('mp3')">DOWNLOAD MP3</button>
             </div>
-
             <div class="progress-container" id="progBox">
                 <div class="progress-stats"><span id="progStatus">Downloading...</span><span id="progPercent">0%</span></div>
                 <div class="progress-bar-bg"><div class="progress-fill" id="progFill"></div></div>
@@ -252,37 +190,13 @@ HTML_TEMPLATE = """
             <div style="font-size: 4rem; margin-bottom: 10px;">✅</div>
             <h3 style="margin-bottom: 10px;">Download Ready!</h3>
             <p style="color: #666; margin-bottom: 20px;">Your file is being pushed to your browser.</p>
-            <a id="manualDownloadLink" href="#" style="display: block; margin-bottom: 25px; color: #4facfe; font-weight: bold; text-decoration: underline;">
-                Download not started? Click here.
-            </a>
+            <a id="manualDownloadLink" href="#" style="display: block; margin-bottom: 25px; color: #4facfe; font-weight: bold; text-decoration: underline;">Download not started? Click here.</a>
             <button class="action-btn btn-mp4" style="width: 100%;" onclick="window.location.reload()">DOWNLOAD NEW VIDEO</button>
         </div>
     </div>
 
     <script>
-        // --- PWA INSTALLATION LOGIC ---
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW setup failed', err));
-        }
-
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('installBtn').style.display = 'block';
-        });
-
-        document.getElementById('installBtn').addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    document.getElementById('installBtn').style.display = 'none';
-                }
-                deferredPrompt = null;
-            }
-        });
-        // ------------------------------
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
         let currentMode = 'single';
         let currentMp4Formats = [];
@@ -309,13 +223,42 @@ HTML_TEMPLATE = """
 
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
+        // --- VALIDATOR LOGIC ---
+        function isValidYouTubeUrl(url) {
+            return url.includes('youtube.com/') || url.includes('youtu.be/');
+        }
+
+        async function pasteLink() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('url').value = text;
+                triggerFetch(text); 
+            } catch (err) { alert("Clipboard denied. Please paste manually."); }
+        }
+
         document.getElementById('url').addEventListener('input', (e) => {
             clearTimeout(fetchTimeout);
-            const url = e.target.value.trim();
-            if(!url) return setStatus("Awaiting Input...");
-            setStatus("Extracting Video Data...");
-            fetchTimeout = setTimeout(() => { fetchData(url); }, 800);
+            triggerFetch(e.target.value.trim(), true);
         });
+
+        function triggerFetch(url, isTyping=false) {
+            if(!url) {
+                document.getElementById('single-ui').style.display = 'none';
+                document.getElementById('playlist-ui').style.display = 'none';
+                return setStatus("Awaiting Input...");
+            }
+            
+            // INSTANT VALIDATION REJECTION
+            if (!isValidYouTubeUrl(url)) {
+                document.getElementById('single-ui').style.display = 'none';
+                document.getElementById('playlist-ui').style.display = 'none';
+                return setStatus("Error: Only YouTube links are supported.", true);
+            }
+
+            setStatus("Extracting Video Data...");
+            if(isTyping) fetchTimeout = setTimeout(() => { fetchData(url); }, 800);
+            else fetchData(url); // Instant fetch for Paste button
+        }
 
         async function fetchData(url) {
             try {
@@ -456,30 +399,36 @@ HTML_TEMPLATE = """
             const isChecked = document.getElementById('selectAll').checked;
             document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = isChecked);
         }
+
         async function downloadPlaylist(type) {
             const checkboxes = document.querySelectorAll('.pl-checkbox:checked');
-            if(checkboxes.length === 0) return alert("Select at least one video!");
+            if(checkboxes.length === 0) return alert("Select videos first!");
+            
             for(let i=0; i<checkboxes.length; i++) {
                 let url = checkboxes[i].value;
-                setStatus(`Bulk Downloading: ${i+1} of ${checkboxes.length}`);
+                let index = Array.from(document.querySelectorAll('.pl-checkbox')).indexOf(checkboxes[i]);
+                let stat = document.getElementById(`stat-${index}`);
+                
+                stat.innerText = "Queue: Downloading..."; stat.style.color = "blue";
+                
                 try {
                     const res = await fetch('/api/download', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({url: url, type: type, quality: type === 'mp3' ? '320' : 'best'})
                     });
                     const data = await res.json();
-                    if(!data.error) {
+                    if(data.error) { stat.innerText = "Failed"; stat.style.color = "red"; }
+                    else { 
+                        stat.innerText = "Saved!"; stat.style.color = "green"; 
                         const link = document.createElement('a');
                         link.href = '/api/serve?file=' + encodeURIComponent(data.file);
-                        link.download = '';
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
+                        link.download = ''; document.body.appendChild(link); link.click(); document.body.removeChild(link);
                     }
-                } catch(e) { console.log("Failed item", url); }
+                } catch(e) { stat.innerText = "Error"; }
             }
             setStatus("Bulk Download Complete!");
         }
+
         async function dlItem(url, type, index) {
             const stat = document.getElementById(`stat-${index}`);
             stat.innerText = "Downloading..."; stat.style.color = "blue";
@@ -493,33 +442,6 @@ HTML_TEMPLATE = """
                 else { stat.innerText = "Saved!"; stat.style.color = "green"; window.location.href = '/api/serve?file=' + encodeURIComponent(data.file); }
             } catch(e) { stat.innerText = "Error"; }
         }
-      async function pasteLink() {
-    try {
-        // 1. Check if the browser supports the Clipboard API
-        if (!navigator.clipboard) {
-            alert("Your browser does not support automatic pasting. Please use Ctrl+V.");
-            return;
-        }
-
-        // 2. Try to read the clipboard
-        const text = await navigator.clipboard.readText();
-        
-        // 3. Paste the text
-        const urlInput = document.getElementById('url');
-        urlInput.value = text;
-        
-        // 4. Trigger the fetch logic
-        // We use a tiny delay so the browser finishes the animation of the prompt
-        setTimeout(() => {
-            triggerFetch();
-        }, 100);
-        
-    } catch (err) {
-        // This is where you see the "Not allowed" warning.
-        // If this happens, your site doesn't have permission yet.
-        alert("Permission denied! Click the 'Lock' icon in the URL bar and set 'Clipboard' to 'Allow'.");
-    }
-}
     </script>
 </body>
 </html>
@@ -530,34 +452,19 @@ HTML_TEMPLATE = """
 # ==========================================
 @app.route('/manifest.json')
 def serve_manifest():
-    manifest = {
-        "name": "Nexus Downloader",
-        "short_name": "Nexus",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#1e3c72",
-        "theme_color": "#1e3c72",
-        "icons": [{
-            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E",
-            "sizes": "512x512",
-            "type": "image/svg+xml"
-        }]
-    }
-    return jsonify(manifest)
+    return jsonify({
+        "name": "Nexus Downloader", "short_name": "Nexus", "start_url": "/", "display": "standalone",
+        "background_color": "#1e3c72", "theme_color": "#1e3c72",
+        "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml"}]
+    })
 
 @app.route('/sw.js')
 def serve_sw():
-    # A basic Service Worker that makes the app installable
-    sw_code = """
-    self.addEventListener('install', (e) => { console.log('[Service Worker] Install'); });
-    self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });
-    """
-    return Response(sw_code, mimetype='application/javascript')
+    return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
 # ==========================================
-# SUPERCHARGED BACKEND ROUTES
+# BACKEND API
 # ==========================================
-
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -656,8 +563,4 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    # REMINDER: Must be served over HTTPS (or localhost) for the PWA Install prompt to trigger!
-    print("\n=====================================")
-    print(" 🔥 V9 APP SERVER ONLINE 🔥")
-    print("=====================================\n")
     app.run(debug=True, port=5000)
