@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER
+# YOUTUBE DOWNLOADER (V14 - DEVICE ISOLATION & 15-MIN CLEANUP)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -21,18 +21,22 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# Global Task Queue
+# Global Task Queue (Now supports client tracking)
 active_tasks = {}
 
 def cleanup_worker():
+    # V14 Fix: Wakes up every 60 seconds to check for 15-minute old files
     while True:
-        time.sleep(3600)
+        time.sleep(60) 
         now = time.time()
         try:
             for filename in os.listdir(DOWNLOAD_DIR):
                 filepath = os.path.join(DOWNLOAD_DIR, filename)
-                if os.path.isfile(filepath) and os.stat(filepath).st_mtime < now - 3600:
-                    try: os.remove(filepath)
+                # 900 seconds = exactly 15 minutes
+                if os.path.isfile(filepath) and os.stat(filepath).st_mtime < now - 900:
+                    try: 
+                        os.remove(filepath)
+                        logger.info(f"Auto-Deleted expired file: {filename}")
                     except: pass
         except: pass
 
@@ -266,17 +270,17 @@ HTML_TEMPLATE = """
 
     <script>
         // ---------------------------------------------------------
-        // PWA SERVICE WORKER & SHARE TARGET INJECTION
+        // V14: DEVICE ISOLATION LOGIC (Unique Client ID)
         // ---------------------------------------------------------
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').then(() => {
-                console.log("[YouTube Downloader] Service Worker Registered Successfully");
-            }).catch(err => {
-                console.error("[YouTube Downloader] Service Worker Registration Failed:", err);
-            });
+        let clientId = localStorage.getItem('yt_dl_client_id');
+        if (!clientId) {
+            clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+            localStorage.setItem('yt_dl_client_id', clientId);
         }
 
-        // PWA Share Target Listener
+        // PWA SERVICE WORKER
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
@@ -290,15 +294,12 @@ HTML_TEMPLATE = """
             }
         });
 
-        // ---------------------------------------------------------
-        // GLOBAL VARIABLES
-        // ---------------------------------------------------------
         let currentMode = 'single';
         let currentData = []; 
         let currentVideoId = ""; 
         let handledDownloads = [];
-        let pendingDownloadTarget = null; // { index: int, type: str }
-        let taskDOMMap = {}; // taskId -> { isSingle: bool, index: int }
+        let pendingDownloadTarget = null; 
+        let taskDOMMap = {}; 
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -339,14 +340,11 @@ HTML_TEMPLATE = """
             b.innerText = msg; b.style.background = isError ? '#ffebee' : '#eee'; b.style.color = isError ? '#c62828' : '#333';
         }
 
-        // ---------------------------------------------------------
-        // INSTANT PASTE + FETCH
-        // ---------------------------------------------------------
         async function pasteLink() {
             try {
                 const text = await navigator.clipboard.readText();
                 document.getElementById('url').value = text;
-                handleInput(); // Auto-fetch immediately
+                handleInput(); 
             } catch (err) {
                 alert("Clipboard access denied. Please paste manually and hit Enter.");
             }
@@ -430,15 +428,11 @@ HTML_TEMPLATE = """
             document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = checked);
         }
 
-        // ---------------------------------------------------------
-        // PLAYER LOGIC (With Download Button Integration)
-        // ---------------------------------------------------------
         function openPlayer(id, index) {
             if(!id) return;
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
             document.getElementById('videoModal').style.display = 'flex';
             
-            // Wire the download button inside the player
             document.getElementById('playerDownloadBtn').onclick = () => {
                 closePlayer();
                 openQuality(index, 'mp4');
@@ -449,9 +443,6 @@ HTML_TEMPLATE = """
             document.getElementById('ytIframe').src = ""; 
         }
 
-        // ---------------------------------------------------------
-        // DYNAMIC QUALITY FETCHER & MODAL
-        // ---------------------------------------------------------
         async function openQuality(index, type) {
             let actualIndex = index === -1 ? 0 : index; 
             pendingDownloadTarget = { index: index, type: type, actualIndex: actualIndex };
@@ -493,6 +484,7 @@ HTML_TEMPLATE = """
             document.getElementById('qualityModal').style.display = 'none';
             const item = currentData[pendingDownloadTarget.actualIndex];
             const reqData = {
+                client_id: clientId, // V14: SEND CLIENT ID
                 url: item.url || item.webpage_url || document.getElementById('url').value,
                 title: item.title || "Unknown Task",
                 type: pendingDownloadTarget.type,
@@ -530,7 +522,7 @@ HTML_TEMPLATE = """
                 
                 const res = await fetch('/api/download', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ url: item.url, title: item.title, type: type, quality: type === 'mp3' ? '320' : 'best' })
+                    body: JSON.stringify({ client_id: clientId, url: item.url, title: item.title, type: type, quality: type === 'mp3' ? '320' : 'best' })
                 });
                 const data = await res.json();
                 
@@ -549,7 +541,8 @@ HTML_TEMPLATE = """
         // ---------------------------------------------------------
         setInterval(async () => {
             try {
-                const res = await fetch('/api/tasks');
+                // V14: Request only tasks for this specific browser session
+                const res = await fetch(`/api/tasks?client_id=${clientId}`);
                 const tasks = await res.json();
                 
                 const wrapper = document.getElementById('tasksWrapper');
@@ -667,7 +660,10 @@ def index():
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
-    return jsonify(active_tasks)
+    # V14: Filter tasks so users ONLY see tasks initiated by their own browser session
+    client_id = request.args.get('client_id')
+    filtered_tasks = {k: v for k, v in active_tasks.items() if v.get('client_id') == client_id}
+    return jsonify(filtered_tasks)
 
 @app.route('/api/info', methods=['POST'])
 def get_info():
@@ -746,7 +742,10 @@ def background_downloader(task_id, url, dl_type, quality):
 @app.route('/api/download', methods=['POST'])
 def trigger_download():
     task_id = str(uuid.uuid4())
+    client_id = request.json.get('client_id', 'unknown') # V14: Bind Task to Client
+    
     active_tasks[task_id] = {
+        'client_id': client_id,
         'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'),
         'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None
     }
