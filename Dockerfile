@@ -1,8 +1,8 @@
 # Use a lightweight Python Linux environment
 FROM python:3.10-slim
 
-# 1. Install system utilities and FFmpeg directly into Linux
-RUN apt-get update && apt-get install -y curl gnupg lsb-release ffmpeg
+# 1. Install system utilities, FFmpeg, and DBus
+RUN apt-get update && apt-get install -y curl gnupg lsb-release ffmpeg dbus
 
 # 2. Add the official Cloudflare WARP repository keys
 RUN curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
