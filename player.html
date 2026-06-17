@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nexus Media Player</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background: #0f172a; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
+        
+        .container { width: 100%; max-width: 600px; }
+        
+        /* Choice Screen */
+        #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center; gap: 20px; }
+        .choice-btn { width: 100%; padding: 20px; border-radius: 16px; border: none; font-size: 1.5rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-music { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); box-shadow: 0 10px 25px rgba(255, 8, 68, 0.4); }
+        .btn-video { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); box-shadow: 0 10px 25px rgba(79, 172, 254, 0.4); }
+        .choice-btn:hover { transform: scale(1.05); }
+
+        /* Search Screen */
+        #search-screen { display: none; width: 100%; }
+        .top-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .back-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; cursor: pointer; font-weight: 800; }
+        input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; }
+        input[type="text"]:focus { border-color: #4facfe; }
+        .search-btn { background: #4facfe; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+
+        #results { display: flex; flex-direction: column; gap: 15px; padding-bottom: 120px; }
+
+        /* Result Cards - Dynamic based on mode */
+        .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; transition: 0.2s; border: 1px solid transparent; }
+        .card:hover { border-color: #4facfe; background: #334155; }
+        
+        /* Audio Mode Styling (Compact) */
+        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+        .card.audio-mode .info { flex: 1; min-width: 0; }
+        .card.audio-mode h4 { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
+        .card.audio-mode p { font-size: 0.75rem; color: #94a3b8; }
+        
+        /* Video Mode Styling (Full Details) */
+        .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; overflow: hidden; }
+        .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
+        .card.video-mode .info { padding: 15px; }
+        .card.video-mode h4 { font-size: 1.1rem; margin-bottom: 8px; }
+        .card.video-mode p { font-size: 0.85rem; color: #94a3b8; }
+        
+        .play-action-btn { background: #ff0844; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 800; cursor: pointer; }
+        .card.video-mode .play-action-btn { background: #4facfe; width: 100%; margin-top: 10px; }
+
+        /* Custom Audio Player Bottom Bar */
+        #audio-player-bar { position: fixed; bottom: -150px; left: 0; width: 100%; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border-top: 1px solid #334155; padding: 15px 20px; display: flex; flex-direction: column; gap: 15px; transition: bottom 0.3s ease; z-index: 1000; }
+        #audio-player-bar.active { bottom: 0; }
+        
+        .now-playing { display: flex; align-items: center; gap: 15px; overflow: hidden; }
+        .now-playing img { width: 50px; height: 50px; border-radius: 8px; }
+        .marquee-container { flex: 1; overflow: hidden; position: relative; white-space: nowrap; }
+        .marquee-text { display: inline-block; font-weight: 800; font-size: 1rem; animation: marquee 10s linear infinite; padding-left: 100%; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+        
+        .controls { display: flex; justify-content: center; align-items: center; gap: 20px; }
+        .ctrl-btn { background: #334155; border: none; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+        .ctrl-play { background: #ff0844; width: 55px; height: 55px; font-size: 1.5rem; }
+        .ctrl-btn:hover { transform: scale(1.1); }
+        .close-player { position: absolute; top: 10px; right: 15px; background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; }
+
+        /* Video Modal */
+        #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
+        .video-container { width: 100%; max-width: 900px; aspect-ratio: 16/9; background: black; }
+        .video-container iframe { width: 100%; height: 100%; border: none; }
+        .close-video { background: #ff0844; color: white; border: none; padding: 15px 30px; border-radius: 8px; font-weight: 800; margin-top: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="choice-screen">
+            <h1 style="font-size: 2rem;">What do you want to do?</h1>
+            <button class="choice-btn btn-music" onclick="setMode('audio')">🎵 Hear Songs</button>
+            <button class="choice-btn btn-video" onclick="setMode('video')">🎬 See Videos</button>
+        </div>
+
+        <div id="search-screen">
+            <div class="top-bar">
+                <button class="back-btn" onclick="goBack()">🔙</button>
+                <input type="text" id="searchInput" placeholder="Search YouTube...">
+                <button class="search-btn" onclick="search()">Search</button>
+            </div>
+            <div id="status" style="text-align:center; color:#94a3b8; margin-bottom:15px;"></div>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <div id="audio-player-bar">
+        <button class="close-player" onclick="stopAudio()">×</button>
+        <div class="now-playing">
+            <img id="ap-thumb" src="">
+            <div class="marquee-container">
+                <span class="marquee-text" id="ap-title">Loading...</span>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="ctrl-btn" onclick="skip(-10)">⏪ 10s</button>
+            <button class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlay()">⏸</button>
+            <button class="ctrl-btn" onclick="skip(10)">10s ⏩</button>
+        </div>
+        <audio id="audioEngine"></audio>
+    </div>
+
+    <div id="video-modal">
+        <div class="video-container">
+            <iframe id="ytIframe" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+        <button class="close-video" onclick="closeVideo()">✖ CLOSE VIDEO</button>
+    </div>
+
+    <script>
+        let currentMode = '';
+        let currentResults = [];
+        const audioEngine = document.getElementById('audioEngine');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('choice-screen').style.display = 'none';
+            document.getElementById('search-screen').style.display = 'block';
+            document.getElementById('searchInput').focus();
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('status').innerText = mode === 'audio' ? 'Search for a song or artist...' : 'Search for a video...';
+        }
+
+        function goBack() {
+            document.getElementById('search-screen').style.display = 'none';
+            document.getElementById('choice-screen').style.display = 'flex';
+        }
+
+        async function search() {
+            const query = document.getElementById('searchInput').value.trim();
+            if(!query) return;
+            
+            document.getElementById('status').innerText = 'Searching YouTube...';
+            document.getElementById('results').innerHTML = '';
+
+            try {
+                // Using your existing info API endpoint
+                const res = await fetch('/api/info', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: query, mode: 'search'})
+                });
+                const data = await res.json();
+                
+                if(data.error) throw new Error(data.error);
+                
+                currentResults = data.entries;
+                renderResults();
+                document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
+            } catch (err) {
+                document.getElementById('status').innerText = 'Error searching.';
+            }
+        }
+
+        function renderResults() {
+            const container = document.getElementById('results');
+            container.innerHTML = '';
+            
+            currentResults.forEach((item, index) => {
+                const uploader = item.uploader || 'Unknown';
+                
+                if(currentMode === 'audio') {
+                    // COMPACT AUDIO UI
+                    container.innerHTML += `
+                        <div class="card audio-mode">
+                            <img src="${item.thumbnail}">
+                            <div class="info">
+                                <h4 title="${item.title}">${item.title}</h4>
+                                <p>👤 ${uploader} | ⏱️ ${item.duration}</p>
+                            </div>
+                            <button class="play-action-btn" onclick="startAudio(${index})">▶ Hear</button>
+                        </div>
+                    `;
+                } else {
+                    // FULL VIDEO UI
+                    container.innerHTML += `
+                        <div class="card video-mode">
+                            <img src="${item.thumbnail}">
+                            <div class="info">
+                                <h4>${item.title}</h4>
+                                <p>👤 ${uploader} • 👁️ ${item.views || 0} Views • ⏱️ ${item.duration}</p>
+                                <button class="play-action-btn" onclick="startVideo('${item.id || item.url.split('v=')[1]}')">▶ Play Video</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        // ==========================================
+        // VIDEO LOGIC
+        // ==========================================
+        function startVideo(id) {
+            stopAudio(); // Stop music if playing
+            document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+            document.getElementById('video-modal').style.display = 'flex';
+        }
+        function closeVideo() {
+            document.getElementById('video-modal').style.display = 'none';
+            document.getElementById('ytIframe').src = "";
+        }
+
+        // ==========================================
+        // AUDIO ENGINE & MEDIA SESSION
+        // ==========================================
+        async function startAudio(index) {
+            const item = currentResults[index];
+            const titleEl = document.getElementById('ap-title');
+            
+            document.getElementById('audio-player-bar').classList.add('active');
+            document.getElementById('ap-thumb').src = item.thumbnail;
+            titleEl.innerText = "Extracting Stream... " + item.title;
+            titleEl.style.animation = 'none'; // Stop scrolling while loading
+            
+            try {
+                // Fetch the direct raw audio stream URL from the backend proxy
+                const res = await fetch('/api/stream_audio', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: item.url})
+                });
+                const data = await res.json();
+                
+                if(data.stream_url) {
+                    audioEngine.src = data.stream_url;
+                    audioEngine.play();
+                    
+                    titleEl.innerText = item.title;
+                    titleEl.style.animation = 'marquee 10s linear infinite'; // Start scrolling
+                    playPauseBtn.innerText = '⏸';
+                    
+                    // Setup Lock Screen / Notification Controls
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: item.title,
+                            artist: item.uploader || "Nexus Audio",
+                            artwork: [ { src: item.thumbnail, sizes: '512x512', type: 'image/jpeg' } ]
+                        });
+
+                        navigator.mediaSession.setActionHandler('play', () => audioEngine.play());
+                        navigator.mediaSession.setActionHandler('pause', () => audioEngine.pause());
+                        navigator.mediaSession.setActionHandler('seekbackward', () => skip(-10));
+                        navigator.mediaSession.setActionHandler('seekforward', () => skip(10));
+                    }
+                }
+            } catch (err) {
+                titleEl.innerText = "Error loading stream.";
+            }
+        }
+
+        function togglePlay() {
+            if(audioEngine.paused) {
+                audioEngine.play();
+                playPauseBtn.innerText = '⏸';
+            } else {
+                audioEngine.pause();
+                playPauseBtn.innerText = '▶';
+            }
+        }
+
+        function skip(seconds) {
+            audioEngine.currentTime += seconds;
+        }
+
+        function stopAudio() {
+            audioEngine.pause();
+            audioEngine.src = "";
+            document.getElementById('audio-player-bar').classList.remove('active');
+        }
+
+        // Sync button UI with actual audio state (in case user pauses from lock screen)
+        audioEngine.addEventListener('play', () => playPauseBtn.innerText = '⏸');
+        audioEngine.addEventListener('pause', () => playPauseBtn.innerText = '▶');
+    </script>
+</body>
+</html>
