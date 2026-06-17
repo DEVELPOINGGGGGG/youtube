@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V23 - SMART MEMORY & RECOVERY FIX)
+# YOUTUBE DOWNLOADER (V24 - DASHBOARD & PREMIUM MEDIA PLAYER)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -19,11 +19,9 @@ DOWNLOAD_DIR = 'downloads'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
 
-# Global Task Queue
 active_tasks = {}
 
 def cleanup_worker():
-    # 10-Minute Aggressive Ghost Wipe for Files and Tasks
     while True:
         time.sleep(60) 
         now = time.time()
@@ -31,9 +29,7 @@ def cleanup_worker():
             for filename in os.listdir(DOWNLOAD_DIR):
                 filepath = os.path.join(DOWNLOAD_DIR, filename)
                 if os.path.isfile(filepath) and os.stat(filepath).st_mtime < now - 600:
-                    try: 
-                        os.remove(filepath)
-                        logger.info(f"Ghost Wipe: Deleted expired file {filename}")
+                    try: os.remove(filepath)
                     except: pass
         except: pass
 
@@ -70,7 +66,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# MASSIVE FRONTEND UI TEMPLATE (HTML, CSS, JS)
+# FRONTEND 1: THE MAIN DASHBOARD & DOWNLOADER APP
 # ==============================================================================
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -79,7 +75,6 @@ HTML_TEMPLATE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>YouTube Downloader</title>
-    
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1e3c72">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -106,15 +101,13 @@ HTML_TEMPLATE = """
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
         .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
         .side-nav a:hover { background: #e0f2fe; color: #1e3c72; transform: translateX(10px); }
-        .side-nav a.external { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
         .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
+        .tab-btn.active { background: #4facfe; color: white; }
         
-        /* DASHBOARD BUTTONS */
         .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .choice-btn:hover { transform: scale(1.03); }
         .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
@@ -127,24 +120,19 @@ HTML_TEMPLATE = """
         input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79, 172, 254, 0.4); background: white; }
         
         .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; }
-        .paste-btn:hover { background: #cbd5e0; }
-        
         .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; transition: transform 0.2s; background: #333; }
-        .action-btn:hover:not(:disabled) { transform: translateY(-3px); }
-        .action-btn:disabled { background: #ccc !important; cursor: not-allowed; opacity: 0.7; }
         .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
         .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         
-        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; transition: 0.3s; }
+        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
         
         #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
         
         .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent; overflow:hidden;}
-        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
-        .list-item img:hover { filter: brightness(0.7); transform: scale(1.05); }
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; }
         
         .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom:3px;}
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom:3px;}
         .scrolling-title::-webkit-scrollbar { display: none; }
         
         .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
@@ -156,31 +144,21 @@ HTML_TEMPLATE = """
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
         
         .image-wrapper { border-radius: 16px; overflow: hidden; margin-bottom: 20px; position: relative; cursor: pointer; }
-        .image-wrapper::after { content: "▶ PLAY"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 25px; border-radius: 30px; font-weight: 800; font-size: 1.2rem; opacity: 0; transition: 0.3s; }
-        .image-wrapper:hover::after { opacity: 1; }
         .image-wrapper img { width: 100%; display: block; }
         
         .fab { position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 25px rgba(17, 153, 142, 0.5); cursor: pointer; z-index: 1000; display: flex; align-items: center; gap: 10px; }
-        .fab:hover { transform: scale(1.05); }
         .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); z-index: 3000; justify-content: center; align-items: center; padding: 20px; }
         .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; }
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; }
-        .btn-close:hover { transform: scale(1.1) rotate(90deg); }
 
         .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .quality-item:hover { background: #e0f2fe; border-color: #4facfe; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2; }
-        
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; font-size: 0.95rem; border-bottom: 1px solid #eee; padding-bottom: 10px;}
-        
-        .video-modal-content { position: relative; width: 100%; max-width: 900px; background: #000; border-radius: 16px; overflow: hidden; aspect-ratio: 16 / 9; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
-        .video-modal-content iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        
         .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd;}
-        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: #4facfe; }
+        input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #4facfe; margin-top:10px;}
 
         @media (max-width: 600px) { 
             .list-item { flex-direction: column; align-items: stretch; } 
@@ -188,7 +166,6 @@ HTML_TEMPLATE = """
             .action-btn { flex: 1; text-align: center; justify-content: center; display: flex;}
             .paste-btn { position: relative; right: auto; top: auto; transform: none; width: 100%; padding: 15px; margin-top: 10px; }
             .input-group { flex-direction: column; }
-            .side-nav { width: 250px; }
         }
     </style>
 </head>
@@ -197,19 +174,13 @@ HTML_TEMPLATE = """
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
-        <h2 style="margin-bottom: 30px; text-align: center;">YOUTUBE DOWNLD</h2>
-        
-        <!-- DASHBOARD NAV -->
+        <h2 style="margin-bottom: 30px; text-align: center;">MENU</h2>
         <a href="#" onclick="switchTab('dashboard'); toggleMenu()">🏠 Dashboard</a>
-        <a href="/player" class="external">▶️ Watch / Listen Online</a>
-        
+        <a href="/player">▶️ Watch / Listen Online</a>
         <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
-        
-        <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Single Video</a>
-        <a href="#" onclick="switchTab('playlist'); toggleMenu()">📂 Playlist Mode</a>
+        <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Single Video DL</a>
+        <a href="#" onclick="switchTab('playlist'); toggleMenu()">📂 Playlist DL</a>
         <a href="#" onclick="switchTab('search'); toggleMenu()">🔍 Search YouTube</a>
-        <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
-        <a href="https://translator-l3x0.onrender.com" target="_blank" class="external">🌐 Translator App <span>↗</span></a>
     </div>
 
     <div class="glass-card">
@@ -223,12 +194,11 @@ HTML_TEMPLATE = """
         
         <div class="tabs">
             <button class="tab-btn active" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
-            <button class="tab-btn" id="tab-single" onclick="switchTab('single')">Single Video</button>
+            <button class="tab-btn" id="tab-single" onclick="switchTab('single')">Single</button>
             <button class="tab-btn" id="tab-playlist" onclick="switchTab('playlist')">Playlist</button>
             <button class="tab-btn" id="tab-search" onclick="switchTab('search')">Search</button>
         </div>
 
-        <!-- NEW DASHBOARD UI -->
         <div id="dashboard-ui">
             <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
             <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ Watch / Listen Online (Player)</button>
@@ -245,15 +215,13 @@ HTML_TEMPLATE = """
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
-        <!-- SINGLE UI -->
         <div id="single-ui">
-            <div class="image-wrapper" onclick="openPlayer(currentVideoId, -1)"><img id="s-thumb" src=""></div>
+            <div class="image-wrapper" onclick="window.location.href='/player'"><img id="s-thumb" src=""></div>
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
                 <button class="action-btn btn-mp3" onclick="openQuality(-1, 'mp3')">DOWNLOAD MP3</button>
             </div>
-            
             <div class="progress-container" id="progBox-single" style="display:none;">
                 <div class="progress-stats"><span id="progStatus-single">Downloading...</span><span id="progPercent-single">0%</span></div>
                 <div class="progress-bar-bg"><div class="progress-fill" id="progFill-single"></div></div>
@@ -261,13 +229,9 @@ HTML_TEMPLATE = """
             </div>
         </div>
 
-        <!-- PLAYLIST / SEARCH UI -->
         <div id="list-container" class="list-container">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;" id="bulk-actions">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="checkbox" id="selectAll" onclick="toggleAll()"> 
-                    <strong>Select All</strong>
-                </div>
+                <div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="selectAll" onclick="toggleAll()"><strong>Select All</strong></div>
                 <div class="btn-scroll-container">
                     <button class="action-btn btn-mp4" style="padding: 10px 20px;" onclick="downloadBulk('mp4')">DL SELECTED MP4</button>
                     <button class="action-btn btn-mp3" style="padding: 10px 20px;" onclick="downloadBulk('mp3')">DL SELECTED MP3</button>
@@ -277,25 +241,20 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <!-- TASK MANAGER FAB -->
-    <div class="fab" onclick="document.getElementById('taskModal').style.display='flex'">
-        📥 Queue <span class="badge" id="taskBadge">0</span>
-    </div>
+    <div class="fab" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
-    <!-- RECOVERY MODAL -->
     <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h2 style="font-size:1.5rem; color:#d32f2f;">⚠️ Unsaved Downloads</h2>
                 <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
             </div>
-            <p style="margin-bottom:15px; font-size:0.9rem; color:#555;">These videos finished processing while the app was closed. You have less than 5 minutes to save them before they are permanently deleted.</p>
+            <p style="margin-bottom:15px; font-size:0.9rem; color:#555;">These videos finished processing while the app was closed.</p>
             <div id="recoveryList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; max-height:200px; overflow-y:auto;"></div>
-            <button class="action-btn btn-mp4" style="width:100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="downloadRecovered()">⬇ DOWNLOAD ALL SAVED VIDEOS</button>
+            <button class="action-btn btn-mp4" style="width:100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
         </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
@@ -304,113 +263,61 @@ HTML_TEMPLATE = """
             </div>
             <div class="switch-container">
                 <div>
-                    <label for="audioConvToggle" style="font-weight:800; color:#1e3c72; display:block; cursor:pointer;">Strict Audio Conversion</label>
-                    <p style="font-size:0.75rem; color:#666; margin-top:5px;">
-                        <strong>ON:</strong> Uses FFmpeg to perfectly encode MP3s (Slower).<br>
-                        <strong>OFF:</strong> Downloads raw audio, injects Metadata, and renames to .mp3 (Blazing Fast).
-                    </p>
+                    <label for="audioConvToggle" style="font-weight:800; color:#1e3c72; cursor:pointer;">Strict Audio Conversion</label>
+                    <p style="font-size:0.75rem; color:#666; margin-top:5px;">ON: Slower but perfectly encoded MP3.<br>OFF: Blazing fast metadata injection.</p>
                 </div>
                 <input type="checkbox" id="audioConvToggle" onchange="saveSettings()">
             </div>
         </div>
     </div>
 
-    <!-- TASK MANAGER MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 2500;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
                 <h2 style="font-size:1.5rem;">Background Tasks</h2>
                 <button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button>
             </div>
-            <div id="tasksWrapper"><p style="text-align:center; color:#888; font-weight:600;">No active downloads.</p></div>
+            <div id="tasksWrapper"><p style="text-align:center; color:#888;">No active downloads.</p></div>
         </div>
     </div>
 
-    <!-- QUALITY SELECTION MODAL -->
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                 <h3 id="modalTitle">Select Quality</h3>
                 <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
             </div>
-            <div id="subToggle" class="switch-container" style="display:none;">
-                <label for="burnSubs" style="font-weight:700; color:#1e3c72; cursor:pointer;">💬 Burn English Subtitles</label>
-                <input type="checkbox" id="burnSubs">
-            </div>
-            <div id="id3Notice" class="switch-container" style="display:none; background:#d4edda; border-color:#28a745;">
-                <label style="font-weight:700; color:#155724;">🎵 Metadata & Cover Art Included</label>
-            </div>
+            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs"></div>
+            <div id="id3Notice" class="switch-container" style="display:none; background:#d4edda; border-color:#28a745;"><label style="font-weight:700; color:#155724;">🎵 Metadata Included</label></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
     </div>
 
-    <!-- VIDEO PLAYER MODAL WITH DOWNLOAD BUTTON -->
-    <div class="modal-overlay" id="videoModal" style="flex-direction: column;">
-        <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap; justify-content:center;">
-            <button class="action-btn btn-mp4" id="playerDownloadBtn" style="padding: 12px 30px; font-size:1.1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.5);">⬇ DOWNLOAD VIDEO</button>
-            <button class="action-btn btn-mp3" style="padding: 12px 30px; font-size:1.1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.5);" onclick="closePlayer()">✖ CLOSE PLAYER</button>
-        </div>
-        <div class="video-modal-content">
-            <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-    </div>
-
     <script>
-        // PERSISTENT SESSION ID
-        let clientId = localStorage.getItem('yt_dl_client_id');
-        if (!clientId) {
-            clientId = Math.random().toString(36).substring(2) + Date.now().toString(36);
-            localStorage.setItem('yt_dl_client_id', clientId);
-        }
+        let clientId = localStorage.getItem('yt_dl_client_id') || (Math.random().toString(36).substring(2) + Date.now().toString(36));
+        localStorage.setItem('yt_dl_client_id', clientId);
 
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
-        if (handledDownloads.length > 50) { 
-            handledDownloads = handledDownloads.slice(-50);
-            localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads));
-        }
-
         function markHandled(id) {
             if (!handledDownloads.includes(id)) {
                 handledDownloads.push(id);
-                localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads));
+                localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50)));
             }
         }
 
         function loadSettings() {
-            let audioConv = localStorage.getItem('audio_conversion_enabled');
-            if (audioConv === null) {
-                audioConv = 'true';
-                localStorage.setItem('audio_conversion_enabled', 'true');
-            }
+            let audioConv = localStorage.getItem('audio_conversion_enabled') ?? 'true';
             document.getElementById('audioConvToggle').checked = (audioConv === 'true');
         }
-        function saveSettings() {
-            const isChecked = document.getElementById('audioConvToggle').checked;
-            localStorage.setItem('audio_conversion_enabled', isChecked ? 'true' : 'false');
-        }
+        function saveSettings() { localStorage.setItem('audio_conversion_enabled', document.getElementById('audioConvToggle').checked); }
         
-        function requestNotificationPermission() {
-            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission();
-            }
-        }
-        window.addEventListener('click', requestNotificationPermission, {once: true});
-        function showNotification(title, bodyText) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(title, { body: bodyText, icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E" });
-            }
-        }
-
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
-        let notifiedTasks = { started: [], completed: [] };
         let currentMode = 'dashboard';
         let currentData = []; 
-        let currentVideoId = ""; 
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
         let typingTimer; 
-        
         let initialLoad = true;
         let recoveredToDownload = [];
         let deliveryQueue = [];
@@ -418,167 +325,89 @@ HTML_TEMPLATE = """
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
-            
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
             if (sharedData) {
                 const urlMatch = sharedData.match(/(https?:\/\/[^\s]+)/);
-                if (urlMatch) {
-                    switchTab('single');
-                    document.getElementById('url').value = urlMatch[0];
-                    handleInput(urlMatch[0]);
-                    return; // Skip dashboard if there is a shared URL
-                }
+                if (urlMatch) { switchTab('single'); document.getElementById('url').value = urlMatch[0]; handleInput(urlMatch[0]); return; }
             }
-            
-            // Default load into dashboard
             switchTab('dashboard');
         });
 
-        // Smart Delivery Queue
         function processDeliveryQueue() {
             if(isDelivering || deliveryQueue.length === 0) return;
             isDelivering = true;
-            
-            const fileUrl = deliveryQueue.shift();
-            const link = document.createElement('a');
-            link.href = fileUrl;
-            link.download = ''; 
-            document.body.appendChild(link); 
-            link.click(); 
-            document.body.removeChild(link);
-            
-            setTimeout(() => {
-                isDelivering = false;
-                processDeliveryQueue();
-            }, 1500); 
+            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
         }
 
         function showRecoveryModal(files) {
-            const list = document.getElementById('recoveryList');
-            list.innerHTML = '';
-            files.forEach(f => {
-                list.innerHTML += `<div style="padding:10px; background:#e0f2fe; border-radius:8px; font-weight:bold; font-size:0.85rem; border: 1px solid #a1c4fd;">${f.title}</div>`;
-                recoveredToDownload.push(f);
-            });
+            const list = document.getElementById('recoveryList'); list.innerHTML = '';
+            files.forEach(f => { list.innerHTML += `<div style="padding:10px; background:#e0f2fe; border-radius:8px; font-weight:bold; font-size:0.85rem;">${f.title}</div>`; recoveredToDownload.push(f); });
             document.getElementById('recoveryModal').style.display = 'flex';
         }
 
         function downloadRecovered() {
             document.getElementById('recoveryModal').style.display = 'none';
-            recoveredToDownload.forEach(f => {
-                deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file));
-            });
-            processDeliveryQueue();
-            recoveredToDownload = []; 
+            recoveredToDownload.forEach(f => deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)));
+            processDeliveryQueue(); recoveredToDownload = []; 
         }
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
-            const overlay = document.getElementById('navOverlay');
             nav.classList.toggle('open');
-            overlay.style.display = nav.classList.contains('open') ? 'block' : 'none';
+            document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none';
         }
 
         function switchTab(mode) {
             currentMode = mode;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            const tabBtn = document.getElementById(`tab-${mode}`);
-            if(tabBtn) tabBtn.classList.add('active');
+            if(document.getElementById(`tab-${mode}`)) document.getElementById(`tab-${mode}`).classList.add('active');
             
-            const dashUI = document.getElementById('dashboard-ui');
-            const inputWrap = document.getElementById('inputWrapper');
-            const statusB = document.getElementById('statusBadge');
-            const listC = document.getElementById('list-container');
-            const singleUI = document.getElementById('single-ui');
-
-            // Reset all visual states
-            dashUI.style.display = 'none';
-            inputWrap.style.display = 'none';
-            statusB.style.display = 'none';
-            listC.style.display = 'none';
-            singleUI.style.display = 'none';
+            ['dashboard-ui', 'inputWrapper', 'statusBadge', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
             
             if(mode === 'dashboard') {
-                dashUI.style.display = 'flex';
+                document.getElementById('dashboard-ui').style.display = 'flex';
             } else {
-                inputWrap.style.display = 'flex';
-                statusB.style.display = 'inline-block';
-                
+                document.getElementById('inputWrapper').style.display = 'flex';
+                document.getElementById('statusBadge').style.display = 'inline-block';
                 const input = document.getElementById('url');
                 input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
-                input.value = ''; 
-                
-                if(mode === 'search') {
-                    document.getElementById('pasteBtn').style.display = 'none';
-                    document.getElementById('goBtn').style.display = 'block';
-                    input.style.paddingRight = "20px";
-                } else {
-                    document.getElementById('pasteBtn').style.display = 'block';
-                    document.getElementById('goBtn').style.display = 'none';
-                    input.style.paddingRight = "90px";
-                }
-                setStatus(mode === 'search' ? "Ready to search YouTube." : "Awaiting Link...");
+                document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block';
+                document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
+                input.style.paddingRight = mode === 'search' ? '20px' : '90px';
+                setStatus(mode === 'search' ? "Ready to search." : "Awaiting Link...");
             }
         }
 
-        function setStatus(msg, isError=false) {
+        function setStatus(msg, isErr=false) {
             const b = document.getElementById('statusBadge');
-            b.innerText = msg; b.style.background = isError ? '#ffebee' : '#eee'; b.style.color = isError ? '#c62828' : '#333';
+            b.innerText = msg; b.style.background = isErr ? '#ffebee' : '#eee'; b.style.color = isErr ? '#c62828' : '#333';
         }
-
-        function isValidYouTubeUrl(url) { return url.includes('youtube.com') || url.includes('youtu.be'); }
 
         document.getElementById('url').addEventListener('input', (e) => {
             clearTimeout(typingTimer);
-            let val = e.target.value.trim();
-            if(!val) {
-                document.getElementById('single-ui').style.display = 'none';
-                document.getElementById('list-container').style.display = 'none';
-                setStatus("Awaiting Input...");
-                return;
-            }
-            setStatus("Waiting 3 seconds after typing to Auto-Fetch...");
-            typingTimer = setTimeout(() => { handleInput(val); }, 3000); 
+            if(!e.target.value.trim()) return setStatus("Awaiting Input...");
+            setStatus("Waiting 3 seconds...");
+            typingTimer = setTimeout(() => { handleInput(e.target.value.trim()); }, 3000); 
         });
 
         async function pasteLink() {
-            try {
-                const text = await navigator.clipboard.readText();
-                document.getElementById('url').value = text;
-                clearTimeout(typingTimer); 
-                handleInput(text); 
-            } catch (err) { alert("Clipboard denied."); }
-        }
-
-        function formatViews(views) {
-            if(!views) return '0 Views';
-            if(views >= 1000000) return (views/1000000).toFixed(1) + 'M Views';
-            if(views >= 1000) return (views/1000).toFixed(1) + 'K Views';
-            return views + ' Views';
+            try { document.getElementById('url').value = await navigator.clipboard.readText(); clearTimeout(typingTimer); handleInput(); } catch (err) {}
         }
 
         async function handleInput(forcedValue = null) {
             let val = forcedValue || document.getElementById('url').value.trim();
-            if(!val) return setStatus("Input empty.", true);
-            
-            if(currentMode !== 'search' && !isValidYouTubeUrl(val)) {
-                return setStatus("Error: Unsupported Link. Only YouTube is supported.", true);
-            }
-
+            if(!val) return;
             setStatus("Extracting Data...");
-            document.getElementById('single-ui').style.display = 'none';
-            document.getElementById('list-container').style.display = 'none';
-            
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: val, mode: currentMode}) });
                 const data = await res.json();
-                
-                if(data.error) return setStatus("Server Error: " + data.error, true);
+                if(data.error) return setStatus("Error: " + data.error, true);
 
                 if(currentMode === 'single') {
                     currentData = [data];
-                    currentVideoId = data.id || val.split('v=')[1];
                     document.getElementById('s-thumb').src = data.thumbnail;
                     document.getElementById('s-title').innerText = data.title;
                     document.getElementById('s-btns').style.display = 'flex';
@@ -589,184 +418,91 @@ HTML_TEMPLATE = """
                     document.getElementById('list-container').style.display = 'flex';
                 }
                 setStatus("Data Ready.");
-            } catch(e) { setStatus("Communication Error.", true); }
+            } catch(e) { setStatus("Error.", true); }
         }
 
         function renderItems() {
-            const wrapper = document.getElementById('items-wrapper');
-            wrapper.innerHTML = '';
-            
+            const wrapper = document.getElementById('items-wrapper'); wrapper.innerHTML = '';
             currentData.forEach((item, i) => {
-                const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
-                const uploader = item.uploader || 'Unknown Channel';
-                const viewsStr = formatViews(item.views);
-                const duration = item.duration || '--:--';
-                
-                const html = `
+                wrapper.innerHTML += `
                     <div class="list-item">
                         <input type="checkbox" class="pl-checkbox" value="${i}">
-                        
-                        <div class="image-wrapper" onclick="openPlayer('${videoId}', ${i})" style="margin-bottom:0; min-width: 150px; width:150px;">
-                            <img src="${item.thumbnail}" onerror="this.src='https://via.placeholder.com/150x84?text=No+Thumb'">
-                        </div>
-                        
+                        <img src="${item.thumbnail}" onclick="window.location.href='/player'" style="width:150px;">
                         <div class="item-info">
-                            <h4 class="scrolling-title" title="${item.title}">${item.title}</h4>
-                            <p style="font-size:0.8rem; color:#666; margin-bottom:5px;">
-                                👤 <strong>${uploader}</strong><br>
-                                ⏱️ ${duration} | 👁️ ${viewsStr}
-                            </p>
-                            
-                            <div class="btn-scroll-container" style="padding-bottom:0; margin-top:5px;">
-                                <button class="action-btn btn-mp4" style="padding:8px 15px; font-size:0.9rem;" onclick="openQuality(${i}, 'mp4')">MP4</button>
-                                <button class="action-btn btn-mp3" style="padding:8px 15px; font-size:0.9rem;" onclick="openQuality(${i}, 'mp3')">MP3</button>
+                            <h4 class="scrolling-title">${item.title}</h4>
+                            <p style="font-size:0.8rem; color:#666;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
+                            <div class="btn-scroll-container" style="margin-top:5px;">
+                                <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp4')">MP4</button>
+                                <button class="action-btn btn-mp3" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp3')">MP3</button>
                             </div>
-
                             <div class="progress-container" id="progBox-${i}" style="display:none;">
-                                <div class="progress-stats"><span id="progStatus-${i}">Downloading...</span><span id="progPercent-${i}">0%</span></div>
+                                <div class="progress-stats"><span id="progStatus-${i}">Wait...</span><span id="progPercent-${i}">0%</span></div>
                                 <div class="progress-bar-bg"><div class="progress-fill" id="progFill-${i}"></div></div>
-                                <div class="progress-stats"><span id="progSpeed-${i}">0 MB/s</span><span id="progEta-${i}">ETA: 00:00</span></div>
                             </div>
                         </div>
-                    </div>
-                `;
-                wrapper.innerHTML += html;
+                    </div>`;
             });
         }
 
-        function toggleAll() {
-            const checked = document.getElementById('selectAll').checked;
-            document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = checked);
-        }
-
-        function openPlayer(id, index) {
-            if(!id) return;
-            document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
-            document.getElementById('videoModal').style.display = 'flex';
-            
-            document.getElementById('playerDownloadBtn').onclick = () => {
-                closePlayer();
-                openQuality(index, 'mp4');
-            };
-        }
-        function closePlayer() {
-            document.getElementById('videoModal').style.display = 'none';
-            document.getElementById('ytIframe').src = ""; 
-        }
+        function toggleAll() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = c); }
 
         async function openQuality(index, type, isBulk=false) {
-            pendingDownloadTarget = { index: index, type: type, isBulk: isBulk };
-            
-            const list = document.getElementById('qualityList');
-            const subToggle = document.getElementById('subToggle');
-            const id3Notice = document.getElementById('id3Notice');
-            list.innerHTML = '';
-            
+            pendingDownloadTarget = { index, type, isBulk };
+            const list = document.getElementById('qualityList'); list.innerHTML = '';
             if (type === 'mp4') {
-                document.getElementById('modalTitle').innerText = "Select MP4 Video Quality";
-                subToggle.style.display = 'flex'; 
-                id3Notice.style.display = 'none'; 
-                
+                document.getElementById('modalTitle').innerText = "MP4 Quality";
+                document.getElementById('subToggle').style.display = 'flex'; 
+                document.getElementById('id3Notice').style.display = 'none'; 
                 list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('best')"><span>⭐ AUTO BEST</span></div>`;
-                
                 if (isBulk) {
-                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p MAX</span></div>`;
-                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p HIGH</span></div>`;
-                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('480p')"><span>📽️ 480p MED</span></div>`;
+                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`;
                 } else {
                     let actualIndex = index === -1 ? 0 : index;
                     if (!currentData[actualIndex].formats) {
-                        setStatus("Fetching formats...");
                         try {
                             const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url, mode: 'single'}) });
                             const data = await res.json();
                             if(data.formats) currentData[actualIndex].formats = data.formats;
-                            setStatus("Formats ready.");
                         } catch(e) {}
                     }
                     if(currentData[actualIndex].formats) {
                         currentData[actualIndex].formats.forEach(f => {
-                            let sz = f.filesize ? `~${f.filesize}MB` : '';
-                            list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span> <span class="size-badge">${sz}</span></div>`;
+                            list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`;
                         });
                     }
                 }
             } else {
-                document.getElementById('modalTitle').innerText = "Select MP3 Audio Quality";
-                subToggle.style.display = 'none'; 
-                id3Notice.style.display = 'flex'; 
-                
-                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('128')"><span>📱 128 kbps</span></div>`;
+                document.getElementById('modalTitle').innerText = "MP3 Quality";
+                document.getElementById('subToggle').style.display = 'none'; 
+                document.getElementById('id3Notice').style.display = 'flex'; 
+                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
             }
             document.getElementById('qualityModal').style.display = 'flex';
         }
 
-        function downloadBulk(type) {
-            const checkboxes = document.querySelectorAll('.pl-checkbox:checked');
-            if(checkboxes.length === 0) return alert("Select at least one video!");
-            openQuality(null, type, true);
-        }
+        function downloadBulk(type) { openQuality(null, type, true); }
 
         async function startBackgroundDownload(quality) {
             document.getElementById('qualityModal').style.display = 'none';
             const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
             const useAudioConv = document.getElementById('audioConvToggle').checked;
 
-            if (pendingDownloadTarget.isBulk) {
-                const checkboxes = document.querySelectorAll('.pl-checkbox:checked');
-                checkboxes.forEach(async (cb) => {
-                    let idx = parseInt(cb.value);
-                    let item = currentData[idx];
-                    
-                    const res = await fetch('/api/download', {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ 
-                            client_id: clientId, 
-                            url: item.url, 
-                            title: item.title, 
-                            type: pendingDownloadTarget.type, 
-                            quality: quality, 
-                            burn_subs: burnSubs,
-                            use_conversion: useAudioConv
-                        })
-                    });
-                    const data = await res.json();
-                    
-                    if(data.task_id) {
-                        taskDOMMap[data.task_id] = { isSingle: false, index: idx };
-                        document.getElementById(`progBox-${idx}`).style.display = 'block';
-                    }
+            const dispatch = async (idx) => {
+                const res = await fetch('/api/download', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ client_id: clientId, url: currentData[idx].url || currentData[idx].webpage_url || document.getElementById('url').value, title: currentData[idx].title, type: pendingDownloadTarget.type, quality: quality, burn_subs: burnSubs, use_conversion: useAudioConv })
                 });
-                setStatus(`Dispatched ${checkboxes.length} items.`);
-                
-            } else {
-                let actualIndex = pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index; 
-                const item = currentData[actualIndex];
-                
-                const reqData = {
-                    client_id: clientId, 
-                    url: item.url || item.webpage_url || document.getElementById('url').value,
-                    title: item.title || "Unknown Task",
-                    type: pendingDownloadTarget.type,
-                    quality: quality,
-                    burn_subs: burnSubs,
-                    use_conversion: useAudioConv
-                };
-                
-                setStatus("Task dispatched.");
-                const res = await fetch('/api/download', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(reqData) });
                 const data = await res.json();
-                
                 if(data.task_id) {
-                    taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: actualIndex };
-                    if(pendingDownloadTarget.index === -1) {
-                        document.getElementById('progBox-single').style.display = 'block';
-                    } else {
-                        document.getElementById(`progBox-${actualIndex}`).style.display = 'block';
-                    }
+                    taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: idx };
+                    document.getElementById(pendingDownloadTarget.index === -1 ? 'progBox-single' : `progBox-${idx}`).style.display = 'block';
                 }
+            };
+
+            if (pendingDownloadTarget.isBulk) {
+                document.querySelectorAll('.pl-checkbox:checked').forEach(cb => dispatch(parseInt(cb.value)));
+            } else {
+                dispatch(pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index);
             }
             document.getElementById('taskModal').style.display = 'flex'; 
         }
@@ -775,119 +511,449 @@ HTML_TEMPLATE = """
             try {
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
                 const tasks = await res.json();
-                
-                const wrapper = document.getElementById('tasksWrapper');
-                const badge = document.getElementById('taskBadge');
-                
-                let html = '';
-                let activeCount = 0;
-                let nowSec = Date.now() / 1000; 
-                
-                let newlyRecovered = [];
+                let html = ''; let activeCount = 0; let nowSec = Date.now() / 1000; let newlyRecovered = [];
 
                 for (const [id, t] of Object.entries(tasks)) {
                     activeCount++;
                     let sCol = t.status==='completed' ? '#155724' : (t.status==='error' ? '#721c24' : '#004085');
                     let sBg = t.status==='completed' ? '#d4edda' : (t.status==='error' ? '#f8d7da' : '#cce5ff');
                     
-                    if ((t.status === 'downloading' || t.status === 'processing') && !notifiedTasks.started.includes(id)) {
-                        notifiedTasks.started.push(id);
-                        showNotification("Download Processing 🔄", `Server is working on: ${t.title}`);
-                    }
-
                     let isExpired = false;
-                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE FILE NOW</button>`;
-                    
-                    if (t.status === 'completed' && t.completed_at) {
-                        if ((nowSec - t.completed_at) > 300) { 
-                            isExpired = true;
-                            saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 AUTO-SAVE EXPIRED (CLICK TO MANUAL SAVE)</button>`;
-                        }
+                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
+                    if (t.status === 'completed' && t.completed_at && (nowSec - t.completed_at) > 300) { 
+                        isExpired = true;
+                        saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE (EXPIRED)</button>`;
                     }
 
-                    html += `
-                        <div class="task-item" style="background: ${sBg}; border-color: ${sCol}44;">
-                            <div class="task-header" style="color: ${sCol};">
-                                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:75%;">${t.type.toUpperCase()}: ${t.title}</span>
-                                <span>${t.status.toUpperCase()}</span>
-                            </div>
-                            ${(t.status === 'downloading' || t.status === 'processing') ? `
-                                <div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div>
-                                <div class="progress-stats"><span>${t.percent}%</span> <span>${t.speed}</span> <span>ETA: ${t.eta}</span></div>
-                            ` : ''}
-                            ${t.status === 'error' ? `<div style="font-size:0.85rem; color:red;">${t.error_msg}</div>` : ''}
-                            ${t.status === 'completed' ? saveBtnHtml : ''}
-                        </div>
-                    `;
+                    html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol}44;"><div class="task-header" style="color: ${sCol};"><span>${t.type.toUpperCase()}: ${t.title}</span><span>${t.status.toUpperCase()}</span></div>
+                            ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats"><span>${t.percent}%</span></div>` : ''}
+                            ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
 
                     const mapData = taskDOMMap[id];
                     if (mapData) {
-                        const prefix = mapData.isSingle ? '-single' : `-${mapData.index}`;
-                        const progBox = document.getElementById(`progBox${prefix}`);
+                        const progBox = document.getElementById(mapData.isSingle ? 'progBox-single' : `progBox-${mapData.index}`);
                         if (progBox) {
-                            const fill = document.getElementById(`progFill${prefix}`);
-                            const percent = document.getElementById(`progPercent${prefix}`);
-                            const status = document.getElementById(`progStatus${prefix}`);
-                            const speed = document.getElementById(`progSpeed${prefix}`);
-                            const eta = document.getElementById(`progEta${prefix}`);
-
                             if (t.status === 'downloading' || t.status === 'processing') {
-                                fill.style.width = t.percent + '%';
-                                percent.innerText = t.percent + '%';
-                                status.innerText = t.status === 'processing' ? 'Merging...' : 'Downloading...';
-                                speed.innerText = t.speed;
-                                eta.innerText = 'ETA: ' + t.eta;
-                            } else if (t.status === 'completed' || t.status === 'error') {
-                                status.innerText = t.status === 'completed' ? 'Done!' : 'Error';
-                                status.style.color = t.status === 'completed' ? 'green' : 'red';
-                                fill.style.width = t.status === 'completed' ? '100%' : '0%';
-                                fill.style.background = t.status === 'completed' ? '#38ef7d' : 'red';
-                                speed.innerText = ''; eta.innerText = '';
+                                progBox.querySelector('.progress-fill').style.width = t.percent + '%';
+                                progBox.querySelector('.progress-stats span:first-child').innerText = t.status + '... ' + t.percent + '%';
+                            } else if (t.status === 'completed') {
+                                progBox.querySelector('.progress-fill').style.width = '100%';
+                                progBox.querySelector('.progress-fill').style.background = '#38ef7d';
+                                progBox.querySelector('.progress-stats span:first-child').innerText = 'Done!';
                             }
                         }
                     }
 
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
-                        if (initialLoad && !isExpired) {
-                            newlyRecovered.push({ id: id, title: t.title, file: t.file });
-                            markHandled(id); 
-                        } else if (!initialLoad && !isExpired) {
-                            markHandled(id);
-                            
-                            if (!notifiedTasks.completed.includes(id)) {
-                                notifiedTasks.completed.push(id);
-                                showNotification("Download Ready! ✅", `${t.title} is being sent to your device.`);
-                            }
-                            deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file));
-                            processDeliveryQueue();
-                        } else if (isExpired) {
-                            markHandled(id); 
-                        }
+                        if (initialLoad && !isExpired) { newlyRecovered.push({ id, title: t.title, file: t.file }); markHandled(id); } 
+                        else if (!initialLoad && !isExpired) { markHandled(id); deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); processDeliveryQueue(); } 
+                        else if (isExpired) { markHandled(id); }
                     }
                 }
-                
-                if (initialLoad && newlyRecovered.length > 0) {
-                    showRecoveryModal(newlyRecovered);
-                }
+                if (initialLoad && newlyRecovered.length > 0) showRecoveryModal(newlyRecovered);
                 initialLoad = false; 
-                
-                if(html === '') html = '<p style="text-align:center; color:#888;">No active downloads.</p>';
-                wrapper.innerHTML = html;
-                badge.innerText = activeCount;
-                
+                document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
+                document.getElementById('taskBadge').innerText = activeCount;
             } catch(e) {}
         }, 1000); 
     </script>
 </body>
 </html>
 """
+
 # ==============================================================================
-# PWA ROUTING
+# FRONTEND 2: THE PREMIUM MEDIA PLAYER (V24)
+# ==============================================================================
+PLAYER_HTML = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Premium Player</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background: #0f172a; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
+        
+        /* Sidebar */
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #1e293b; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; }
+        .side-nav.open { left: 0; }
+        .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
+        .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #334155; }
+        .side-nav a:hover { background: #4facfe; transform: translateX(10px); }
+        .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
+
+        .container { width: 100%; max-width: 600px; padding-bottom: 150px; }
+        .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items:center;}
+        .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
+        input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; }
+        input[type="text"]:focus { border-color: #4facfe; }
+        .search-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+
+        /* Choice Screen */
+        #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; gap: 20px; }
+        .choice-btn { width: 100%; padding: 25px; border-radius: 16px; border: none; font-size: 1.5rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; }
+        .btn-music { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); box-shadow: 0 10px 25px rgba(29, 185, 84, 0.4); }
+        .btn-video { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); box-shadow: 0 10px 25px rgba(255, 8, 68, 0.4); }
+
+        #search-screen { display: none; }
+        #results { display: flex; flex-direction: column; gap: 15px; }
+
+        /* Queue Actions */
+        .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px;}
+        .play-selected-btn { background: #1db954; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* Result Cards */
+        .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; border: 1px solid transparent; }
+        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+        .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; }
+        .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
+        .card.video-mode .info { padding: 15px; }
+        
+        .info { flex: 1; min-width: 0; }
+        .info h4 { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
+        .info p { font-size: 0.75rem; color: #94a3b8; }
+        
+        .play-action-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .card.video-mode .play-action-btn { background: #ff0844; width: 100%; margin-top: 10px; padding: 15px; }
+
+        /* Spotify-style Audio Player (Half Screen) */
+        #audio-player-bar { position: fixed; bottom: -60vh; left: 0; width: 100%; height: 55vh; background: #121212; border-radius: 24px 24px 0 0; padding: 25px; display: flex; flex-direction: column; align-items: center; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; box-shadow: 0 -10px 40px rgba(0,0,0,0.5); }
+        #audio-player-bar.active { bottom: 0; }
+        
+        .close-player { position: absolute; top: 15px; right: 20px; background: none; border: none; color: #94a3b8; font-size: 2rem; cursor: pointer; }
+        
+        #ap-cover { width: 40%; max-width: 250px; aspect-ratio: 1; border-radius: 12px; object-fit: cover; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; }
+        .marquee-text { font-size: 1.3rem; font-weight: 800; white-space: nowrap; display: inline-block; }
+        .marquee-text.scroll { animation: marquee 8s linear infinite; padding-left: 100%; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+        
+        #ap-artist { color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px; }
+
+        /* Progress Bar */
+        .progress-row { width: 100%; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #94a3b8; }
+        input[type="range"] { flex: 1; -webkit-appearance: none; background: #334155; height: 6px; border-radius: 3px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #1db954; cursor: pointer; }
+
+        /* Controls */
+        .controls { display: flex; align-items: center; justify-content: center; gap: 30px; width: 100%; margin-bottom: 20px;}
+        .ctrl-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
+        .ctrl-play { background: white; color: black; width: 60px; height: 60px; border-radius: 50%; font-size: 2rem; display: flex; justify-content: center; align-items: center; }
+        
+        /* Volume */
+        .volume-row { display: flex; align-items: center; gap: 10px; width: 80%; color: #94a3b8; }
+
+        /* Video Modal */
+        #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
+        .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; }
+        .video-container iframe { width: 100%; height: 100%; border: none; }
+        .close-video { position: absolute; top: 20px; right: 20px; background: rgba(255,8,68,0.8); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 800; cursor: pointer; z-index: 2001;}
+    </style>
+</head>
+<body>
+
+    <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
+    <div class="side-nav" id="sideNav">
+        <button class="side-nav-close" onclick="toggleMenu()">×</button>
+        <h2 style="margin-bottom: 30px; text-align: center; color:white;">MENU</h2>
+        <a href="/">🏠 Back to Downloader</a>
+        <a href="#" onclick="setMode('audio'); toggleMenu()">🎵 Audio Player</a>
+        <a href="#" onclick="setMode('video'); toggleMenu()">🎬 Video Player</a>
+    </div>
+
+    <div class="container">
+        <div id="choice-screen">
+            <h1 style="font-size: 2.5rem; text-align:center;">What to do?</h1>
+            <button class="choice-btn btn-music" onclick="setMode('audio')">🎵 Hear Songs</button>
+            <button class="choice-btn btn-video" onclick="setMode('video')">🎬 See Videos</button>
+            <button style="margin-top:20px; background:none; border:none; color:#4facfe; font-size:1.1rem; text-decoration:underline; cursor:pointer;" onclick="window.location.href='/'">Go to Downloader Mode</button>
+        </div>
+
+        <div id="search-screen">
+            <div class="top-bar">
+                <button class="menu-btn" onclick="toggleMenu()">☰</button>
+                <input type="text" id="searchInput" placeholder="Search YouTube...">
+                <button class="search-btn" onclick="search()">Search</button>
+            </div>
+            
+            <div id="queue-actions" class="queue-actions" style="display:none;">
+                <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> Select All</div>
+                <button class="play-selected-btn" onclick="playSelected()">▶ PLAY SELECTED</button>
+            </div>
+
+            <div id="status" style="text-align:center; color:#94a3b8; margin-bottom:15px;"></div>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <div id="audio-player-bar">
+        <button class="close-player" onclick="stopAudio()">×</button>
+        <img id="ap-cover" src="">
+        
+        <div class="marquee-wrapper">
+            <span class="marquee-text" id="ap-title">Loading...</span>
+        </div>
+        <div id="ap-artist">Nexus Audio</div>
+        
+        <div class="progress-row">
+            <span id="currTime">0:00</span>
+            <input type="range" id="seekSlider" value="0" min="0" max="100">
+            <span id="durTime">0:00</span>
+        </div>
+
+        <div class="controls">
+            <button class="ctrl-btn" onclick="prevSong()">⏮</button>
+            <button class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlay()">⏸</button>
+            <button class="ctrl-btn" onclick="nextSong()">⏭</button>
+        </div>
+        
+        <div class="volume-row">
+            <span>🔈</span>
+            <input type="range" id="volSlider" value="100" min="0" max="100">
+            <span>🔊</span>
+        </div>
+
+        <audio id="audioEngine" autoplay></audio>
+    </div>
+
+    <div id="video-modal">
+        <button class="close-video" onclick="closeVideo()">✖ CLOSE</button>
+        <div class="video-container">
+            <iframe id="ytIframe" src="" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = '';
+        let currentResults = [];
+        
+        // Playlist Queue Engine
+        let audioQueue = [];
+        let currentIndex = -1;
+        
+        const audioEngine = document.getElementById('audioEngine');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const seekSlider = document.getElementById('seekSlider');
+        const volSlider = document.getElementById('volSlider');
+
+        function toggleMenu() {
+            const nav = document.getElementById('sideNav');
+            nav.classList.toggle('open');
+            document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none';
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('choice-screen').style.display = 'none';
+            document.getElementById('search-screen').style.display = 'block';
+            document.getElementById('queue-actions').style.display = mode === 'audio' ? 'flex' : 'none';
+            document.getElementById('searchInput').focus();
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('status').innerText = mode === 'audio' ? 'Search for songs to build a queue...' : 'Search for a video...';
+        }
+
+        async function search() {
+            const query = document.getElementById('searchInput').value.trim();
+            if(!query) return;
+            
+            document.getElementById('status').innerText = 'Searching YouTube...';
+            document.getElementById('results').innerHTML = '';
+
+            try {
+                const res = await fetch('/api/info', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: query, mode: 'search'})
+                });
+                const data = await res.json();
+                if(data.error) throw new Error();
+                
+                currentResults = data.entries;
+                renderResults();
+                document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
+            } catch (err) {
+                document.getElementById('status').innerText = 'Error searching.';
+            }
+        }
+
+        function renderResults() {
+            const container = document.getElementById('results');
+            container.innerHTML = '';
+            currentResults.forEach((item, index) => {
+                const uploader = item.uploader || 'Unknown';
+                if(currentMode === 'audio') {
+                    container.innerHTML += `
+                        <div class="card audio-mode">
+                            <input type="checkbox" class="song-checkbox" value="${index}">
+                            <img src="${item.thumbnail}">
+                            <div class="info">
+                                <h4 title="${item.title}">${item.title}</h4>
+                                <p>👤 ${uploader}</p>
+                            </div>
+                            <button class="play-action-btn" onclick="playSingleAudio(${index})">▶</button>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML += `
+                        <div class="card video-mode">
+                            <img src="${item.thumbnail}">
+                            <div class="info">
+                                <h4>${item.title}</h4>
+                                <p>👤 ${uploader} • ⏱️ ${item.duration}</p>
+                                <button class="play-action-btn" onclick="startVideo('${item.id || item.url.split('v=')[1]}')">▶ Play Fullscreen</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function toggleAll() {
+            const c = document.getElementById('selectAll').checked;
+            document.querySelectorAll('.song-checkbox').forEach(cb => cb.checked = c);
+        }
+
+        // ==========================================
+        // VIDEO LANDSCAPE LOCK LOGIC (V24)
+        // ==========================================
+        async function startVideo(id) {
+            stopAudio(); 
+            const modal = document.getElementById('video-modal');
+            modal.style.display = 'flex';
+            document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+            
+            try {
+                if(document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                }
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock("landscape");
+                }
+            } catch(e) { console.log("Orientation lock failed/ignored by browser."); }
+        }
+
+        async function closeVideo() {
+            document.getElementById('video-modal').style.display = 'none';
+            document.getElementById('ytIframe').src = "";
+            
+            try {
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                }
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+            } catch(e) {}
+        }
+
+        // ==========================================
+        // AUDIO QUEUE & MARQUEE ENGINE
+        // ==========================================
+        function playSingleAudio(index) {
+            audioQueue = [currentResults[index]];
+            currentIndex = 0;
+            loadQueueItem();
+        }
+
+        function playSelected() {
+            const checked = document.querySelectorAll('.song-checkbox:checked');
+            if(checked.length === 0) return alert("Select songs first!");
+            
+            audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
+            currentIndex = 0;
+            loadQueueItem();
+        }
+
+        async function loadQueueItem() {
+            if(currentIndex < 0 || currentIndex >= audioQueue.length) return stopAudio();
+            
+            const item = audioQueue[currentIndex];
+            const titleEl = document.getElementById('ap-title');
+            
+            document.getElementById('audio-player-bar').classList.add('active');
+            document.getElementById('ap-cover').src = item.thumbnail;
+            document.getElementById('ap-artist').innerText = item.uploader || "Nexus Audio";
+            
+            titleEl.innerText = "Loading stream... ";
+            titleEl.classList.remove('scroll');
+            
+            try {
+                const res = await fetch('/api/stream_audio', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: item.url})
+                });
+                const data = await res.json();
+                
+                if(data.stream_url) {
+                    audioEngine.src = data.stream_url;
+                    titleEl.innerText = item.title;
+                    
+                    // Smart Marquee Check (Only scroll if text overflows)
+                    setTimeout(() => {
+                        const wrapper = document.querySelector('.marquee-wrapper');
+                        if (titleEl.scrollWidth > wrapper.clientWidth) {
+                            titleEl.classList.add('scroll');
+                        }
+                    }, 100);
+
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: item.title, artist: item.uploader || "Nexus Audio",
+                            artwork: [ { src: item.thumbnail, sizes: '512x512', type: 'image/jpeg' } ]
+                        });
+                        navigator.mediaSession.setActionHandler('play', () => audioEngine.play());
+                        navigator.mediaSession.setActionHandler('pause', () => audioEngine.pause());
+                        navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
+                        navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
+                    }
+                }
+            } catch (err) { titleEl.innerText = "Error loading stream."; }
+        }
+
+        function togglePlay() {
+            if(audioEngine.paused) audioEngine.play();
+            else audioEngine.pause();
+        }
+        
+        function nextSong() { currentIndex++; loadQueueItem(); }
+        function prevSong() { if(audioEngine.currentTime > 3) audioEngine.currentTime = 0; else { currentIndex--; loadQueueItem(); } }
+        function stopAudio() { audioEngine.pause(); audioEngine.src = ""; document.getElementById('audio-player-bar').classList.remove('active'); }
+
+        audioEngine.onended = () => nextSong();
+        audioEngine.onplay = () => playPauseBtn.innerText = '⏸';
+        audioEngine.onpause = () => playPauseBtn.innerText = '▶';
+
+        // Progress Bar
+        function formatTime(sec) {
+            if(isNaN(sec)) return "0:00";
+            let min = Math.floor(sec / 60);
+            let remSec = Math.floor(sec % 60);
+            return `${min}:${remSec < 10 ? '0' : ''}${remSec}`;
+        }
+
+        audioEngine.ontimeupdate = () => {
+            seekSlider.value = (audioEngine.currentTime / audioEngine.duration) * 100 || 0;
+            document.getElementById('currTime').innerText = formatTime(audioEngine.currentTime);
+            document.getElementById('durTime').innerText = formatTime(audioEngine.duration);
+        };
+        
+        seekSlider.oninput = (e) => audioEngine.currentTime = (e.target.value / 100) * audioEngine.duration;
+        volSlider.oninput = (e) => audioEngine.volume = e.target.value / 100;
+
+    </script>
+</body>
+</html>
+"""
+
+# ==============================================================================
+# BACKEND ROUTING (DASHBOARD + PLAYER + DATA SAVER)
 # ==============================================================================
 @app.route('/manifest.json')
 def serve_manifest():
     return jsonify({
-        "name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/?source=pwa", "display": "standalone",
+        "name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone",
         "background_color": "#1e3c72", "theme_color": "#1e3c72",
         "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}],
         "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }
@@ -899,28 +965,46 @@ def serve_sw():
 
 @app.route('/')
 def index():
+    # Serves the Downloader Dashboard
     return render_template_string(HTML_TEMPLATE)
+
+@app.route('/player')
+def media_player():
+    # Serves the Spotify/Video Player
+    return render_template_string(PLAYER_HTML)
+
+@app.route('/api/stream_audio', methods=['POST'])
+def stream_audio():
+    # V24 DATA SAVER: Extracts native m4a (AAC 128kbps) to save 70% data while keeping high quality
+    url = request.json.get('url')
+    ydl_opts = {
+        'quiet': True,
+        'format': 'bestaudio[ext=m4a]/bestaudio/best', 
+        'noplaylist': True,
+        'proxy': 'socks5://127.0.0.1:40000', 
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            stream_url = info.get('url') 
+            if stream_url: return jsonify({'stream_url': stream_url})
+            else: return jsonify({'error': 'No stream found.'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
     client_id = request.args.get('client_id')
-    filtered_tasks = {k: v for k, v in active_tasks.items() if v.get('client_id') == client_id}
-    return jsonify(filtered_tasks)
+    return jsonify({k: v for k, v in active_tasks.items() if v.get('client_id') == client_id})
 
 @app.route('/api/info', methods=['POST'])
 def get_info():
     url = request.json.get('url')
     mode = request.json.get('mode')
     
-    if mode != 'search' and 'list=RD' in url: 
-        return jsonify({'error': 'YouTube Mixes are infinite loops.'})
+    if mode != 'search' and 'list=RD' in url: return jsonify({'error': 'Infinite loop detected.'})
 
-    ydl_opts = {
-        'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
-        'extract_flat': True if mode in ['playlist', 'search'] else False,
-        'noplaylist': mode in ['single', 'search']
-    }
-    
+    ydl_opts = {'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search']}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             fetch_url = f"ytsearch10:{url}" if mode == 'search' else url
@@ -931,16 +1015,13 @@ def get_info():
                 for e in info.get('entries', []):
                     if not e: continue
                     thumb = e.get('thumbnails', [{'url': ''}])[-1]['url'] if e.get('thumbnails') else ''
-                    uploader = e.get('uploader') or e.get('channel') or 'Unknown Channel'
-                    view_count = e.get('view_count') or 0
                     duration_sec = e.get('duration')
                     if duration_sec:
                         m, s = divmod(int(duration_sec), 60)
                         h, m = divmod(m, 60)
                         duration_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
                     else: duration_str = "--:--"
-
-                    entries.append({'id': e.get('id'), 'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb, 'uploader': uploader, 'views': view_count, 'duration': duration_str})
+                    entries.append({'id': e.get('id'), 'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb, 'uploader': e.get('uploader') or e.get('channel') or 'Unknown Channel', 'views': e.get('view_count') or 0, 'duration': duration_str})
                 return jsonify({'entries': entries})
             else:
                 formats = []
@@ -953,16 +1034,12 @@ def get_info():
                 uniq = [f for f in reversed(formats) if not (f['resolution'] in seen or seen.add(f['resolution']))]
                 uniq.sort(key=lambda f: int(f['resolution'].replace('p60', '').replace('p', '')) if f['resolution'].replace('p60', '').replace('p', '').isdigit() else 0, reverse=True)
                 return jsonify({'id': info.get('id'), 'title': info.get('title'), 'thumbnail': info.get('thumbnail'), 'formats': uniq})
-    except Exception as e:
-        return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
+    except Exception as e: return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
 
 def background_downloader(task_id, url, dl_type, quality, burn_subs, use_conversion):
     ydl_opts = {
-        'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s',
-        'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
-        'geo_bypass': True, 'nocheckcertificate': True,
-        'progress_hooks': [get_progress_hook(task_id)], 'noplaylist': True,
-        'ffmpeg_location': '/usr/bin/ffmpeg', 
+        'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s', 'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 'geo_bypass': True, 'nocheckcertificate': True,
+        'progress_hooks': [get_progress_hook(task_id)], 'noplaylist': True, 'ffmpeg_location': '/usr/bin/ffmpeg', 
         'external_downloader': 'aria2c', 'external_downloader_args': ['-j', '16', '-x', '16', '-s', '16', '-k', '1M'],
         'postprocessor_args': ['-threads', '0', '-preset', 'ultrafast', '-strict', 'experimental'],
     }
@@ -970,15 +1047,10 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, use_convers
     if dl_type == 'mp4':
         if quality == 'best': ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
         elif quality.endswith('p') and quality[:-1].isdigit():
-            height = quality[:-1]
-            ydl_opts['format'] = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
-        else:
-            ydl_opts['format'] = f"{quality}+bestaudio[ext=m4a]/best"
+            ydl_opts['format'] = f'bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
+        else: ydl_opts['format'] = f"{quality}+bestaudio[ext=m4a]/best"
             
-        if burn_subs:
-            ydl_opts['writesubtitles'] = True
-            ydl_opts['subtitleslangs'] = ['en']
-            ydl_opts['postprocessors'] = [{'key': 'FFmpegEmbedSubtitle'}]
+        if burn_subs: ydl_opts['writesubtitles'] = True; ydl_opts['subtitleslangs'] = ['en']; ydl_opts['postprocessors'] = [{'key': 'FFmpegEmbedSubtitle'}]
             
     elif dl_type == 'mp3':
         ydl_opts['writethumbnail'] = True 
@@ -994,7 +1066,6 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, use_convers
             info = ydl.extract_info(url, download=True)
             base_filename = ydl.prepare_filename(info)
             name_without_ext = os.path.splitext(base_filename)[0]
-            
             actual_file = base_filename
             for possible_ext in ['.mp3', '.m4a', '.webm', '.opus', '.mp4', '.mkv']:
                 if os.path.exists(name_without_ext + possible_ext):
@@ -1011,30 +1082,13 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, use_convers
             active_tasks[task_id]['file'] = actual_file
             active_tasks[task_id]['completed_at'] = time.time() 
     except Exception as e:
-        active_tasks[task_id]['status'] = 'error'
-        active_tasks[task_id]['error_msg'] = str(e)
+        active_tasks[task_id]['status'] = 'error'; active_tasks[task_id]['error_msg'] = str(e)
 
 @app.route('/api/download', methods=['POST'])
 def trigger_download():
     task_id = str(uuid.uuid4())
-    client_id = request.json.get('client_id', 'unknown')
-    
-    active_tasks[task_id] = {
-        'client_id': client_id,
-        'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'),
-        'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None,
-        'created_at': time.time()
-    }
-    
-    threading.Thread(
-        target=background_downloader, 
-        args=(
-            task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), 
-            request.json.get('burn_subs', False), request.json.get('use_conversion', True)
-        ), 
-        daemon=True
-    ).start()
-    
+    active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at': time.time()}
+    threading.Thread(target=background_downloader, args=(task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), request.json.get('burn_subs', False), request.json.get('use_conversion', True)), daemon=True).start()
     return jsonify({'task_id': task_id})
 
 @app.route('/api/serve', methods=['GET'])
@@ -1042,52 +1096,6 @@ def serve_file():
     file_path = request.args.get('file')
     if not file_path or not os.path.exists(file_path): return "File not found", 404
     return send_file(os.path.abspath(file_path), as_attachment=True)
-# ==============================================================================
-# V24 - NEXUS MEDIA PLAYER ENDPOINTS
-# ==============================================================================
 
-@app.route('/player')
-def media_player():
-    """Serves the standalone custom Media Player UI."""
-    # This assumes player.html is saved in the same directory, or you can 
-    # put the HTML string directly in here like the main app.
-    if os.path.exists('player.html'):
-        with open('player.html', 'r', encoding='utf-8') as f:
-            return render_template_string(f.read())
-    return "player.html not found on server.", 404
-
-@app.route('/api/stream_audio', methods=['POST'])
-def stream_audio():
-    """
-    Extracts the direct raw audio URL from Google's servers.
-    Handing this to the browser's <audio> tag allows instant, ad-free
-    background playback without using any server storage space.
-    """
-    url = request.json.get('url')
-    
-    # We configure yt-dlp to just extract the raw URL, not download the file
-    ydl_opts = {
-        'quiet': True,
-        'format': 'bestaudio[ext=m4a]/bestaudio/best', # M4A natively plays in browsers
-        'noplaylist': True,
-        'proxy': 'socks5://127.0.0.1:40000', # Bypass regional blocks
-    }
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            
-            # The actual Google Video streaming URL
-            stream_url = info.get('url') 
-            
-            if stream_url:
-                return jsonify({'stream_url': stream_url})
-            else:
-                return jsonify({'error': 'Could not extract direct stream URL.'}), 400
-                
-    except Exception as e:
-        logger.error(f"Stream Extraction Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V23 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
