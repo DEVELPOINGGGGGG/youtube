@@ -1000,7 +1000,52 @@ def serve_file():
     file_path = request.args.get('file')
     if not file_path or not os.path.exists(file_path): return "File not found", 404
     return send_file(os.path.abspath(file_path), as_attachment=True)
+# ==============================================================================
+# V24 - NEXUS MEDIA PLAYER ENDPOINTS
+# ==============================================================================
 
+@app.route('/player')
+def media_player():
+    """Serves the standalone custom Media Player UI."""
+    # This assumes player.html is saved in the same directory, or you can 
+    # put the HTML string directly in here like the main app.
+    if os.path.exists('player.html'):
+        with open('player.html', 'r', encoding='utf-8') as f:
+            return render_template_string(f.read())
+    return "player.html not found on server.", 404
+
+@app.route('/api/stream_audio', methods=['POST'])
+def stream_audio():
+    """
+    Extracts the direct raw audio URL from Google's servers.
+    Handing this to the browser's <audio> tag allows instant, ad-free
+    background playback without using any server storage space.
+    """
+    url = request.json.get('url')
+    
+    # We configure yt-dlp to just extract the raw URL, not download the file
+    ydl_opts = {
+        'quiet': True,
+        'format': 'bestaudio[ext=m4a]/bestaudio/best', # M4A natively plays in browsers
+        'noplaylist': True,
+        'proxy': 'socks5://127.0.0.1:40000', # Bypass regional blocks
+    }
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            
+            # The actual Google Video streaming URL
+            stream_url = info.get('url') 
+            
+            if stream_url:
+                return jsonify({'stream_url': stream_url})
+            else:
+                return jsonify({'error': 'Could not extract direct stream URL.'}), 400
+                
+    except Exception as e:
+        logger.error(f"Stream Extraction Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 if __name__ == '__main__':
     print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V23 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
