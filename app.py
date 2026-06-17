@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V27 - STRICT ROUTE SEPARATION & UI FIXES)
+# YOUTUBE DOWNLOADER (V28 - GOD-MODE PLAYER & 5 NEW FEATURES)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -66,38 +66,44 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# HTML 1: THE DOWNLOADER DASHBOARD (ROUTE: "/")
+# FRONTEND: MAIN DASHBOARD & PREMIUM PLAYER
 # ==============================================================================
-DOWNLOADER_HTML = """
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>YouTube Downloader</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3, #4facfe, #00f2fe); background-size: 600% 600%; animation: gradientBG 20s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; }
         .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; }
-        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; }
+        .hamburger-btn, .settings-btn { cursor: pointer; color: #1e3c72; border: none; background: none; }
+        .hamburger-btn { font-size: 1.8rem; transition: 0.2s; }
+        .settings-btn { font-size: 1.5rem; background: #e2e8f0; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
         .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #f4f7f6; }
+        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #f4f7f6; display: flex; justify-content: space-between; }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
-        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; }
         .tab-btn.active { background: #4facfe; color: white; }
         
-        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; }
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
         .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -107,40 +113,121 @@ DOWNLOADER_HTML = """
         input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
         .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; }
         .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; }
-        .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
-        .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
         
         #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
-        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden;}
-        .list-item img { width: 150px; border-radius: 8px; }
-        .item-info { flex: 1; min-width: 0; }
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
-        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
+        
+        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent;}
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; }
+        .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom:3px;}
+        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center;}
         
         .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;}
         .progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
-        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); }
+        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
         
-        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; }
-        .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; }
+        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(17,153,142,0.5);}
+        .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 3000; justify-content: center; align-items: center; padding: 20px; }
         .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; }
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; }
-        
+
         .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2; }
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
         .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd;}
 
+        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; }
+
+        /* ========================================== */
+        /* V28 FULLSCREEN AUDIO PLAYER                */
+        /* ========================================== */
+        #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
+        #audio-player-bar.active { top: 0; }
+        
+        /* MINI PLAYER MODE */
+        #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; border-radius: 20px 20px 0 0; padding: 10px 20px; align-items: center; justify-content: space-between; overflow:hidden; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5);}
+        
+        /* Ensure top control buttons have high z-index and pointer-events */
+        .full-only { display: flex; width: 100%; justify-content: space-between; position: absolute; top: 20px; padding: 0 25px; z-index: 3000; pointer-events: auto;}
+        .mini .full-only { display: none !important; }
+        
+        .top-ctrl-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .top-ctrl-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+        
+        .mini-close { display: none; }
+        .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer;}
+
+        /* COVER ART & GLOW (FEATURE 5) */
+        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); transition: all 0.3s ease; }
+        .playing-glow { animation: pulseGlow 2s infinite alternate; }
+        @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #1db954; } 100% { box-shadow: 0 0 50px #4facfe, 0 0 80px #1db954; } }
+        
+        .mini #ap-cover { width: 60px; height: 60px; margin: 0; box-shadow: none; border-radius: 8px; animation: none;}
+        
+        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white;}
+        .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
+        .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; }
+        .mini .marquee-text { font-size: 1rem; }
+        .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
+        
+        #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; }
+        .mini #ap-artist { display: none; }
+
+        .progress-row { width: 100%; max-width: 400px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #94a3b8; }
+        .mini .progress-row { display: none; }
+        input[type="range"] { flex: 1; -webkit-appearance: none; background: #334155; height: 6px; border-radius: 3px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #1db954; cursor: pointer; }
+
+        /* ADVANCED CONTROLS (FEATURES 1, 2, 3) */
+        .advanced-controls { display: flex; width: 100%; max-width: 400px; justify-content: space-between; margin-bottom: 10px; color: #94a3b8;}
+        .mini .advanced-controls { display: none; }
+        .adv-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .adv-btn:hover { color: white; transform: scale(1.1); }
+        .adv-btn.active { color: #1db954; text-shadow: 0 0 10px #1db954; }
+
+        .controls { display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; margin-bottom: 20px;}
+        .mini .controls { width: auto; gap: 15px; margin-bottom: 0;}
+        .ctrl-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition: 0.2s;}
+        .ctrl-btn:hover { transform: scale(1.1); }
+        .ctrl-play { background: white; color: black; width: 65px; height: 65px; border-radius: 50%; font-size: 2rem; display: flex; justify-content: center; align-items: center; }
+        .mini .ctrl-play { width: 45px; height: 45px; font-size: 1.5rem; background: transparent; color: white;}
+
+        /* BOTTOM ACTION ROW (Download & YouTube Link together) */
+        .bottom-action-row { display: flex; align-items: center; justify-content: center; gap: 15px; width: 100%; margin-top: auto; padding-bottom: 20px;}
+        .mini .bottom-action-row { display: none; }
+        
+        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; transition: 0.2s; cursor: pointer; border: none;}
+        .open-yt-btn { color: #1db954; border: 2px solid #1db954; background: transparent; }
+        .open-yt-btn:hover { background: #1db954; color: black; }
+        .dl-mp3-btn { color: white; background: #4facfe; border: 2px solid #4facfe; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
+        .dl-mp3-btn:hover { background: transparent; color: #4facfe; }
+
+        /* V28 VIDEO PIP & SANDBOX */
+        #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
+        #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
+        
+        .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
+        .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
+        
+        .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 2501; }
+        #video-modal.mini-video .vid-controls { top: -15px; right: -10px; }
+        .close-video, .min-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;}
+        .min-video { background: rgba(51, 65, 85, 0.9); }
+        #video-modal.mini-video .min-video { display: none; }
+
         @media (max-width: 600px) { 
             .list-item { flex-direction: column; align-items: stretch; } 
-            .list-item img { width: 100%; } 
+            .list-item img { width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover;} 
             .input-group { flex-direction: column; }
+            .side-nav { width: 250px; }
+            #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; }
+            #ap-cover { width: 85%; }
         }
     </style>
 </head>
@@ -149,18 +236,17 @@ DOWNLOADER_HTML = """
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
-        <h2 style="margin-bottom: 30px; text-align: center;">MENU</h2>
+        <h2 style="margin-bottom: 30px; text-align: center; color:white;">MENU</h2>
         <a href="#" onclick="switchTab('dashboard'); toggleMenu()">🏠 Dashboard</a>
-        <a href="/player">▶️ Premium Player</a>
         <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
         <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Single Video DL</a>
         <a href="#" onclick="switchTab('playlist'); toggleMenu()">📂 Playlist DL</a>
-        <a href="#" onclick="switchTab('search'); toggleMenu()">🔍 Search & Download</a>
+        <a href="#" onclick="switchTab('search'); toggleMenu()">🔍 Search YouTube</a>
     </div>
 
     <div class="glass-card">
         <div class="header-area">
-            <div style="display:flex; align-items:center; gap:15px;">
+            <div class="header-left">
                 <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
                 <h2>YT DOWNLOADER</h2>
             </div>
@@ -177,7 +263,7 @@ DOWNLOADER_HTML = """
         <div id="dashboard-ui">
             <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
             <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ OPEN PREMIUM PLAYER</button>
-            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download Single Video</button>
+            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
             <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download Playlist</button>
             <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Download</button>
         </div>
@@ -190,9 +276,8 @@ DOWNLOADER_HTML = """
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
-        <!-- SINGLE DL -->
         <div id="single-ui">
-            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px;">
+            <div class="image-wrapper" onclick="startVideo(currentVideoId)"><img id="s-thumb" src=""></div>
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -201,62 +286,114 @@ DOWNLOADER_HTML = """
             <div class="progress-container" id="progBox-single" style="display:none;">
                 <div class="progress-stats"><span id="progStatus-single">Downloading...</span><span id="progPercent-single">0%</span></div>
                 <div class="progress-bar-bg"><div class="progress-fill" id="progFill-single"></div></div>
-                <div class="progress-stats"><span id="progSpeed-single">0 MB/s</span><span id="progEta-single">ETA: 00:00</span></div>
             </div>
         </div>
 
-        <!-- LIST DL -->
         <div id="list-container" class="list-container">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> Select All</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:10px;" id="bulk-actions">
+                <div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="selectAll" onclick="toggleAll()"><strong>Select All</strong></div>
                 <div class="btn-scroll-container">
-                    <button class="action-btn btn-mp4" onclick="downloadBulk('mp4')">DL SELECTED MP4</button>
-                    <button class="action-btn btn-mp3" onclick="downloadBulk('mp3')">DL SELECTED MP3</button>
+                    <button class="action-btn btn-mp4" style="padding: 10px 20px;" onclick="downloadBulk('mp4')">DL SELECTED MP4</button>
+                    <button class="action-btn btn-mp3" style="padding: 10px 20px;" onclick="downloadBulk('mp3')">DL SELECTED MP3</button>
                 </div>
             </div>
             <div id="items-wrapper" style="display:flex; flex-direction:column; gap:12px;"></div>
-            <button class="action-btn" id="loadMoreBtn" style="display:none; width:100%;" onclick="loadMore()">🔄 LOAD MORE</button>
+            <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE VIDEOS</button>
         </div>
     </div>
 
-    <!-- BACKGROUND FAB -->
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
-    <!-- SETTINGS -->
+    <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
+        <div class="modal-box">
+            <h2 style="font-size:1.5rem; color:#d32f2f; margin-bottom:15px;">⚠️ Unsaved Downloads</h2>
+            <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
+            <p style="margin-bottom:15px; font-size:0.9rem;">These videos finished processing while the app was closed.</p>
+            <div id="recoveryList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; max-height:200px; overflow-y:auto;"></div>
+            <button class="action-btn btn-mp4" style="width:100%; padding:15px;" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
-                <h2>Settings</h2>
-                <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
-            </div>
+            <h2 style="font-size:1.5rem; margin-bottom:25px;">App Settings</h2>
+            <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
             <div class="switch-container">
-                <div><label style="font-weight:800; color:#1e3c72;">Strict Audio Conversion</label><p style="font-size:0.75rem; color:#666;">ON: Perfect MP3.<br>OFF: Instant metadata injection.</p></div>
+                <div>
+                    <label style="font-weight:800; color:#1e3c72;">Strict Audio Conversion</label>
+                    <p style="font-size:0.75rem; color:#666;">ON: Slower but perfectly encoded MP3.<br>OFF: Blazing fast metadata injection.</p>
+                </div>
                 <input type="checkbox" id="audioConvToggle" onchange="saveSettings()">
             </div>
         </div>
     </div>
 
-    <!-- BACKGROUND TASKS -->
     <div class="modal-overlay" id="taskModal" style="z-index: 2500;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
-                <h2>Background Tasks</h2>
-                <button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button>
-            </div>
+            <h2 style="font-size:1.5rem; margin-bottom:25px;">Background Tasks</h2>
+            <button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button>
             <div id="tasksWrapper"><p style="text-align:center; color:#888;">No active downloads.</p></div>
         </div>
     </div>
 
-    <!-- QUALITY SELECT -->
-    <div class="modal-overlay" id="qualityModal">
+    <div class="modal-overlay" id="qualityModal" style="z-index: 4000;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h3 id="modalTitle">Select Quality</h3>
-                <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
-            </div>
+            <h3 id="modalTitle" style="margin-bottom:15px;">Select Quality</h3>
+            <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
             <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs"></div>
             <div id="id3Notice" class="switch-container" style="display:none; background:#d4edda; border-color:#28a745;"><label style="font-weight:700; color:#155724;">🎵 Metadata Included</label></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
+        </div>
+    </div>
+
+    <div id="audio-player-bar">
+        <div class="full-only">
+            <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">🗕</button>
+            <button class="top-ctrl-btn" onclick="stopAudio(event)" title="Close">✖</button>
+        </div>
+        
+        <img id="ap-cover" src="" onclick="toggleMiniPlayer(event)">
+        
+        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
+            <span class="marquee-text" id="ap-title">Loading...</span>
+        </div>
+        <div id="ap-artist">Nexus Audio</div>
+        
+        <div class="advanced-controls">
+            <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()" title="Playback Speed">1x</button>
+            <button class="adv-btn" id="loopBtn" onclick="toggleLoop()" title="Repeat Mode">🔁</button>
+            <button class="adv-btn" id="sleepBtn" onclick="toggleSleepTimer()" title="Sleep Timer">🌙</button>
+            <button class="adv-btn" onclick="shareSong()" title="Share">📤</button>
+        </div>
+
+        <div class="progress-row">
+            <span id="currTime">0:00</span>
+            <input type="range" id="seekSlider" value="0" min="0" max="100">
+            <span id="durTime">0:00</span>
+        </div>
+
+        <div class="controls">
+            <button class="ctrl-btn" onclick="prevSong(event)">⏮</button>
+            <button class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlay(event)">⏸</button>
+            <button class="ctrl-btn" onclick="nextSong(event)">⏭</button>
+            <button class="mini-close" onclick="stopAudio(event)">✖</button>
+        </div>
+        
+        <div class="bottom-action-row">
+            <a id="ap-yt-link" class="open-yt-btn" href="#" target="_blank">↗ YouTube</a>
+            <button class="dl-mp3-btn" onclick="downloadCurrentSong(event)">⬇ Download MP3</button>
+        </div>
+
+        <audio id="audioEngine" autoplay></audio>
+    </div>
+
+    <div id="video-modal">
+        <div class="video-container">
+            <div class="vid-controls">
+                <button class="min-video" onclick="toggleMiniVideo()">🗕</button>
+                <button class="close-video" onclick="closeVideo()">✖</button>
+            </div>
+            <iframe id="ytIframe" src="" sandbox="allow-scripts allow-same-origin allow-presentation" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
     </div>
 
@@ -268,7 +405,8 @@ DOWNLOADER_HTML = """
 
         function loadSettings() { document.getElementById('audioConvToggle').checked = (localStorage.getItem('audio_conversion_enabled') ?? 'true') === 'true'; }
         function saveSettings() { localStorage.setItem('audio_conversion_enabled', document.getElementById('audioConvToggle').checked); }
-        
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+
         let currentMode = 'dashboard';
         let currentData = []; 
         let currentSearchLimit = 10;
@@ -276,10 +414,49 @@ DOWNLOADER_HTML = """
         let taskDOMMap = {}; 
         let typingTimer; 
         
+        let audioQueue = [];
+        let currentIndex = -1;
+        const audioEngine = document.getElementById('audioEngine');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const seekSlider = document.getElementById('seekSlider');
+        const audioBar = document.getElementById('audio-player-bar');
+
+        let initialLoad = true;
+        let deliveryQueue = [];
+        let isDelivering = false;
+
+        // NEW FEATURES STATE
+        let loopMode = 0; // 0: None, 1: All, 2: One
+        let currentSpeed = 1.0;
+        let sleepTimer = null;
+        let sleepTimeLeft = 0;
+
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
+            const params = new URLSearchParams(window.location.search);
+            const sharedData = params.get('url') || params.get('text') || params.get('title');
+            if (sharedData) {
+                const urlMatch = sharedData.match(/(https?:\/\/[^\s]+)/);
+                if (urlMatch) { switchTab('single'); document.getElementById('url').value = urlMatch[0]; handleInput(urlMatch[0], true); return; }
+            }
             switchTab('dashboard');
         });
+
+        function processDeliveryQueue() {
+            if(isDelivering || deliveryQueue.length === 0) return;
+            isDelivering = true;
+            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
+        }
+
+        function showRecoveryModal(files) {
+            const list = document.getElementById('recoveryList'); list.innerHTML = '';
+            files.forEach(f => { list.innerHTML += `<div style="padding:10px; background:#e0f2fe; border-radius:8px; font-weight:bold; font-size:0.85rem;">${f.title}</div>`; deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)); });
+            document.getElementById('recoveryModal').style.display = 'flex';
+        }
+
+        function downloadRecovered() { document.getElementById('recoveryModal').style.display = 'none'; processDeliveryQueue(); }
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -291,7 +468,6 @@ DOWNLOADER_HTML = """
             currentMode = mode;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             if(document.getElementById(`tab-${mode}`)) document.getElementById(`tab-${mode}`).classList.add('active');
-            
             ['dashboard-ui', 'inputWrapper', 'statusBadge', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
             
             if(mode === 'dashboard') {
@@ -320,9 +496,7 @@ DOWNLOADER_HTML = """
             typingTimer = setTimeout(() => { handleInput(e.target.value.trim(), true); }, 3000); 
         });
 
-        async function pasteLink() {
-            try { document.getElementById('url').value = await navigator.clipboard.readText(); clearTimeout(typingTimer); handleInput(null, true); } catch (err) {}
-        }
+        async function pasteLink() { try { document.getElementById('url').value = await navigator.clipboard.readText(); clearTimeout(typingTimer); handleInput(null, true); } catch (err) {} }
 
         function loadMore() { currentSearchLimit += 20; handleInput(null, false); }
 
@@ -330,14 +504,12 @@ DOWNLOADER_HTML = """
             let val = forcedValue || document.getElementById('url').value.trim();
             if(!val) return;
             setStatus("Extracting Data...");
-            
             if(isNewSearch) {
                 currentSearchLimit = 10;
                 document.getElementById('single-ui').style.display = 'none';
                 document.getElementById('list-container').style.display = 'none';
                 document.getElementById('loadMoreBtn').style.display = 'none';
             }
-
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: val, mode: currentMode, limit: currentSearchLimit}) });
                 const data = await res.json();
@@ -362,16 +534,17 @@ DOWNLOADER_HTML = """
         function renderItems() {
             const wrapper = document.getElementById('items-wrapper'); wrapper.innerHTML = '';
             currentData.forEach((item, i) => {
+                const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
                 wrapper.innerHTML += `
                     <div class="list-item">
                         <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px;">
-                        <img src="${item.thumbnail}">
+                        <img src="${item.thumbnail}" onclick="startVideo('${videoId}')" style="width:150px;">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
                             <p style="font-size:0.8rem; color:#666;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
                             <div class="btn-scroll-container" style="margin-top:5px;">
-                                <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp4')">DL MP4</button>
-                                <button class="action-btn btn-mp3" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp3')">DL MP3</button>
+                                <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="playSingleAudio(${i})">▶ HEAR</button>
+                                <button class="action-btn btn-mp3" style="padding:8px 15px; font-size:1.2rem;" onclick="openQuality(${i}, 'mp3')" title="Download MP3">📥</button>
                             </div>
                             <div class="progress-container" id="progBox-${i}" style="display:none;">
                                 <div class="progress-stats"><span id="progStatus-${i}">Wait...</span><span id="progPercent-${i}">0%</span></div>
@@ -384,478 +557,8 @@ DOWNLOADER_HTML = """
 
         function toggleAll() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = c); }
 
-        async function openQuality(index, type, isBulk=false) {
-            pendingDownloadTarget = { index, type, isBulk };
-            const list = document.getElementById('qualityList'); list.innerHTML = '';
-            if (type === 'mp4') {
-                document.getElementById('modalTitle').innerText = "MP4 Quality";
-                document.getElementById('subToggle').style.display = 'flex'; document.getElementById('id3Notice').style.display = 'none'; 
-                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('best')"><span>⭐ AUTO BEST</span></div>`;
-                if (isBulk) {
-                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`;
-                } else {
-                    let actualIndex = index === -1 ? 0 : index;
-                    if (!currentData[actualIndex].formats) {
-                        try {
-                            const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url, mode: 'single'}) });
-                            const data = await res.json();
-                            if(data.formats) currentData[actualIndex].formats = data.formats;
-                        } catch(e) {}
-                    }
-                    if(currentData[actualIndex].formats) {
-                        currentData[actualIndex].formats.forEach(f => { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`; });
-                    }
-                }
-            } else {
-                document.getElementById('modalTitle').innerText = "MP3 Quality";
-                document.getElementById('subToggle').style.display = 'none'; document.getElementById('id3Notice').style.display = 'flex'; 
-                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
-            }
-            document.getElementById('qualityModal').style.display = 'flex';
-        }
-
-        function downloadBulk(type) { openQuality(null, type, true); }
-
-        async function startBackgroundDownload(quality) {
-            document.getElementById('qualityModal').style.display = 'none';
-            const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
-            const useAudioConv = document.getElementById('audioConvToggle').checked;
-
-            const dispatch = async (idx) => {
-                const res = await fetch('/api/download', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ client_id: clientId, url: currentData[idx].url || currentData[idx].id || document.getElementById('url').value, title: currentData[idx].title, type: pendingDownloadTarget.type, quality: quality, burn_subs: burnSubs, use_conversion: useAudioConv })
-                });
-                const data = await res.json();
-                if(data.task_id) {
-                    taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: idx };
-                    document.getElementById(pendingDownloadTarget.index === -1 ? 'progBox-single' : `progBox-${idx}`).style.display = 'block';
-                }
-            };
-
-            if (pendingDownloadTarget.isBulk) { document.querySelectorAll('.pl-checkbox:checked').forEach(cb => dispatch(parseInt(cb.value))); } 
-            else { dispatch(pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index); }
-        }
-
-        setInterval(async () => {
-            try {
-                const res = await fetch(`/api/tasks?client_id=${clientId}`);
-                const tasks = await res.json();
-                let html = ''; let activeCount = 0; let nowSec = Date.now() / 1000;
-
-                for (const [id, t] of Object.entries(tasks)) {
-                    activeCount++;
-                    let sCol = t.status==='completed' ? '#155724' : (t.status==='error' ? '#721c24' : '#004085');
-                    let sBg = t.status==='completed' ? '#d4edda' : (t.status==='error' ? '#f8d7da' : '#cce5ff');
-                    
-                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
-                    if (t.status === 'completed' && t.completed_at && (nowSec - t.completed_at) > 300) { 
-                        saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE (EXPIRED)</button>`;
-                    }
-
-                    html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol}44;"><div class="task-header" style="color: ${sCol};"><span>${t.type.toUpperCase()}: ${t.title}</span><span>${t.status.toUpperCase()}</span></div>
-                            ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats"><span>${t.percent}%</span></div>` : ''}
-                            ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
-
-                    const mapData = taskDOMMap[id];
-                    if (mapData) {
-                        const progBox = document.getElementById(mapData.isSingle ? 'progBox-single' : `progBox-${mapData.index}`);
-                        if (progBox) {
-                            if (t.status === 'downloading' || t.status === 'processing') {
-                                progBox.querySelector('.progress-fill').style.width = t.percent + '%';
-                                progBox.querySelector('.progress-stats span:first-child').innerText = t.status + '... ' + t.percent + '%';
-                            } else if (t.status === 'completed') {
-                                progBox.querySelector('.progress-fill').style.width = '100%';
-                                progBox.querySelector('.progress-fill').style.background = '#38ef7d';
-                                progBox.querySelector('.progress-stats span:first-child').innerText = 'Done!';
-                            }
-                        }
-                    }
-                }
-                
-                const fab = document.getElementById('fabBtn');
-                if (activeCount > 0) { fab.style.display = 'flex'; } else { fab.style.display = 'none'; }
-                document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
-                document.getElementById('taskBadge').innerText = activeCount;
-            } catch(e) {}
-        }, 1000); 
-    </script>
-</body>
-</html>
-"""
-
-# ==============================================================================
-# HTML 2: THE PREMIUM PLAYER (ROUTE: "/player")
-# ==============================================================================
-PLAYER_HTML = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Premium Player</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        body { background: #0f172a; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
-        
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #1e293b; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; }
-        .side-nav.open { left: 0; }
-        .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #334155; }
-        .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
-
-        .container { width: 100%; max-width: 600px; padding-bottom: 150px; }
-        .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items:center;}
-        .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
-        input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; }
-        .search-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
-
-        #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; gap: 20px; }
-        .choice-btn { width: 100%; padding: 25px; border-radius: 16px; border: none; font-size: 1.5rem; font-weight: 800; cursor: pointer; color: white; }
-        .btn-music { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); }
-        .btn-video { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
-
-        #search-screen { display: none; }
-        #results { display: flex; flex-direction: column; gap: 15px; }
-
-        .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px;}
-        .play-selected-btn { background: #1db954; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-
-        .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; }
-        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
-        .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; overflow:hidden;}
-        .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
-        .card.video-mode .info { padding: 15px; }
-        
-        .info { flex: 1; min-width: 0; }
-        .info h4 { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
-        .info p { font-size: 0.75rem; color: #94a3b8; }
-        
-        .action-row { display: flex; gap: 10px; margin-top: 10px;}
-        .play-action-btn { flex: 1; background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .card.video-mode .play-action-btn { background: #ff0844; padding: 15px; }
-        .dl-icon-btn { background: #4facfe; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; }
-
-        /* V26 AUDIO PLAYER */
-        #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s; z-index: 2000; overflow-y: auto;}
-        #audio-player-bar.active { top: 0; }
-        #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; }
-        
-        .full-only { display: flex; width: 100%; justify-content: space-between; position: absolute; top: 20px; padding: 0 25px; z-index: 2001; }
-        .mini .full-only { display: none !important; }
-        
-        .close-player, .minimize-player { background: none; border: none; color: #94a3b8; font-size: 2rem; cursor: pointer; }
-        .mini-close { display: none; }
-        .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer;}
-
-        #ap-cover { width: 70%; max-width: 350px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-bottom: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
-        .mini #ap-cover { width: 60px; height: 60px; margin-bottom: 0; box-shadow: none; border-radius: 8px;}
-        
-        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white;}
-        .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
-        .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; }
-        .mini .marquee-text { font-size: 1rem; }
-        .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-        
-        #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; }
-        .mini #ap-artist { display: none; }
-
-        .progress-row { width: 100%; max-width: 400px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #94a3b8; }
-        .mini .progress-row { display: none; }
-        
-        input[type="range"] { flex: 1; -webkit-appearance: none; background: #334155; height: 6px; border-radius: 3px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #1db954; cursor: pointer; }
-
-        .controls { display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; margin-bottom: 20px;}
-        .mini .controls { width: auto; gap: 15px; margin-bottom: 0;}
-        .ctrl-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
-        .ctrl-play { background: white; color: black; width: 65px; height: 65px; border-radius: 50%; font-size: 2rem; display: flex; justify-content: center; align-items: center; }
-        .mini .ctrl-play { width: 45px; height: 45px; font-size: 1.5rem; background: transparent; color: white;}
-        
-        .volume-row { display: flex; align-items: center; gap: 10px; width: 80%; max-width: 300px; color: #94a3b8; margin-bottom: 20px;}
-        .mini .volume-row { display: none; }
-
-        /* VIDEO PIP & SANDBOX */
-        #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
-        #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
-        
-        .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
-        .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
-        
-        .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 2501; }
-        #video-modal.mini-video .vid-controls { top: -15px; right: -10px; }
-        .close-video, .min-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;}
-        .min-video { background: rgba(51, 65, 85, 0.9); }
-        #video-modal.mini-video .min-video { display: none; }
-
-        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; }
-
-        /* QUALITY MODAL WITHIN PLAYER */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 4000; justify-content: center; align-items: center; padding: 20px; }
-        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; color: #333; }
-        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .quality-item.best { border-color: #ff0844; background: #fff0f2; }
-        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px;}
-
-        @media (max-width: 600px) { 
-            .side-nav { width: 250px; }
-            #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; }
-        }
-    </style>
-</head>
-<body>
-
-    <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
-    <div class="side-nav" id="sideNav">
-        <button class="side-nav-close" onclick="toggleMenu()">×</button>
-        <h2 style="margin-bottom: 30px; text-align: center; color:white;">MENU</h2>
-        <a href="/">🏠 Back to Downloader</a>
-        <div style="height: 1px; background: #334155; margin: 15px 0;"></div>
-        <a href="#" onclick="setMode('audio'); toggleMenu()">🎵 Audio Search</a>
-        <a href="#" onclick="setMode('video'); toggleMenu()">🎬 Video Search</a>
-    </div>
-
-    <div class="container">
-        <div id="choice-screen">
-            <h1 style="font-size: 2.5rem; text-align:center;">What to do?</h1>
-            <button class="choice-btn btn-music" onclick="setMode('audio')">🎵 Hear Songs</button>
-            <button class="choice-btn btn-video" onclick="setMode('video')">🎬 See Videos</button>
-            <button style="margin-top:20px; background:none; border:none; color:#4facfe; font-size:1.1rem; text-decoration:underline; cursor:pointer;" onclick="window.location.href='/'">Go to Downloader Screen</button>
-        </div>
-
-        <div id="search-screen">
-            <div class="top-bar">
-                <button class="menu-btn" onclick="toggleMenu()">☰</button>
-                <input type="text" id="searchInput" placeholder="Search YouTube...">
-                <button class="search-btn" onclick="search(true)">Search</button>
-            </div>
-            
-            <div id="queue-actions" class="queue-actions" style="display:none;">
-                <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> Select All</div>
-                <button class="play-selected-btn" onclick="playSelected()">▶ PLAY SELECTED</button>
-            </div>
-
-            <div id="status" style="text-align:center; color:#94a3b8; margin-bottom:15px;"></div>
-            <div id="results"></div>
-            <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
-        </div>
-    </div>
-
-    <!-- AUDIO PLAYER -->
-    <div id="audio-player-bar">
-        <div class="full-only">
-            <button class="minimize-player" onclick="toggleMiniPlayer(event)">🗕</button>
-            <button class="close-player" onclick="stopAudio(event)">✖</button>
-        </div>
-        
-        <img id="ap-cover" src="" onclick="toggleMiniPlayer(event)">
-        
-        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
-            <span class="marquee-text" id="ap-title">Loading...</span>
-        </div>
-        <div id="ap-artist">Nexus Audio</div>
-        
-        <div class="progress-row">
-            <span id="currTime">0:00</span>
-            <input type="range" id="seekSlider" value="0" min="0" max="100">
-            <span id="durTime">0:00</span>
-        </div>
-
-        <div class="controls">
-            <button class="ctrl-btn full-only" onclick="downloadCurrentSong(event)" title="Download MP3">📥</button>
-            <button class="ctrl-btn" onclick="prevSong(event)">⏮</button>
-            <button class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlay(event)">⏸</button>
-            <button class="ctrl-btn" onclick="nextSong(event)">⏭</button>
-            <div class="full-only" style="flex-direction:column; align-items:center; gap:2px;">
-                <input type="checkbox" id="autoplayToggle" checked style="width:20px; height:20px; accent-color:#1db954;">
-                <span style="font-size:0.7rem; color:#94a3b8; font-weight:bold;">Autoplay</span>
-            </div>
-            <button class="mini-close" onclick="stopAudio(event)">✖</button>
-        </div>
-        
-        <div class="volume-row">
-            <span>🔈</span><input type="range" id="volSlider" value="100" min="0" max="100"><span>🔊</span>
-        </div>
-        <audio id="audioEngine" autoplay></audio>
-    </div>
-
-    <!-- VIDEO MODAL -->
-    <div id="video-modal">
-        <div class="video-container">
-            <div class="vid-controls">
-                <button class="min-video" onclick="toggleMiniVideo()">🗕</button>
-                <button class="close-video" onclick="closeVideo()">✖</button>
-            </div>
-            <iframe id="ytIframe" src="" sandbox="allow-scripts allow-same-origin allow-presentation" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-    </div>
-
-    <!-- DOWNLOAD QUALITY MODAL (Triggered within Player) -->
-    <div class="modal-overlay" id="qualityModal">
-        <div class="modal-box">
-            <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
-            <h3 id="modalTitle" style="margin-bottom:15px;">Select Quality</h3>
-            <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
-        </div>
-    </div>
-
-    <script>
-        let clientId = localStorage.getItem('yt_dl_client_id') || (Math.random().toString(36).substring(2) + Date.now().toString(36));
-        localStorage.setItem('yt_dl_client_id', clientId);
-
-        let currentMode = '';
-        let currentResults = [];
-        let currentSearchLimit = 10;
-        
-        let audioQueue = [];
-        let currentIndex = -1;
-        
-        const audioEngine = document.getElementById('audioEngine');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const seekSlider = document.getElementById('seekSlider');
-        const volSlider = document.getElementById('volSlider');
-        const audioBar = document.getElementById('audio-player-bar');
-
-        function toggleMenu() {
-            const nav = document.getElementById('sideNav');
-            nav.classList.toggle('open');
-            document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none';
-        }
-
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('choice-screen').style.display = 'none';
-            document.getElementById('search-screen').style.display = 'block';
-            document.getElementById('queue-actions').style.display = mode === 'audio' ? 'flex' : 'none';
-            document.getElementById('searchInput').focus();
-            document.getElementById('results').innerHTML = '';
-            document.getElementById('status').innerText = mode === 'audio' ? 'Search for songs...' : 'Search for a video...';
-        }
-
-        function loadMore() { currentSearchLimit += 20; search(false); }
-
-        async function search(isNew = true) {
-            const query = document.getElementById('searchInput').value.trim();
-            if(!query) return;
-            
-            document.getElementById('status').innerText = 'Searching YouTube...';
-            if(isNew) {
-                currentSearchLimit = 10;
-                document.getElementById('results').innerHTML = '';
-                document.getElementById('loadMoreBtn').style.display = 'none';
-            }
-
-            try {
-                const res = await fetch('/api/info', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit})
-                });
-                const data = await res.json();
-                if(data.error) throw new Error(data.error);
-                
-                currentResults = data.entries;
-                renderResults();
-                document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
-                document.getElementById('loadMoreBtn').style.display = 'block';
-            } catch (err) { document.getElementById('status').innerText = 'Error searching.'; }
-        }
-
-        function renderResults() {
-            const container = document.getElementById('results'); container.innerHTML = '';
-            currentResults.forEach((item, index) => {
-                const uploader = item.uploader || 'Unknown';
-                if(currentMode === 'audio') {
-                    container.innerHTML += `
-                        <div class="card audio-mode">
-                            <input type="checkbox" class="song-checkbox" value="${index}" style="width:20px;height:20px;">
-                            <img src="${item.thumbnail}">
-                            <div class="info">
-                                <h4 title="${item.title}">${item.title}</h4>
-                                <p>👤 ${uploader} | ⏱️ ${item.duration}</p>
-                                <div class="action-row">
-                                    <button class="play-action-btn" onclick="playSingleAudio(${index})">▶ HEAR</button>
-                                    <button class="dl-icon-btn" onclick="triggerDownload(${index}, 'mp3')" title="Download MP3">📥</button>
-                                </div>
-                            </div>
-                        </div>`;
-                } else {
-                    container.innerHTML += `
-                        <div class="card video-mode">
-                            <img src="${item.thumbnail}">
-                            <div class="info">
-                                <h4>${item.title}</h4>
-                                <p>👤 ${uploader} • ⏱️ ${item.duration}</p>
-                                <div class="action-row">
-                                    <button class="play-action-btn" onclick="startVideo('${item.url || item.id}')">▶ PLAY VIDEO</button>
-                                    <button class="dl-icon-btn" onclick="triggerDownload(${index}, 'mp4')" title="Download MP4">📥</button>
-                                </div>
-                            </div>
-                        </div>`;
-                }
-            });
-        }
-
-        function toggleAll() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.song-checkbox').forEach(cb => cb.checked = c); }
-
         // ==========================================
-        // DOWNLOADER INJECTION FOR PLAYER
-        // ==========================================
-        let pendingDlUrl = "";
-        let pendingDlTitle = "";
-        let pendingDlType = "";
-        
-        function triggerDownload(index, type) {
-            const item = currentResults[index];
-            pendingDlUrl = item.url || item.id;
-            pendingDlTitle = item.title;
-            pendingDlType = type;
-            
-            const list = document.getElementById('qualityList'); list.innerHTML = '';
-            document.getElementById('modalTitle').innerText = type === 'mp4' ? "Select MP4 Quality" : "Select MP3 Quality";
-            
-            if(type === 'mp4') {
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('best')"><span>⭐ AUTO BEST</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
-            } else {
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
-            }
-            document.getElementById('qualityModal').style.display = 'flex';
-        }
-        
-        function downloadCurrentSong(e) {
-            if(e) e.stopPropagation();
-            if(currentIndex >= 0 && currentIndex < audioQueue.length) {
-                const item = audioQueue[currentIndex];
-                pendingDlUrl = item.url || item.id;
-                pendingDlTitle = item.title;
-                pendingDlType = 'mp3';
-                
-                const list = document.getElementById('qualityList'); list.innerHTML = '';
-                document.getElementById('modalTitle').innerText = "Select MP3 Quality";
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
-                document.getElementById('qualityModal').style.display = 'flex';
-            }
-        }
-
-        async function fireBgTask(quality) {
-            document.getElementById('qualityModal').style.display = 'none';
-            // We use the fast API to throw the task to the backend so the user doesn't wait
-            alert("Download task sent to server! You can track it on the main Downloader Dashboard.");
-            try {
-                await fetch('/api/download', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ client_id: clientId, url: pendingDlUrl, title: pendingDlTitle, type: pendingDlType, quality: quality, burn_subs: false, use_conversion: false }) // Use fast metadata inject by default here
-                });
-            } catch(e) {}
-        }
-
-        // ==========================================
-        // VIDEO LOGIC
+        // V28 VIDEO ENGINE
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
@@ -880,7 +583,7 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // AUDIO PLAYER ENGINE
+        // V28 PREMIUM AUDIO FEATURES
         // ==========================================
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); audioBar.classList.toggle('mini'); }
 
@@ -890,24 +593,25 @@ PLAYER_HTML = """
             loadQueueItem();
         }
 
-        function playSelected() {
-            const checked = document.querySelectorAll('.song-checkbox:checked');
-            if(checked.length === 0) return alert("Select songs first!");
-            audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
-            currentIndex = 0;
-            loadQueueItem();
+        function downloadCurrentSong(e) {
+            if(e) e.stopPropagation();
+            if(currentIndex >= 0 && currentIndex < audioQueue.length) {
+                const item = audioQueue[currentIndex];
+                const realIdx = currentResults.indexOf(item);
+                openQuality(realIdx !== -1 ? realIdx : -1, 'mp3');
+            }
         }
 
         async function loadQueueItem() {
             if(currentIndex < 0 || currentIndex >= audioQueue.length) return stopAudio();
-            
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
             
             audioBar.classList.add('active');
-            audioBar.classList.remove('mini');
+            audioBar.classList.remove('mini'); 
             document.getElementById('ap-cover').src = item.thumbnail;
             document.getElementById('ap-artist').innerText = item.uploader || "Nexus Audio";
+            document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
             titleEl.innerText = "Loading stream... ";
             titleEl.classList.remove('scroll');
@@ -922,7 +626,9 @@ PLAYER_HTML = """
                 
                 if(data.stream_url) {
                     audioEngine.src = data.stream_url;
+                    audioEngine.playbackRate = currentSpeed; // Restore speed
                     titleEl.innerText = item.title;
+                    
                     setTimeout(() => {
                         const wrapper = document.querySelector('.marquee-wrapper');
                         if (titleEl.scrollWidth > wrapper.clientWidth + 10) titleEl.classList.add('scroll');
@@ -943,39 +649,45 @@ PLAYER_HTML = """
             if(e) e.stopPropagation();
             if(audioEngine.paused) audioEngine.play(); else audioEngine.pause();
         }
+        
         function nextSong(e) { 
             if(e) e.stopPropagation(); 
+            if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); return; } // Loop One
             if (currentIndex < audioQueue.length - 1) { currentIndex++; loadQueueItem(); }
+            else if (loopMode === 1) { currentIndex = 0; loadQueueItem(); } // Loop All
             else stopAudio();
         }
+        
         function prevSong(e) { 
             if(e) e.stopPropagation();
-            if(audioEngine.currentTime > 3) audioEngine.currentTime = 0; 
+            if(audioEngine.currentTime > 3 || loopMode === 2) audioEngine.currentTime = 0; 
             else if (currentIndex > 0) { currentIndex--; loadQueueItem(); } 
+            else if (loopMode === 1) { currentIndex = audioQueue.length - 1; loadQueueItem(); }
         }
+        
         function stopAudio(e) { 
             if(e) e.stopPropagation();
             audioEngine.pause(); audioEngine.src = ""; audioBar.classList.remove('active'); 
+            document.getElementById('ap-cover').classList.remove('playing-glow');
         }
 
-        audioEngine.onended = () => {
-            if(document.getElementById('autoplayToggle').checked) {
-                if(currentIndex < audioQueue.length - 1) nextSong();
-                else stopAudio();
-            } else {
-                audioEngine.pause(); playPauseBtn.innerText = '▶';
-            }
+        audioEngine.onended = () => nextSong();
+        audioEngine.onplay = () => {
+            playPauseBtn.innerText = '⏸';
+            document.getElementById('ap-cover').classList.add('playing-glow');
         };
-        audioEngine.onplay = () => playPauseBtn.innerText = '⏸';
-        audioEngine.onpause = () => playPauseBtn.innerText = '▶';
+        audioEngine.onpause = () => {
+            playPauseBtn.innerText = '▶';
+            document.getElementById('ap-cover').classList.remove('playing-glow');
+        };
 
+        // UI Updates
         function formatTimeDetailed(sec) {
             if(isNaN(sec)) return "0:00";
             let h = Math.floor(sec / 3600); let m = Math.floor((sec % 3600) / 60); let s = Math.floor(sec % 60);
             if (h > 0) return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
             return `${m}:${s < 10 ? '0' : ''}${s}`;
         }
-
         audioEngine.ontimeupdate = () => {
             let val = (audioEngine.currentTime / audioEngine.duration) * 100 || 0;
             seekSlider.value = val;
@@ -984,15 +696,184 @@ PLAYER_HTML = """
             document.getElementById('durTime').innerText = formatTimeDetailed(audioEngine.duration);
         };
         seekSlider.oninput = (e) => { let val = e.target.value; audioEngine.currentTime = (val / 100) * audioEngine.duration; seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`; };
-        volSlider.oninput = (e) => audioEngine.volume = e.target.value / 100;
+
+        // ==========================================
+        // V28 FEATURE BUTTONS
+        // ==========================================
+        function toggleSpeed() {
+            if(currentSpeed === 1.0) currentSpeed = 1.25;
+            else if(currentSpeed === 1.25) currentSpeed = 1.5;
+            else if(currentSpeed === 1.5) currentSpeed = 2.0;
+            else currentSpeed = 1.0;
+            audioEngine.playbackRate = currentSpeed;
+            document.getElementById('speedBtn').innerText = currentSpeed + 'x';
+            document.getElementById('speedBtn').classList.toggle('active', currentSpeed !== 1.0);
+        }
+
+        function toggleLoop() {
+            loopMode = (loopMode + 1) % 3;
+            const btn = document.getElementById('loopBtn');
+            if (loopMode === 0) { btn.innerText = '🔁'; btn.classList.remove('active'); }
+            if (loopMode === 1) { btn.innerText = '🔁'; btn.classList.add('active'); } // Loop All
+            if (loopMode === 2) { btn.innerText = '🔂'; btn.classList.add('active'); } // Loop One
+        }
+
+        function toggleSleepTimer() {
+            const btn = document.getElementById('sleepBtn');
+            if(sleepTimer) {
+                clearInterval(sleepTimer); sleepTimer = null;
+                btn.classList.remove('active');
+                alert("Sleep timer cancelled.");
+                return;
+            }
+            
+            let mins = prompt("Stop music after how many minutes? (e.g., 15, 30, 60)");
+            if(mins && !isNaN(mins)) {
+                sleepTimeLeft = parseInt(mins) * 60;
+                btn.classList.add('active');
+                alert(`Music will stop in ${mins} minutes.`);
+                
+                sleepTimer = setInterval(() => {
+                    sleepTimeLeft--;
+                    if(sleepTimeLeft <= 0) {
+                        clearInterval(sleepTimer); sleepTimer = null;
+                        btn.classList.remove('active');
+                        stopAudio();
+                    }
+                }, 1000);
+            }
+        }
+
+        function shareSong() {
+            if(currentIndex >= 0 && currentIndex < audioQueue.length) {
+                const item = audioQueue[currentIndex];
+                if (navigator.share) {
+                    navigator.share({ title: item.title, text: 'Check out this song!', url: item.url || `https://youtube.com/watch?v=${item.id}` });
+                } else {
+                    navigator.clipboard.writeText(item.url || `https://youtube.com/watch?v=${item.id}`);
+                    alert("Link copied to clipboard!");
+                }
+            }
+        }
+
+        // ==========================================
+        // DOWNLOADER API PIPELINE
+        // ==========================================
+        async function openQuality(index, type, isBulk=false) {
+            pendingDownloadTarget = { index, type, isBulk };
+            const list = document.getElementById('qualityList'); list.innerHTML = '';
+            if (type === 'mp4') {
+                document.getElementById('modalTitle').innerText = "MP4 Quality";
+                document.getElementById('subToggle').style.display = 'flex'; 
+                document.getElementById('id3Notice').style.display = 'none'; 
+                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('best')"><span>⭐ AUTO BEST</span></div>`;
+                if (isBulk) {
+                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`;
+                } else {
+                    let actualIndex = index === -1 ? 0 : index;
+                    if (!currentData[actualIndex].formats) {
+                        try {
+                            const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url || currentData[actualIndex].id, mode: 'single'}) });
+                            const data = await res.json();
+                            if(data.formats) currentData[actualIndex].formats = data.formats;
+                        } catch(e) {}
+                    }
+                    if(currentData[actualIndex].formats) {
+                        currentData[actualIndex].formats.forEach(f => { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`; });
+                    }
+                }
+            } else {
+                document.getElementById('modalTitle').innerText = "MP3 Quality";
+                document.getElementById('subToggle').style.display = 'none'; 
+                document.getElementById('id3Notice').style.display = 'flex'; 
+                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
+            }
+            document.getElementById('qualityModal').style.display = 'flex';
+        }
+
+        async function startBackgroundDownload(quality) {
+            document.getElementById('qualityModal').style.display = 'none';
+            const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
+            const useAudioConv = document.getElementById('audioConvToggle').checked;
+
+            const dispatch = async (idx) => {
+                const res = await fetch('/api/download', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ client_id: clientId, url: currentData[idx].url || currentData[idx].id || document.getElementById('url').value, title: currentData[idx].title, type: pendingDownloadTarget.type, quality: quality, burn_subs: burnSubs, use_conversion: useAudioConv })
+                });
+                const data = await res.json();
+                if(data.task_id) {
+                    taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: idx };
+                    document.getElementById(pendingDownloadTarget.index === -1 ? 'progBox-single' : `progBox-${idx}`).style.display = 'block';
+                }
+            };
+            if (pendingDownloadTarget.isBulk) { document.querySelectorAll('.pl-checkbox:checked').forEach(cb => dispatch(parseInt(cb.value))); } 
+            else { dispatch(pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index); }
+            document.getElementById('taskModal').style.display = 'flex'; 
+        }
+
+        setInterval(async () => {
+            try {
+                const res = await fetch(`/api/tasks?client_id=${clientId}`);
+                const tasks = await res.json();
+                let html = ''; let activeCount = 0; let nowSec = Date.now() / 1000; let newlyRecovered = [];
+
+                for (const [id, t] of Object.entries(tasks)) {
+                    activeCount++;
+                    let sCol = t.status==='completed' ? '#155724' : (t.status==='error' ? '#721c24' : '#004085');
+                    let sBg = t.status==='completed' ? '#d4edda' : (t.status==='error' ? '#f8d7da' : '#cce5ff');
+                    
+                    let isExpired = false;
+                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
+                    if (t.status === 'completed' && t.completed_at && (nowSec - t.completed_at) > 300) { 
+                        isExpired = true;
+                        saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE (EXPIRED)</button>`;
+                    }
+
+                    html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol}44;"><div class="task-header" style="color: ${sCol};"><span>${t.type.toUpperCase()}: ${t.title}</span><span>${t.status.toUpperCase()}</span></div>
+                            ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats"><span>${t.percent}%</span></div>` : ''}
+                            ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
+
+                    const mapData = taskDOMMap[id];
+                    if (mapData) {
+                        const progBox = document.getElementById(mapData.isSingle ? 'progBox-single' : `progBox-${mapData.index}`);
+                        if (progBox) {
+                            if (t.status === 'downloading' || t.status === 'processing') {
+                                progBox.querySelector('.progress-fill').style.width = t.percent + '%';
+                                progBox.querySelector('.progress-stats span:first-child').innerText = t.status + '... ' + t.percent + '%';
+                            } else if (t.status === 'completed') {
+                                progBox.querySelector('.progress-fill').style.width = '100%';
+                                progBox.querySelector('.progress-fill').style.background = '#38ef7d';
+                                progBox.querySelector('.progress-stats span:first-child').innerText = 'Done!';
+                            }
+                        }
+                    }
+
+                    if (t.status === 'completed' && !handledDownloads.includes(id)) {
+                        if (initialLoad && !isExpired) { newlyRecovered.push({ id, title: t.title, file: t.file }); markHandled(id); } 
+                        else if (!initialLoad && !isExpired) { markHandled(id); deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); processDeliveryQueue(); } 
+                        else if (isExpired) { markHandled(id); }
+                    }
+                }
+                if (initialLoad && newlyRecovered.length > 0) showRecoveryModal(newlyRecovered);
+                initialLoad = false; 
+                
+                const fab = document.getElementById('fabBtn');
+                if (activeCount > 0) { fab.style.display = 'flex'; } else { fab.style.display = 'none'; }
+                document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
+                document.getElementById('taskBadge').innerText = activeCount;
+            } catch(e) {}
+        }, 1000); 
     </script>
 </body>
 </html>
 """
 
 # ==============================================================================
-# BACKEND ROUTING
+# FRONTEND 2: PLAYER ONLY ROUTE
 # ==============================================================================
+PLAYER_HTML = HTML_TEMPLATE # Player features are merged. Uses exact same UI template.
+
 @app.route('/manifest.json')
 def serve_manifest():
     return jsonify({"name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone", "background_color": "#1e3c72", "theme_color": "#1e3c72", "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}], "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }})
@@ -1001,10 +882,10 @@ def serve_manifest():
 def serve_sw(): return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
 @app.route('/')
-def index(): return render_template_string(DOWNLOADER_HTML)
+def index(): return render_template_string(HTML_TEMPLATE)
 
 @app.route('/player')
-def media_player(): return render_template_string(PLAYER_HTML)
+def media_player(): return render_template_string(HTML_TEMPLATE.replace("switchTab('dashboard');", "switchTab('search'); setMode('audio');"))
 
 @app.route('/api/stream_audio', methods=['POST'])
 def stream_audio():
@@ -1116,5 +997,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V27 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V28 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
