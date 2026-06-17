@@ -104,7 +104,7 @@ HTML_TEMPLATE = """
         .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.2rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
+        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
         .side-nav a:hover { background: #e0f2fe; color: #1e3c72; transform: translateX(10px); }
         .side-nav a.external { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
@@ -114,6 +114,14 @@ HTML_TEMPLATE = """
         .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
         .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
         
+        /* DASHBOARD BUTTONS */
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .choice-btn:hover { transform: scale(1.03); }
+        .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+        .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .btn-dash-search { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+
         .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
         input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
         input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79, 172, 254, 0.4); background: white; }
@@ -129,8 +137,8 @@ HTML_TEMPLATE = """
         
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; transition: 0.3s; }
         
-        #single-ui { display: none; }
-        .list-container { display: none; flex-direction: column; gap: 10px; }
+        #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
+        
         .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent; overflow:hidden;}
         .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
         .list-item img:hover { filter: brightness(0.7); transform: scale(1.05); }
@@ -189,11 +197,18 @@ HTML_TEMPLATE = """
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
-        <h2 style="margin-bottom: 30px; text-align: center;">YOUTUBE DOWNLOADER</h2>
+        <h2 style="margin-bottom: 30px; text-align: center;">YOUTUBE DOWNLD</h2>
+        
+        <!-- DASHBOARD NAV -->
+        <a href="#" onclick="switchTab('dashboard'); toggleMenu()">🏠 Dashboard</a>
+        <a href="/player" class="external">▶️ Watch / Listen Online</a>
+        
+        <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
+        
         <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Single Video</a>
         <a href="#" onclick="switchTab('playlist'); toggleMenu()">📂 Playlist Mode</a>
         <a href="#" onclick="switchTab('search'); toggleMenu()">🔍 Search YouTube</a>
-        <div style="height: 1px; background: #ddd; margin: 20px 0;"></div>
+        <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
         <a href="https://translator-l3x0.onrender.com" target="_blank" class="external">🌐 Translator App <span>↗</span></a>
     </div>
 
@@ -207,9 +222,19 @@ HTML_TEMPLATE = """
         </div>
         
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('single')">Single Video</button>
-            <button class="tab-btn" onclick="switchTab('playlist')">Playlist Mode</button>
-            <button class="tab-btn" onclick="switchTab('search')">Search YouTube</button>
+            <button class="tab-btn active" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+            <button class="tab-btn" id="tab-single" onclick="switchTab('single')">Single Video</button>
+            <button class="tab-btn" id="tab-playlist" onclick="switchTab('playlist')">Playlist</button>
+            <button class="tab-btn" id="tab-search" onclick="switchTab('search')">Search</button>
+        </div>
+
+        <!-- NEW DASHBOARD UI -->
+        <div id="dashboard-ui">
+            <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
+            <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ Watch / Listen Online (Player)</button>
+            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
+            <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download YouTube Playlist</button>
+            <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 YouTube Search & Download</button>
         </div>
 
         <div class="input-group" id="inputWrapper">
@@ -338,9 +363,8 @@ HTML_TEMPLATE = """
             localStorage.setItem('yt_dl_client_id', clientId);
         }
 
-        // V23: SMART MEMORY FIX - Stores which downloads were already delivered/clicked
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
-        if (handledDownloads.length > 50) { // Keep storage clean
+        if (handledDownloads.length > 50) { 
             handledDownloads = handledDownloads.slice(-50);
             localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads));
         }
@@ -380,7 +404,7 @@ HTML_TEMPLATE = """
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
         let notifiedTasks = { started: [], completed: [] };
-        let currentMode = 'single';
+        let currentMode = 'dashboard';
         let currentData = []; 
         let currentVideoId = ""; 
         let pendingDownloadTarget = null; 
@@ -394,7 +418,6 @@ HTML_TEMPLATE = """
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
-            setTimeout(() => showNotification("YouTube Downloader", "Ready to fetch videos!"), 3000);
             
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
@@ -404,8 +427,12 @@ HTML_TEMPLATE = """
                     switchTab('single');
                     document.getElementById('url').value = urlMatch[0];
                     handleInput(urlMatch[0]);
+                    return; // Skip dashboard if there is a shared URL
                 }
             }
+            
+            // Default load into dashboard
+            switchTab('dashboard');
         });
 
         // Smart Delivery Queue
@@ -443,7 +470,7 @@ HTML_TEMPLATE = """
                 deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file));
             });
             processDeliveryQueue();
-            recoveredToDownload = []; // Clear queue
+            recoveredToDownload = []; 
         }
 
         function toggleMenu() {
@@ -456,28 +483,43 @@ HTML_TEMPLATE = """
         function switchTab(mode) {
             currentMode = mode;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            const buttons = document.querySelectorAll('.tab-btn');
-            if(mode === 'single') buttons[0].classList.add('active');
-            if(mode === 'playlist') buttons[1].classList.add('active');
-            if(mode === 'search') buttons[2].classList.add('active');
+            const tabBtn = document.getElementById(`tab-${mode}`);
+            if(tabBtn) tabBtn.classList.add('active');
             
-            const input = document.getElementById('url');
-            input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
-            input.value = ''; 
+            const dashUI = document.getElementById('dashboard-ui');
+            const inputWrap = document.getElementById('inputWrapper');
+            const statusB = document.getElementById('statusBadge');
+            const listC = document.getElementById('list-container');
+            const singleUI = document.getElementById('single-ui');
+
+            // Reset all visual states
+            dashUI.style.display = 'none';
+            inputWrap.style.display = 'none';
+            statusB.style.display = 'none';
+            listC.style.display = 'none';
+            singleUI.style.display = 'none';
             
-            document.getElementById('list-container').style.display = 'none';
-            document.getElementById('single-ui').style.display = 'none';
-            
-            if(mode === 'search') {
-                document.getElementById('pasteBtn').style.display = 'none';
-                document.getElementById('goBtn').style.display = 'block';
-                input.style.paddingRight = "20px";
+            if(mode === 'dashboard') {
+                dashUI.style.display = 'flex';
             } else {
-                document.getElementById('pasteBtn').style.display = 'block';
-                document.getElementById('goBtn').style.display = 'none';
-                input.style.paddingRight = "90px";
+                inputWrap.style.display = 'flex';
+                statusB.style.display = 'inline-block';
+                
+                const input = document.getElementById('url');
+                input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
+                input.value = ''; 
+                
+                if(mode === 'search') {
+                    document.getElementById('pasteBtn').style.display = 'none';
+                    document.getElementById('goBtn').style.display = 'block';
+                    input.style.paddingRight = "20px";
+                } else {
+                    document.getElementById('pasteBtn').style.display = 'block';
+                    document.getElementById('goBtn').style.display = 'none';
+                    input.style.paddingRight = "90px";
+                }
+                setStatus(mode === 'search' ? "Ready to search YouTube." : "Awaiting Link...");
             }
-            setStatus(mode === 'search' ? "Ready to search YouTube." : "Awaiting Link...");
         }
 
         function setStatus(msg, isError=false) {
@@ -680,7 +722,15 @@ HTML_TEMPLATE = """
                     
                     const res = await fetch('/api/download', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ client_id: clientId, url: item.url, title: item.title, type: pendingDownloadTarget.type, quality: quality, burn_subs: burnSubs, use_conversion: useAudioConv })
+                        body: JSON.stringify({ 
+                            client_id: clientId, 
+                            url: item.url, 
+                            title: item.title, 
+                            type: pendingDownloadTarget.type, 
+                            quality: quality, 
+                            burn_subs: burnSubs,
+                            use_conversion: useAudioConv
+                        })
                     });
                     const data = await res.json();
                     
@@ -721,7 +771,6 @@ HTML_TEMPLATE = """
             document.getElementById('taskModal').style.display = 'flex'; 
         }
 
-        // V23: THE SMART SYNC ENGINE
         setInterval(async () => {
             try {
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
@@ -747,13 +796,11 @@ HTML_TEMPLATE = """
                     }
 
                     let isExpired = false;
-                    // V23 Fix: Manual Button now calls markHandled(id)
                     let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE FILE NOW</button>`;
                     
                     if (t.status === 'completed' && t.completed_at) {
                         if ((nowSec - t.completed_at) > 300) { 
                             isExpired = true;
-                            // V23 Fix: Expired manual button also calls markHandled(id)
                             saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#e67e22;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 AUTO-SAVE EXPIRED (CLICK TO MANUAL SAVE)</button>`;
                         }
                     }
@@ -800,14 +847,11 @@ HTML_TEMPLATE = """
                         }
                     }
 
-                    // V23: Check against the persistent localStorage array
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
                         if (initialLoad && !isExpired) {
-                            // Recovered from closed app state
                             newlyRecovered.push({ id: id, title: t.title, file: t.file });
-                            markHandled(id); // Brand it so it never recovers twice
+                            markHandled(id); 
                         } else if (!initialLoad && !isExpired) {
-                            // Standard auto-delivery 
                             markHandled(id);
                             
                             if (!notifiedTasks.completed.includes(id)) {
@@ -817,12 +861,11 @@ HTML_TEMPLATE = """
                             deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file));
                             processDeliveryQueue();
                         } else if (isExpired) {
-                            markHandled(id); // Too old, stop checking
+                            markHandled(id); 
                         }
                     }
                 }
                 
-                // Trigger Recovery Modal
                 if (initialLoad && newlyRecovered.length > 0) {
                     showRecoveryModal(newlyRecovered);
                 }
@@ -838,7 +881,6 @@ HTML_TEMPLATE = """
 </body>
 </html>
 """
-
 # ==============================================================================
 # PWA ROUTING
 # ==============================================================================
