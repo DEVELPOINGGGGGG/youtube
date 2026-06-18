@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V35 - OVERDRIVE: BASS BOOST, 300% VOL & FIXES)
+# YOUTUBE DOWNLOADER (V36 - STRICT ROUTES, INLINE VIDEO & PROGRESS FIXES)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -66,7 +66,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# FRONTEND 1: THE DOWNLOADER (ROUTE: "/")
+# FRONTEND 1: THE STRICT DOWNLOADER (ROUTE: "/")
 # ==============================================================================
 DOWNLOADER_HTML = """
 <!DOCTYPE html>
@@ -78,20 +78,16 @@ DOWNLOADER_HTML = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        
-        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; margin: 0; overflow-x: hidden; }
+        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3); background-size: 400% 400%; animation: gradientBG 15s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; margin: 0 auto; }
-        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
-        
-        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; }
-        .hamburger-btn:hover { transform: scale(1.1); }
-        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
-        .settings-btn:hover { background: #cbd5e0; transform: rotate(90deg); }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; margin: 0 auto;}
+        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; }
+        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; }
+        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s; display: flex; align-items: center; gap: 10px; }
         #global-loader.active { top: 20px; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -106,126 +102,69 @@ DOWNLOADER_HTML = """
         .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
-        .side-nav a:hover { background: #e0f2fe; color: #1e3c72; transform: translateX(10px); }
+        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #f4f7f6; display: flex; justify-content: space-between; align-items: center;}
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
-        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; color: #333; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
+        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; }
+        .tab-btn.active { background: #4facfe; color: white; }
         
-        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); flex-shrink: 0;}
-        .choice-btn:hover { transform: scale(1.03); }
-        .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .btn-dash-player { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); }
         .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
         .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .btn-dash-search { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
 
-        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px; flex-wrap: wrap;}
-        input[type="text"] { flex: 1; min-width: 200px; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; color: #333; transition: 0.3s; }
-        input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79,172,254,0.2); background: white; }
-        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; flex-shrink:0;}
-        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; transition: 0.2s; white-space: nowrap;}
+        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px; flex-wrap:wrap;}
+        input[type="text"] { flex: 1; min-width: 200px; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
+        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; flex-shrink:0;}
+        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; white-space:nowrap;}
+        .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
+        .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
         
-        #single-ui, #list-container, #dashboard-ui, #history-ui { display: none; flex-direction: column; gap: 10px; }
+        #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
+        
         .dash-task-header { margin-top: 20px; font-weight: 800; color: #1e3c72; border-bottom: 2px solid #eee; padding-bottom: 10px;}
         #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
 
-        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
-        .list-item:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-        @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-        
-        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.3s; flex-shrink: 0;}
+        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; flex-wrap:wrap;}
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; flex-shrink:0;}
         .list-item img:hover { filter: brightness(0.8); }
-        .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; color: #333; }
+        .item-info { flex: 1; min-width: 0; }
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center; width:100%;}
         
-        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center; width: 100%;}
-        
-        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;}
         .progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
         
-        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: #ff0844; color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,8,68,0.5);}
-        .badge { background: white; color: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
+        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(17,153,142,0.5);}
+        .badge { background: white; color: #11998e; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 3000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px); }
-        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: popIn 0.3s ease-out;}
-        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 20px; right: 20px; transition: 0.2s;}
+        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; }
+        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px;}
         
-        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
-        .quality-item:hover { border-color: #4facfe; background: #e0f2fe; }
-        .quality-item.best { border-color: #ff0844; background: #fff0f2;}
+        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .quality-item.best { border-color: #ff0844; background: #fff0f2; }
         
         .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
-        .radio-item { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #ddd; cursor: pointer; transition: 0.2s;}
-        .radio-item input, .radio-item select { accent-color: #ff0844; }
+        .radio-item { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #ddd; cursor: pointer; }
+        .radio-item input { width: 20px; height: 20px; accent-color: #ff0844; flex-shrink: 0;}
         .radio-desc { font-size: 0.8rem; color: #666; font-weight: normal; margin-top: 5px; }
 
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
 
-        .history-card { background: #f4f7f6; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
-        .history-card:hover { border-color: #4facfe; box-shadow: 0 5px 15px rgba(0,0,0,0.05);}
-        .history-info p { font-size: 0.75rem; color: #666; margin-top: 5px; }
-        .history-btn { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink:0; white-space: nowrap;}
-        
-        /* V35 FULLSCREEN AUDIO PLAYER */
-        #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s; z-index: 2000; overflow-y: auto;}
-        #audio-player-bar.active { top: 0; }
-        #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 20px 20px 0 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5);}
-        
-        .full-only { display: flex; width: 100%; justify-content: space-between; position: absolute; top: 20px; padding: 0 25px; z-index: 3000; pointer-events: auto;}
-        .mini .full-only { display: none !important; }
-        .top-ctrl-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; justify-content: center; align-items: center;}
-        
-        .mini-close { display: none; }
-        .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto;}
-
-        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); transition: 0.3s; cursor: pointer;}
-        .playing-glow { animation: pulseGlow 2s infinite alternate; }
-        @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #1db954; } 100% { box-shadow: 0 0 50px #4facfe, 0 0 80px #1db954; } }
-        .mini #ap-cover { width: 60px; height: 60px; margin: 0; animation: none; border-radius:8px; box-shadow:none;}
-        
-        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white;}
-        .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
-        .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; }
-        .mini .marquee-text { font-size: 1rem; }
-        .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
-        #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; }
-        .mini #ap-artist { display: none; }
-
-        .progress-row { width: 100%; max-width: 400px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #94a3b8; }
-        .mini .progress-row { display: none; }
-        input[type="range"] { flex: 1; -webkit-appearance: none; background: #334155; height: 6px; border-radius: 3px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #1db954; cursor: pointer; }
-
-        .controls { display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; margin-bottom: 20px;}
-        .mini .controls { width: auto; gap: 15px; margin-bottom: 0;}
-        .ctrl-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
-        .ctrl-play { background: white; color: black; width: 65px; height: 65px; border-radius: 50%; font-size: 2rem; display: flex; justify-content: center; align-items: center; }
-        .mini .ctrl-play { width: 45px; height: 45px; font-size: 1.5rem; background: transparent; color: white;}
-        
-        .volume-row { display: flex; align-items: center; gap: 10px; width: 80%; max-width: 300px; color: #94a3b8; margin-bottom: 20px;}
-        .mini .volume-row { display: none; }
-
-        /* V35 VIDEO PIP & SANDBOX (Shield removed to fix playback) */
-        #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
-        #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
-        .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
-        .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
-        .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 2501; }
-        #video-modal.mini-video .vid-controls { top: -15px; right: -10px; }
-        .close-video, .min-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;}
-        .min-video { background: rgba(51, 65, 85, 0.9); }
-        #video-modal.mini-video .min-video { display: flex; }
-
-        #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; justify-content: center;}
-        #thumbModal img { width: 100%; height: auto; max-height: 85vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; }
+        /* V36 INLINE VIDEO PLAYER MODAL */
+        #inline-video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 5000; flex-direction: column; justify-content: center; align-items: center; }
+        .inline-video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; }
+        .inline-video-container iframe { width: 100%; height: 100%; border: none; }
+        .close-inline-video { position: absolute; top: 20px; right: 20px; background: rgba(255,8,68,0.9); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; z-index: 5001; }
 
         @media (max-width: 600px) { 
             .list-item { flex-direction: column; align-items: stretch; text-align: center;} 
@@ -237,9 +176,6 @@ DOWNLOADER_HTML = """
             #bulk-actions { flex-direction: column; align-items: stretch !important; gap: 15px; }
             .btn-scroll-container { width: 100%; overflow-x: auto; justify-content: center; flex-wrap: wrap;}
             .btn-scroll-container .action-btn { flex: 1; min-width: 48%; text-align: center;}
-            .history-card { flex-direction: column; text-align: center; gap: 10px;}
-            .history-btn { width: 100%; }
-            #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; }
         }
     </style>
 </head>
@@ -251,8 +187,8 @@ DOWNLOADER_HTML = """
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
         <h2 style="margin-bottom: 30px; text-align: center;">MENU</h2>
-        
-        <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 View My History</a>
+        <a href="/player">▶️ Premium Player</a>
+        <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
         <a href="#" onclick="switchTab('dashboard'); toggleMenu()">🏠 Dashboard</a>
         <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Download Video</a>
         <a href="#" onclick="switchTab('playlist'); toggleMenu()">📂 Download Playlist</a>
@@ -280,16 +216,17 @@ DOWNLOADER_HTML = """
 
         <div id="dashboard-ui" style="display:flex;">
             <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
-            <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Stream Free</button>
+            <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ OPEN PREMIUM PLAYER</button>
             <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
             <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download Playlist</button>
+            <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Download</button>
             
             <div class="dash-task-header">ACTIVE DOWNLOADS</div>
             <div id="dashboardTasksWrapper"><p style="color:#888; font-size:0.9rem;">No active downloads.</p></div>
         </div>
 
         <div id="single-ui">
-            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="startVideo(currentVideoId)">
+            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="startInlineVideo(currentVideoId)">
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -303,7 +240,7 @@ DOWNLOADER_HTML = """
 
         <div id="list-container" class="list-container">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:15px;" id="bulk-actions">
-                <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#4facfe; vertical-align:middle;"> <strong style="vertical-align:middle;">Select All</strong></div>
+                <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#ff0844; vertical-align:middle;"> <strong style="vertical-align:middle;">Select All</strong></div>
                 <div class="btn-scroll-container" style="flex:1;">
                     <button class="action-btn btn-mp4" style="padding:10px 15px;" onclick="downloadBulk('mp4')">DL SELECTED MP4</button>
                     <button class="action-btn btn-mp3" style="padding:10px 15px;" onclick="downloadBulk('mp3')">DL SELECTED MP3</button>
@@ -316,15 +253,10 @@ DOWNLOADER_HTML = """
 
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
-    <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
-        <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h2 style="font-size:1.5rem; color:#1e3c72;">🕒 My History</h2>
-                <button class="btn-close" onclick="document.getElementById('historyModal').style.display='none'">X</button>
-            </div>
-            <div id="history-list" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:5px;">
-                <p style="color:#666; text-align:center;">No history yet. Go watch something!</p>
-            </div>
+    <div id="inline-video-modal">
+        <div class="inline-video-container">
+            <button class="close-inline-video" onclick="closeInlineVideo()">X</button>
+            <iframe id="inlineYtIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
     </div>
 
@@ -349,27 +281,16 @@ DOWNLOADER_HTML = """
             <div class="radio-group">
                 <label class="radio-item">
                     <input type="radio" name="convMode" value="full" onchange="saveSettings()">
-                    <div><strong>Full FFmpeg</strong><div class="radio-desc">Perfectly encodes MP3, injects cover art. (Slow)</div></div>
+                    <div><strong>Full FFmpeg (High Quality)</strong><div class="radio-desc">Perfectly encodes MP3, injects cover art. (Slowest)</div></div>
                 </label>
                 <label class="radio-item">
                     <input type="radio" name="convMode" value="fast" onchange="saveSettings()">
-                    <div><strong>Fast Metadata</strong><div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div></div>
+                    <div><strong>Fast Metadata (Native Audio)</strong><div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div></div>
                 </label>
                 <label class="radio-item" style="border-color:#ff0844; background:#fff0f2;">
                     <input type="radio" name="convMode" value="rename" onchange="saveSettings()">
-                    <div><strong>Rename Only</strong><div class="radio-desc">Raw download, instantly renames to .mp3. (⚡ Instant)</div></div>
+                    <div><strong>Rename Only (Zero Math)</strong><div class="radio-desc">Raw download, instantly renames to .mp3. No cover art. (Ultra Fast ⚡)</div></div>
                 </label>
-            </div>
-
-            <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">Audio Equalizer</h3>
-            <div class="switch-container" style="background:#f8f9fa; border:1px solid #ddd;">
-                <div><label style="font-weight:800; color:#333;">Bass Boost</label></div>
-                <select id="bassSelect" onchange="applyBass()" style="padding:10px; border-radius:8px; border:1px solid #ddd; outline:none; background:white; font-weight:bold; color:#1e3c72;">
-                    <option value="0">Default</option>
-                    <option value="5">Low (+5dB)</option>
-                    <option value="10">High (+10dB)</option>
-                    <option value="15">Very High (+15dB)</option>
-                </select>
             </div>
         </div>
     </div>
@@ -381,57 +302,11 @@ DOWNLOADER_HTML = """
         </div>
     </div>
 
-    <div class="modal-overlay" id="qualityModal">
+    <div class="modal-overlay" id="qualityModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 id="modalTitle" style="color:#1e3c72;">Quality</h3><button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button></div>
             <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;"></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
-        </div>
-    </div>
-
-    <div id="audio-player-bar">
-        <div class="full-only">
-            <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)">🗕</button>
-            <button class="top-ctrl-btn" onclick="stopAudio(event)">✖</button>
-        </div>
-        
-        <img id="ap-cover" src="" onclick="openFullThumb(event)">
-        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)"><span class="marquee-text" id="ap-title">Loading...</span></div>
-        
-        <div class="progress-row">
-            <span id="currTime">0:00</span>
-            <input type="range" id="seekSlider" value="0" min="0" max="100">
-            <span id="durTime">0:00</span>
-        </div>
-
-        <div class="controls">
-            <button class="ctrl-btn" onclick="prevSong(event)">⏮</button>
-            <button class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlay(event)">⏸</button>
-            <button class="ctrl-btn" onclick="nextSong(event)">⏭</button>
-            <button class="mini-close" onclick="stopAudio(event); event.stopPropagation();">✖</button>
-        </div>
-        
-        <div class="volume-row">
-            <span>🔈</span><input type="range" id="volSlider" value="100" min="0" max="300"><span>🔊</span>
-        </div>
-        
-        <audio id="audioEngine" crossorigin="anonymous" autoplay></audio>
-    </div>
-
-    <div id="video-modal">
-        <div class="video-container">
-            <div class="vid-controls">
-                <button class="min-video" onclick="toggleMiniVideo()">🗕</button>
-                <button class="close-video" onclick="closeVideo()">✖</button>
-            </div>
-            <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
-        <div class="modal-box" style="background:transparent; border:none; box-shadow:none; padding:0; display:flex; justify-content:center;" onclick="event.stopPropagation()">
-            <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
-            <img id="fullThumbImg" src="" style="width:100%; height:auto; max-height:85vh; border-radius:16px; object-fit:contain;">
         </div>
     </div>
 
@@ -449,61 +324,23 @@ DOWNLOADER_HTML = """
 
         let clientId = localStorage.getItem('yt_dl_client_id') || (Math.random().toString(36).substring(2) + Date.now().toString(36));
         localStorage.setItem('yt_dl_client_id', clientId);
-
-        // V35 HISTORY & INLINE PLAY ENGINE
-        function saveToHistory(item, mode) {
-            let hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
-            const date = new Date().toLocaleDateString();
-            hist.unshift({ title: item.title, uploader: item.uploader || 'Unknown', duration: item.duration || '--', url: item.url || item.id, date: date, mode: mode });
-            if (hist.length > 50) hist = hist.slice(0, 50);
-            localStorage.setItem('yt_dl_history', JSON.stringify(hist));
-            loadHistory(); // Live update
-        }
-
-        function loadHistory() {
-            const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
-            const container = document.getElementById('history-list');
-            if(hist.length === 0) { container.innerHTML = '<p style="color:#888; text-align:center;">No history yet. Go watch something!</p>'; return; }
-            
-            container.innerHTML = '';
-            hist.forEach(h => {
-                container.innerHTML += `
-                    <div class="history-card">
-                        <div class="history-info" style="flex:1; min-width:0; margin-right:10px;">
-                            <strong style="color:#333; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${h.title}</strong>
-                            <p>👤 ${h.uploader} • ⏱️ ${h.duration} • 📅 ${h.date}</p>
-                        </div>
-                        <button class="history-btn" onclick="playFromHistory('${h.url}', '${h.mode}')">▶ Play</button>
-                    </div>`;
-            });
-        }
-
-        // V35 Plays natively without redirecting
-        function playFromHistory(url, mode) {
-            document.getElementById('historyModal').style.display = 'none';
-            if (mode === 'video') { startVideo(url); } 
-            else { 
-                // Quick build a fake queue for history audio
-                audioQueue = [{title: "History Audio", uploader: "Nexus", url: url, thumbnail: "https://via.placeholder.com/150"}];
-                currentIndex = 0;
-                loadQueueItem();
-            }
-        }
+        let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
+        function markHandled(id) { if (!handledDownloads.includes(id)) { handledDownloads.push(id); localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50))); } }
 
         function loadSettings() {
             let mode = localStorage.getItem('audio_conversion_mode') || 'fast';
             const radios = document.getElementsByName('convMode');
             for(let i=0; i<radios.length; i++) { if(radios[i].value === mode) radios[i].checked = true; }
-            
-            let bass = localStorage.getItem('yt_bass_level') || '0';
-            document.getElementById('bassSelect').value = bass;
         }
         function saveSettings() {
             const radios = document.getElementsByName('convMode');
             for(let i=0; i<radios.length; i++) {
-                if(radios[i].checked) { localStorage.setItem('audio_conversion_mode', radios[i].value); break; }
+                if(radios[i].checked) {
+                    localStorage.setItem('audio_conversion_mode', radios[i].value);
+                    showToast(`Saved: ${radios[i].value.toUpperCase()} Mode`, "success");
+                    break;
+                }
             }
-            showToast(`Settings Saved!`, "success");
         }
         
         let currentMode = 'dashboard';
@@ -514,48 +351,14 @@ DOWNLOADER_HTML = """
         let typingTimer; 
         let isFetchingMore = false; 
         let currentVideoId = "";
-
-        // V35 WEB AUDIO API (OVERDRIVE)
-        let audioCtx, sourceNode, gainNode, bassFilter;
-        let isAudioAPIReady = false;
-
-        function initAudioAPI() {
-            if (isAudioAPIReady) return;
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                sourceNode = audioCtx.createMediaElementSource(document.getElementById('audioEngine'));
-                
-                bassFilter = audioCtx.createBiquadFilter();
-                bassFilter.type = "lowshelf";
-                bassFilter.frequency.value = 150; 
-                bassFilter.gain.value = parseInt(document.getElementById('bassSelect').value);
-                
-                gainNode = audioCtx.createGain();
-                gainNode.gain.value = parseInt(document.getElementById('volSlider').value) / 100;
-                
-                sourceNode.connect(bassFilter);
-                bassFilter.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                isAudioAPIReady = true;
-            } catch(e) { console.warn("Audio API CORS fail. Fallback active."); }
-        }
-
-        function applyBass() {
-            let val = document.getElementById('bassSelect').value;
-            localStorage.setItem('yt_bass_level', val);
-            if(isAudioAPIReady) bassFilter.gain.value = parseInt(val);
-            saveSettings();
-        }
-
-        document.getElementById('volSlider').oninput = (e) => {
-            let val = parseInt(e.target.value) / 100;
-            if(isAudioAPIReady) gainNode.gain.value = val;
-            else document.getElementById('audioEngine').volume = Math.min(val, 1.0); // Safe fallback
-        };
+        
+        let initialLoad = true;
+        let recoveredToDownload = [];
+        let deliveryQueue = [];
+        let isDelivering = false;
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
-            loadHistory();
             const params = new URLSearchParams(window.location.search);
             if (params.get('url')) { switchTab('single'); document.getElementById('url').value = params.get('url'); handleInput(params.get('url'), true); return; }
             switchTab('dashboard');
@@ -568,6 +371,21 @@ DOWNLOADER_HTML = """
                 }
             }
         });
+
+        function processDeliveryQueue() {
+            if(isDelivering || deliveryQueue.length === 0) return;
+            isDelivering = true;
+            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
+        }
+
+        function showRecoveryModal(files) {
+            const list = document.getElementById('recoveryList'); list.innerHTML = '';
+            files.forEach(f => { list.innerHTML += `<div style="padding:10px; background:#f4f7f6; border-radius:8px; border:1px solid #e2e8f0; color:#333;">${f.title}</div>`; recoveredToDownload.push(f); });
+            document.getElementById('recoveryModal').style.display = 'flex';
+        }
+        function downloadRecovered() { document.getElementById('recoveryModal').style.display = 'none'; recoveredToDownload.forEach(f => { deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)); }); processDeliveryQueue(); recoveredToDownload = []; }
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -592,8 +410,8 @@ DOWNLOADER_HTML = """
                 document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block';
                 document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
                 
-                if(window.innerWidth > 600) input.style.paddingRight = mode === 'search' ? '20px' : '90px';
-                else input.style.paddingRight = '20px'; 
+                if(window.innerWidth > 600) { input.style.paddingRight = mode === 'search' ? '20px' : '90px'; } 
+                else { input.style.paddingRight = '20px'; }
                 
                 if(mode === 'search') {
                     document.getElementById('statusBadge').style.display = 'none';
@@ -649,8 +467,21 @@ DOWNLOADER_HTML = """
                 }
                 setStatus("Data Ready.");
                 setTimeout(() => { document.getElementById('statusBadge').style.display = 'none'; }, 2000);
-            } catch(e) { showToast("Error: " + e.message, "error"); setStatus("Error.", true); } 
+            } catch(e) { showToast("Error: " + e.message, "error"); setStatus("Error.", true); }
             finally { hideLoader(); isFetchingMore = false; }
+        }
+
+        // V36 START INLINE VIDEO FUNCTION (No redirect)
+        function startInlineVideo(id) {
+            const modal = document.getElementById('inline-video-modal');
+            modal.style.display = 'flex';
+            document.getElementById('inlineYtIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape"); } catch(e) {}
+        }
+        function closeInlineVideo() {
+            document.getElementById('inline-video-modal').style.display = 'none';
+            document.getElementById('inlineYtIframe').src = "";
+            try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
         }
 
         function renderItems() {
@@ -660,12 +491,12 @@ DOWNLOADER_HTML = """
                 wrapper.innerHTML += `
                     <div class="list-item">
                         <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px; accent-color:#4facfe; flex-shrink:0;">
-                        <img src="${item.thumbnail}" onclick="startVideo('${videoId}')">
+                        <img src="${item.thumbnail}" onclick="startInlineVideo('${videoId}')" style="cursor:pointer;">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
                             <p style="font-size:0.8rem; color:#666;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
                             <div class="btn-scroll-container" style="margin-top:5px;">
-                                <button class="action-btn btn-mp4" style="padding:8px 15px; background:#333;" onclick="startVideo('${videoId}')">▶ PLAY</button>
+                                <button class="action-btn btn-mp4" style="padding:8px 15px; background:#333;" onclick="startInlineVideo('${videoId}')">▶ PLAY</button>
                                 <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp4')">MP4</button>
                                 <button class="action-btn btn-mp3" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp3')">MP3</button>
                             </div>
@@ -692,14 +523,14 @@ DOWNLOADER_HTML = """
                 } else {
                     let actualIndex = index === -1 ? 0 : index;
                     showLoader();
-                    if (!currentData[actualIndex].formats) {
-                        try {
+                    try {
+                        if (!currentData[actualIndex].formats) {
                             const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url || currentData[actualIndex].id, mode: 'single'}) });
                             const data = await res.json();
                             if(data.formats) currentData[actualIndex].formats = data.formats;
-                        } catch(e) {}
-                    }
-                    hideLoader();
+                        }
+                    } catch(e) {} finally { hideLoader(); }
+                    
                     if(currentData[actualIndex].formats) {
                         currentData[actualIndex].formats.forEach(f => { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`; });
                     }
@@ -736,29 +567,21 @@ DOWNLOADER_HTML = """
             else { dispatch(pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index); }
         }
 
-        let deliveryQueue = [];
-        let isDelivering = false;
-        function processDeliveryQueue() {
-            if(isDelivering || deliveryQueue.length === 0) return;
-            isDelivering = true;
-            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
-        }
-
         setInterval(async () => {
             try {
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
                 const tasks = await res.json();
-                let html = ''; let activeCount = 0; let nowSec = Date.now() / 1000;
+                let html = ''; let activeCount = 0; let nowSec = Date.now() / 1000; let newlyRecovered = [];
 
                 for (const [id, t] of Object.entries(tasks)) {
                     activeCount++;
                     let sCol = t.status==='completed' ? '#155724' : (t.status==='error' ? '#721c24' : '#1e3c72');
                     let sBg = t.status==='completed' ? '#d4edda' : (t.status==='error' ? '#f8d7da' : '#e0f2fe');
                     
+                    let isExpired = false;
                     let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#1db954;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
                     if (t.status === 'completed' && t.completed_at && (nowSec - t.completed_at) > 300) { 
+                        isExpired = true;
                         saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#ff0844;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE (EXPIRED)</button>`;
                     }
 
@@ -783,12 +606,18 @@ DOWNLOADER_HTML = """
                     }
 
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
-                        markHandled(id); 
-                        showToast(`Download Complete: ${t.title}`, "success");
-                        deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); 
-                        processDeliveryQueue(); 
+                        if (initialLoad && !isExpired) { newlyRecovered.push({ id, title: t.title, file: t.file }); markHandled(id); } 
+                        else if (!initialLoad && !isExpired) { 
+                            markHandled(id); 
+                            showToast(`Download Complete: ${t.title}`, "success");
+                            deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); 
+                            processDeliveryQueue(); 
+                        } 
+                        else if (isExpired) { markHandled(id); }
                     }
                 }
+                if (initialLoad && newlyRecovered.length > 0) showRecoveryModal(newlyRecovered);
+                initialLoad = false; 
                 
                 const fab = document.getElementById('fabBtn');
                 if (activeCount > 0) { fab.style.display = 'flex'; } else { fab.style.display = 'none'; }
@@ -799,41 +628,13 @@ DOWNLOADER_HTML = """
                 document.getElementById('taskBadge').innerText = activeCount;
             } catch(e) {}
         }, 1000); 
-
-        // ==========================================
-        // V35 VIDEO INLINE PLAYER (PLAYBACK ERROR FIXED)
-        // ==========================================
-        async function startVideo(id) {
-            let itemToSave = currentResults.find(i => (i.id === id || i.url.includes(id))) || {title: "Video Stream", uploader: "Nexus", url: id};
-            saveToHistory(itemToSave, 'video');
-
-            const modal = document.getElementById('video-modal');
-            modal.classList.remove('mini-video');
-            modal.style.display = 'flex';
-            // Removed sandbox logic entirely. Native iframe.
-            document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
-            try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch(e) {}
-        }
-        function toggleMiniVideo() {
-            const modal = document.getElementById('video-modal');
-            modal.classList.toggle('mini-video');
-            try {
-                if (modal.classList.contains('mini-video') && screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-                else if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape");
-            } catch(e) {}
-        }
-        async function closeVideo() {
-            document.getElementById('video-modal').style.display = 'none';
-            document.getElementById('ytIframe').src = "";
-            try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
-        }
     </script>
 </body>
 </html>
 """
 
 # ==============================================================================
-# HTML 2: THE PREMIUM PLAYER (ROUTE: "/player")
+# HTML 2: THE STRICT PREMIUM PLAYER (ROUTE: "/player")
 # ==============================================================================
 PLAYER_HTML = """
 <!DOCTYPE html>
@@ -907,7 +708,7 @@ PLAYER_HTML = """
         .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
         .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
 
-        /* OVERDRIVE AUDIO PLAYER */
+        /* V36 AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 20px 20px 0 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5); border-top: 1px solid #334155;}
@@ -966,21 +767,15 @@ PLAYER_HTML = """
         .dl-mp3-btn:hover:not(:disabled) { background: #4facfe; border-color: #4facfe; transform: translateY(-3px);}
         .dl-mp3-btn:disabled { opacity: 0.8; cursor: not-allowed; }
 
-        /* V35 VIDEO MODAL (NO SANDBOX SHIELD = FIXED PLAYBACK) */
-        #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
-        #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
+        /* V36 VIDEO MODAL */
+        #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 5000; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
         .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
         .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
-        .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 2501; }
-        #video-modal.mini-video .vid-controls { top: -15px; right: -10px; }
-        .close-video, .min-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; transition: 0.2s;}
+        .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 5001; }
+        .close-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.2s; font-size:1.2rem;}
         .close-video:hover { transform: scale(1.1); }
-        .min-video { background: rgba(51, 65, 85, 0.9); }
-        #video-modal.mini-video .min-video { display: flex; }
 
-        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.2s; flex-shrink: 0;}
-        .load-more-btn:hover { background: #ff0844; }
-
+        /* V36 THUMBNAIL LIGHTBOX MODAL + PLAY BUTTON */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 4000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px);}
         .modal-box { background: #1e293b; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; color: white; border: 1px solid #334155; box-shadow: 0 20px 50px rgba(0,0,0,0.8); animation: popIn 0.3s ease-out;}
         .quality-item { background: #0f172a; border: 2px solid #334155; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; margin-bottom: 10px; transition: 0.2s;}
@@ -988,15 +783,12 @@ PLAYER_HTML = """
         .quality-item.best { border-color: #ff0844; background: rgba(255,8,68,0.1); }
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px; z-index:10; transition: 0.2s;}
         .btn-close:hover { transform: rotate(90deg); }
-        input[type="number"] { width: 100%; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; outline: none; font-size: 1.1rem; background: #0f172a; color: white; margin-bottom: 15px; transition: 0.3s;}
-        input[type="number"]:focus { border-color: #ff0844; }
         
-        #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; justify-content: center;}
-        #thumbModal img { width: 100%; height: auto; max-height: 85vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; }
+        #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; justify-content: center; align-items:center;}
+        #thumbModal img { width: 100%; height: auto; max-height: 70vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; margin-bottom:20px;}
 
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
-            #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; } 
             #ap-cover { width: 85%; } 
             .card.audio-mode { flex-direction: column; align-items: center; text-align: center; }
             .card.audio-mode img { width: 100%; max-width: 200px; height: auto; aspect-ratio: 1; margin: 0 auto;}
@@ -1096,7 +888,6 @@ PLAYER_HTML = """
     <div id="video-modal">
         <div class="video-container">
             <div class="vid-controls">
-                <button class="min-video" onclick="toggleMiniVideo()">🗕</button>
                 <button class="close-video" onclick="closeVideo()">✖</button>
             </div>
             <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
@@ -1104,18 +895,10 @@ PLAYER_HTML = """
     </div>
 
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
-        <div class="modal-box" style="background:transparent; border:none; box-shadow:none; padding:0; display:flex; justify-content:center;" onclick="event.stopPropagation()">
+        <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
-            <img id="fullThumbImg" src="" style="width:100%; height:auto; max-height:85vh; border-radius:16px; object-fit:contain;">
-        </div>
-    </div>
-
-    <div class="modal-overlay" id="sleepModal" style="z-index: 5000;">
-        <div class="modal-box" style="text-align: center;">
-            <button class="btn-close" onclick="document.getElementById('sleepModal').style.display='none'">X</button>
-            <h3 style="margin-bottom: 15px; color:white;">Set Sleep Timer</h3>
-            <input type="number" id="sleepInput" placeholder="Minutes..." style="width: 100%; margin-bottom: 15px;">
-            <button class="dl-mp3-btn" style="width: 100%; padding:15px; border-radius:12px; font-weight:bold; font-size:1.1rem; background:#ff0844; border:none;" onclick="setSleepTimer()">START TIMER</button>
+            <img id="fullThumbImg" src="">
+            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844;" onclick="playFromLightbox()">▶ PLAY VIDEO IN LANDSCAPE</button>
         </div>
     </div>
 
@@ -1142,21 +925,13 @@ PLAYER_HTML = """
         let clientId = localStorage.getItem('yt_dl_client_id') || (Math.random().toString(36).substring(2) + Date.now().toString(36));
         localStorage.setItem('yt_dl_client_id', clientId);
 
-        // V35 HISTORY LOGIC
-        function saveToHistory(item, mode='audio') {
-            let hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
-            const date = new Date().toLocaleDateString();
-            hist.unshift({ title: item.title, uploader: item.uploader || 'Unknown', duration: item.duration || '--', url: item.url || item.id, date: date, mode: mode });
-            if (hist.length > 50) hist = hist.slice(0, 50);
-            localStorage.setItem('yt_dl_history', JSON.stringify(hist));
-        }
-
         let currentMode = '';
         let currentResults = [];
         let currentSearchLimit = 10;
         
         let audioQueue = [];
         let currentIndex = -1;
+        let currentPlayingVideoId = ""; // Used for Lightbox Play button
         
         const audioEngine = document.getElementById('audioEngine');
         const playPauseBtn = document.getElementById('playPauseBtn');
@@ -1166,16 +941,10 @@ PLAYER_HTML = """
 
         let loopMode = 0; 
         let currentSpeed = 1.0;
-        let sleepTimer = null;
-        let sleepTimeLeft = 0;
-        let totalSleepTime = 0;
         let currentAudioDlTaskId = null;
         let isFetchingMore = false; 
 
-        let isFadingOut = false;
-        let fadeInterval = null;
-
-        // V35 WEB AUDIO API FOR OVERDRIVE
+        // V36 WEB AUDIO API
         let audioCtx, sourceNode, gainNode, bassFilter;
         let isAudioAPIReady = false;
 
@@ -1197,14 +966,13 @@ PLAYER_HTML = """
                 bassFilter.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 isAudioAPIReady = true;
-            } catch(e) { console.warn("Audio API CORS fail. Fallback applied."); }
+            } catch(e) {}
         }
 
         volSlider.oninput = (e) => { 
             let val = parseInt(e.target.value) / 100;
             if(isAudioAPIReady) gainNode.gain.value = val;
             else audioEngine.volume = Math.min(val, 1.0);
-            clearInterval(fadeInterval); isFadingOut = false;
         };
 
         function toggleMenu() {
@@ -1246,7 +1014,7 @@ PLAYER_HTML = """
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) });
                 const data = await res.json();
                 
-                if(data.error) { isFetchingMore = false; showToast(data.error, "error"); document.getElementById('status').innerText = 'Error searching.'; return; }
+                if(data.error) { showToast(data.error, "error"); document.getElementById('status').innerText = 'Error searching.'; return; }
                 
                 currentResults = data.entries;
                 renderResults();
@@ -1265,7 +1033,7 @@ PLAYER_HTML = """
                     container.innerHTML += `
                         <div class="card audio-mode">
                             <input type="checkbox" class="song-checkbox" value="${index}" style="width:20px;height:20px; accent-color:#ff0844; flex-shrink:0;">
-                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}')" style="cursor:pointer;">
+                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" style="cursor:pointer;">
                             <div class="info">
                                 <h4 title="${item.title}">${item.title}</h4>
                                 <p>👤 ${uploader} | ⏱️ ${item.duration}</p>
@@ -1278,7 +1046,7 @@ PLAYER_HTML = """
                 } else {
                     container.innerHTML += `
                         <div class="card video-mode">
-                            <img src="${item.thumbnail}" onclick="startVideo('${videoId}')" style="cursor:pointer;">
+                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" style="cursor:pointer;">
                             <div class="info">
                                 <h4>${item.title}</h4>
                                 <p>👤 ${uploader} • ⏱️ ${item.duration}</p>
@@ -1300,7 +1068,17 @@ PLAYER_HTML = """
             document.getElementById('fullThumbImg').src = document.getElementById('ap-cover').src;
             document.getElementById('thumbModal').style.display = 'flex';
         }
-        function openFullThumbList(src) { document.getElementById('fullThumbImg').src = src; document.getElementById('thumbModal').style.display = 'flex'; }
+        function openFullThumbList(src, vidId) { 
+            document.getElementById('fullThumbImg').src = src; 
+            currentPlayingVideoId = vidId; // Prepare ID for the Play button
+            document.getElementById('thumbModal').style.display = 'flex'; 
+        }
+
+        // V36: Lightbox Play Button Action
+        function playFromLightbox() {
+            document.getElementById('thumbModal').style.display = 'none';
+            if(currentPlayingVideoId) { startVideo(currentPlayingVideoId); }
+        }
 
         // ==========================================
         // DOWNLOADER
@@ -1357,6 +1135,17 @@ PLAYER_HTML = """
             } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
+        // Auto Download System
+        let deliveryQueue = [];
+        let isDelivering = false;
+        function processDeliveryQueue() {
+            if(isDelivering || deliveryQueue.length === 0) return;
+            isDelivering = true;
+            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
+        }
+
         setInterval(async () => {
             try {
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
@@ -1371,6 +1160,9 @@ PLAYER_HTML = """
                     } else if (t.status === 'completed') {
                         btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
                         showToast(`Finished: ${t.title}`, "success");
+                        // Trigger delivery instantly for Player UI
+                        deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file));
+                        processDeliveryQueue();
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; currentAudioDlTaskId = null; }, 4000);
                     } else if (t.status === 'error') {
                         btn.innerText = '❌ Error'; btn.style.background = '#ff0844';
@@ -1382,26 +1174,14 @@ PLAYER_HTML = """
         }, 1000);
 
         // ==========================================
-        // V35 VIDEO LOGIC (SANDBOX REMOVED FOR PLAYBACK FIX)
+        // V36 VIDEO LOGIC
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
-            let itemToSave = currentResults.find(i => (i.id === id || i.url.includes(id))) || {title: "Video Stream", uploader: "Nexus", url: id};
-            saveToHistory(itemToSave, 'video');
-
             const modal = document.getElementById('video-modal');
-            modal.classList.remove('mini-video');
             modal.style.display = 'flex';
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
             try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch(e) {}
-        }
-        function toggleMiniVideo() {
-            const modal = document.getElementById('video-modal');
-            modal.classList.toggle('mini-video');
-            try {
-                if (modal.classList.contains('mini-video') && screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
-                else if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape");
-            } catch(e) {}
         }
         async function closeVideo() {
             document.getElementById('video-modal').style.display = 'none';
@@ -1410,7 +1190,7 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // V35 AUDIO PLAYER ENGINE & CROSSFADE
+        // V36 AUDIO PLAYER ENGINE
         // ==========================================
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); audioBar.classList.toggle('mini'); }
 
@@ -1422,57 +1202,12 @@ PLAYER_HTML = """
             currentIndex = 0; loadQueueItem();
         }
 
-        function startFadeIn() {
-            initAudioAPI();
-            clearInterval(fadeInterval);
-            isFadingOut = false;
-            
-            let targetVol = parseInt(volSlider.value) / 100;
-            if(isAudioAPIReady) {
-                gainNode.gain.value = 0;
-                let step = targetVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (gainNode.gain.value + step < targetVol) { gainNode.gain.value += step; } 
-                    else { gainNode.gain.value = targetVol; clearInterval(fadeInterval); }
-                }, 100);
-            } else {
-                audioEngine.volume = 0;
-                let step = targetVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
-                    else { audioEngine.volume = targetVol; clearInterval(fadeInterval); }
-                }, 100);
-            }
-        }
-
-        function startFadeOutAndNext() {
-            if (isFadingOut) return;
-            isFadingOut = true;
-            
-            if(isAudioAPIReady) {
-                let startVol = gainNode.gain.value;
-                let step = startVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (gainNode.gain.value > step) { gainNode.gain.value -= step; } 
-                    else { gainNode.gain.value = 0; clearInterval(fadeInterval); nextSong(); }
-                }, 100);
-            } else {
-                let startVol = audioEngine.volume;
-                let step = startVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (audioEngine.volume > step) { audioEngine.volume -= step; } 
-                    else { audioEngine.volume = 0; clearInterval(fadeInterval); nextSong(); }
-                }, 100);
-            }
-        }
-
         async function loadQueueItem() {
             initAudioAPI();
             if(currentIndex < 0 || currentIndex >= audioQueue.length) return stopAudio();
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
-            
-            saveToHistory(item, 'audio'); 
+            currentPlayingVideoId = item.id || item.url.split('v=')[1];
 
             audioBar.classList.add('active'); audioBar.classList.remove('mini');
             document.getElementById('ap-cover').src = item.thumbnail;
@@ -1490,15 +1225,13 @@ PLAYER_HTML = """
             try {
                 const res = await fetch('/api/stream_audio', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: item.url || item.id}) });
                 const data = await res.json();
-                hideLoader();
                 
-                if(data.error) { showToast(data.error, "error"); nextSong(); return; }
+                if(data.error) { throw new Error(data.error); }
                 
                 if(data.stream_url) {
                     audioEngine.src = data.stream_url;
                     audioEngine.playbackRate = currentSpeed;
                     titleEl.innerText = item.title;
-                    startFadeIn(); 
                     
                     setTimeout(() => {
                         const wrapper = document.querySelector('.marquee-wrapper');
@@ -1511,33 +1244,31 @@ PLAYER_HTML = """
                         navigator.mediaSession.setActionHandler('previoustrack', () => prevSong()); navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
                     }
                 }
-            } catch (err) { hideLoader(); showToast("Error loading stream.", "error"); nextSong(); }
+            } catch (err) { showToast("Error loading stream.", "error"); nextSong(); }
+            finally { hideLoader(); }
         }
 
         function togglePlay(e) { if(e) e.stopPropagation(); initAudioAPI(); if(audioEngine.paused) audioEngine.play(); else audioEngine.pause(); }
         function nextSong(e) { 
             if(e) e.stopPropagation(); 
-            clearInterval(fadeInterval); isFadingOut = false; 
-            if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); startFadeIn(); return; }
+            if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); return; }
             if (currentIndex < audioQueue.length - 1) { currentIndex++; loadQueueItem(); }
             else if (loopMode === 1) { currentIndex = 0; loadQueueItem(); }
             else stopAudio();
         }
         function prevSong(e) { 
             if(e) e.stopPropagation();
-            clearInterval(fadeInterval); isFadingOut = false;
-            if(audioEngine.currentTime > 3 || loopMode === 2) { audioEngine.currentTime = 0; startFadeIn(); } 
+            if(audioEngine.currentTime > 3 || loopMode === 2) { audioEngine.currentTime = 0; } 
             else if (currentIndex > 0) { currentIndex--; loadQueueItem(); } 
             else if (loopMode === 1) { currentIndex = audioQueue.length - 1; loadQueueItem(); }
         }
         function stopAudio(e) { 
             if(e) e.stopPropagation();
-            clearInterval(fadeInterval); isFadingOut = false;
             audioEngine.pause(); audioEngine.src = ""; audioBar.classList.remove('active'); 
             document.getElementById('ap-cover').classList.remove('playing-glow');
         }
 
-        audioEngine.onended = () => { if(!isFadingOut) nextSong(); };
+        audioEngine.onended = () => { nextSong(); };
         audioEngine.onplay = () => { playPauseBtn.innerText = '⏸'; document.getElementById('ap-cover').classList.add('playing-glow'); };
         audioEngine.onpause = () => { playPauseBtn.innerText = '▶'; document.getElementById('ap-cover').classList.remove('playing-glow'); };
 
@@ -1554,11 +1285,6 @@ PLAYER_HTML = """
             seekSlider.style.background = `linear-gradient(to right, #ff0844 ${val}%, #334155 ${val}%)`;
             document.getElementById('currTime').innerText = formatTimeDetailed(audioEngine.currentTime);
             document.getElementById('durTime').innerText = formatTimeDetailed(audioEngine.duration);
-            
-            let timeLeft = audioEngine.duration - audioEngine.currentTime;
-            if (timeLeft <= 3.0 && timeLeft > 0 && !isFadingOut && loopMode !== 2 && (currentIndex < audioQueue.length - 1 || loopMode === 1)) {
-                startFadeOutAndNext();
-            }
         };
         seekSlider.oninput = (e) => { 
             let val = e.target.value; audioEngine.currentTime = (val / 100) * audioEngine.duration; 
@@ -1577,43 +1303,6 @@ PLAYER_HTML = """
             if (loopMode === 0) { btn.innerText = '🔁'; btn.classList.remove('active'); showToast("Loop Off", "info"); }
             if (loopMode === 1) { btn.innerText = '🔁'; btn.classList.add('active'); showToast("Looping Queue", "info");} 
             if (loopMode === 2) { btn.innerText = '🔂'; btn.classList.add('active'); showToast("Looping Current Song", "info");} 
-        }
-
-        function openSleepModal() {
-            const btn = document.getElementById('sleepBtn');
-            if(sleepTimer) {
-                clearInterval(sleepTimer); sleepTimer = null;
-                btn.classList.remove('active'); 
-                document.getElementById('sleepRing').style.background = 'transparent';
-                showToast("Sleep timer cancelled", "info");
-                return;
-            }
-            document.getElementById('sleepModal').style.display = 'flex';
-        }
-
-        function setSleepTimer() {
-            const mins = parseInt(document.getElementById('sleepInput').value);
-            if(isNaN(mins) || mins <= 0) return showToast("Enter a valid time", "error");
-            
-            document.getElementById('sleepModal').style.display = 'none';
-            totalSleepTime = mins * 60; sleepTimeLeft = totalSleepTime;
-            document.getElementById('sleepBtn').classList.add('active');
-            showToast(`Media will pause in ${mins} minutes`, "success");
-            
-            sleepTimer = setInterval(() => {
-                sleepTimeLeft--;
-                let pct = (sleepTimeLeft / totalSleepTime) * 100;
-                document.getElementById('sleepRing').style.background = `conic-gradient(#ff0844 ${pct}%, transparent ${pct}%)`;
-                
-                if(sleepTimeLeft <= 0) {
-                    clearInterval(sleepTimer); sleepTimer = null;
-                    document.getElementById('sleepBtn').classList.remove('active');
-                    document.getElementById('sleepRing').style.background = 'transparent';
-                    
-                    audioEngine.pause();
-                    showToast("Sleep Timer finished. Playback paused.", "info");
-                }
-            }, 1000);
         }
 
         function shareSong() {
@@ -1772,5 +1461,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V35 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V36 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
