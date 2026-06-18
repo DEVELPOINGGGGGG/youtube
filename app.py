@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V30 - FATAL CRASH FIX & ROUTE SEPARATION)
+# YOUTUBE DOWNLOADER (V30 - GOD TIER PLATINUM BUILD)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -65,83 +65,121 @@ def get_progress_hook(task_id):
         except: pass
     return progress_hook
 
-
 # ==============================================================================
-# HTML 1: THE STRICT DOWNLOADER (ROUTE: "/")
+# FRONTEND: MAIN DASHBOARD & PREMIUM PLAYER
 # ==============================================================================
-DOWNLOADER_HTML = """
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YT Downloader</title>
+    <title>YouTube Downloader</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3); background-size: 400% 400%; animation: gradientBG 15s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; }
+        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3, #4facfe, #00f2fe); background-size: 600% 600%; animation: gradientBG 20s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; }
         .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; }
-        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; }
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        
+        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; }
+        .hamburger-btn:hover { transform: scale(1.1); }
+        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
+        .settings-btn:hover { background: #cbd5e0; transform: rotate(45deg); }
+        
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; }
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #f4f7f6; }
+        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
+        .side-nav a:hover { background: #e0f2fe; color: #1e3c72; transform: translateX(10px); }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
+        /* TOAST NOTIFICATIONS */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
+        .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #4facfe; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .toast.success { border-left-color: #1db954; }
+        .toast.error { border-left-color: #ff0844; background: rgba(30, 0, 0, 0.95);}
+        @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
+
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
-        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; }
-        .tab-btn.active { background: #4facfe; color: white; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
         
-        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .btn-dash-player { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); }
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .choice-btn:hover { transform: scale(1.03); }
+        .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
         .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .btn-dash-search { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
 
         .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
         input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
-        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; }
-        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; }
+        input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79, 172, 254, 0.4); background: white; }
+        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; }
+        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; transition: transform 0.2s; background: #333; }
+        .action-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
         .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         
-        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
+        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; transition: 0.3s; }
         
         #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
-        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden;}
-        .list-item img { width: 150px; border-radius: 8px; }
-        .item-info { flex: 1; min-width: 0; }
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
-        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
         
-        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;}
+        .dash-task-header { margin-top: 20px; font-weight: 800; color: #1e3c72; border-bottom: 2px solid #eee; padding-bottom: 10px;}
+        #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
+
+        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent; overflow:hidden;}
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
+        .list-item img:hover { filter: brightness(0.7); transform: scale(1.05); }
+        .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom:3px;}
+        .scrolling-title::-webkit-scrollbar { display: none; }
+        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center;}
+        
+        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #eee;}
         .progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
-        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); }
+        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
         
-        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; }
-        .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; }
+        .image-wrapper { border-radius: 16px; overflow: hidden; margin-bottom: 20px; position: relative; cursor: pointer; }
+        .image-wrapper::after { content: "▶ PLAY"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 25px; border-radius: 30px; font-weight: 800; font-size: 1.2rem; opacity: 0; transition: 0.3s; }
+        .image-wrapper:hover::after { opacity: 1; }
+        .image-wrapper img { width: 100%; display: block; }
+        
+        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 25px rgba(17, 153, 142, 0.5); cursor: pointer; z-index: 1000; align-items: center; gap: 10px; }
+        .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 3000; justify-content: center; align-items: center; padding: 20px; }
         .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; }
-        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px;}
         
         .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2; }
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
-        .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
+        .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; font-size: 0.95rem; border-bottom: 1px solid #eee; padding-bottom: 10px;}
         .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd;}
 
-        @media (max-width: 600px) { .list-item { flex-direction: column; align-items: stretch; } .list-item img { width: 100%; } .input-group { flex-direction: column; } }
+        @media (max-width: 600px) { 
+            .list-item { flex-direction: column; align-items: stretch; } 
+            .list-item img { width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover;} 
+            .input-group { flex-direction: column; }
+            .side-nav { width: 250px; }
+        }
     </style>
 </head>
 <body>
+    <div id="toast-container"></div>
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
@@ -170,9 +208,11 @@ DOWNLOADER_HTML = """
         <div id="dashboard-ui">
             <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
             <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ OPEN PREMIUM PLAYER</button>
-            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download Video</button>
+            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
             <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download Playlist</button>
             <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Download</button>
+            <div class="dash-task-header">ACTIVE DOWNLOADS</div>
+            <div id="dashboardTasksWrapper"><p style="color:#888; font-size:0.9rem;">No active downloads.</p></div>
         </div>
 
         <div class="input-group" id="inputWrapper">
@@ -180,11 +220,10 @@ DOWNLOADER_HTML = """
             <button class="paste-btn" id="pasteBtn" onclick="pasteLink()">PASTE</button>
             <button class="action-btn" id="goBtn" style="display:none; padding:15px 30px;" onclick="handleInput(null, true)">GO</button>
         </div>
-        
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
         <div id="single-ui">
-            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px;">
+            <div class="image-wrapper" onclick="window.location.href='/player'"><img id="s-thumb" src=""></div>
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -205,7 +244,7 @@ DOWNLOADER_HTML = """
                 </div>
             </div>
             <div id="items-wrapper" style="display:flex; flex-direction:column; gap:12px;"></div>
-            <button class="action-btn" id="loadMoreBtn" style="display:none; width:100%;" onclick="loadMore()">🔄 LOAD MORE</button>
+            <button class="action-btn" id="loadMoreBtn" style="display:none; width:100%; margin-top:15px;" onclick="loadMore()">🔄 LOAD MORE</button>
         </div>
     </div>
 
@@ -213,10 +252,8 @@ DOWNLOADER_HTML = """
 
     <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h2 style="font-size:1.5rem; color:#d32f2f;">⚠️ Unsaved Downloads</h2>
-                <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
-            </div>
+            <h2 style="font-size:1.5rem; color:#d32f2f; margin-bottom:15px;">⚠️ Unsaved Downloads</h2>
+            <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
             <p style="margin-bottom:15px; font-size:0.9rem; color:#555;">These videos finished processing while the app was closed.</p>
             <div id="recoveryList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; max-height:200px; overflow-y:auto;"></div>
             <button class="action-btn btn-mp4" style="width:100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
@@ -225,10 +262,8 @@ DOWNLOADER_HTML = """
 
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
-                <h2>Settings</h2>
-                <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
-            </div>
+            <h2 style="font-size:1.5rem; margin-bottom:25px;">App Settings</h2>
+            <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
             <div class="switch-container">
                 <div><label style="font-weight:800; color:#1e3c72;">Strict Audio Conversion</label><p style="font-size:0.75rem; color:#666;">ON: Perfect MP3.<br>OFF: Instant metadata injection.</p></div>
                 <input type="checkbox" id="audioConvToggle" onchange="saveSettings()">
@@ -238,45 +273,74 @@ DOWNLOADER_HTML = """
 
     <div class="modal-overlay" id="taskModal" style="z-index: 2500;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
-                <h2>Background Tasks</h2>
-                <button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button>
-            </div>
+            <h2 style="font-size:1.5rem; margin-bottom:25px;">Background Tasks</h2>
+            <button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button>
             <div id="tasksWrapper"><p style="text-align:center; color:#888;">No active downloads.</p></div>
         </div>
     </div>
 
-    <div class="modal-overlay" id="qualityModal">
+    <div class="modal-overlay" id="qualityModal" style="z-index: 3000;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 id="modalTitle">Select Quality</h3><button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button></div>
+            <h3 id="modalTitle" style="margin-bottom:15px;">Select Quality</h3>
+            <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
             <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs"></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
     </div>
 
     <script>
+        function showToast(msg, type='info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`; toast.innerText = msg;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.animation = 'slideOut 0.4s forwards'; setTimeout(() => toast.remove(), 400); }, 3000);
+        }
+
         let clientId = localStorage.getItem('yt_dl_client_id') || (Math.random().toString(36).substring(2) + Date.now().toString(36));
         localStorage.setItem('yt_dl_client_id', clientId);
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
         function markHandled(id) { if (!handledDownloads.includes(id)) { handledDownloads.push(id); localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50))); } }
 
         function loadSettings() { document.getElementById('audioConvToggle').checked = (localStorage.getItem('audio_conversion_enabled') ?? 'true') === 'true'; }
-        function saveSettings() { localStorage.setItem('audio_conversion_enabled', document.getElementById('audioConvToggle').checked); }
-        
+        function saveSettings() { localStorage.setItem('audio_conversion_enabled', document.getElementById('audioConvToggle').checked); showToast("Settings Saved", "success"); }
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+
         let currentMode = 'dashboard';
         let currentData = []; 
         let currentSearchLimit = 10;
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
         let typingTimer; 
+        let isFetchingMore = false; // V30 Infinite scroll lock
+        
         let initialLoad = true;
         let recoveredToDownload = [];
         let deliveryQueue = [];
         let isDelivering = false;
+        let notifiedSet = new Set(); // V30 strict duplicate prevention
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
+            const params = new URLSearchParams(window.location.search);
+            const sharedData = params.get('url') || params.get('text') || params.get('title');
+            if (sharedData) {
+                const urlMatch = sharedData.match(/(https?:\/\/[^\s]+)/);
+                if (urlMatch) { switchTab('single'); document.getElementById('url').value = urlMatch[0]; handleInput(urlMatch[0], true); return; }
+            }
             switchTab('dashboard');
+        });
+
+        // V30: INFINITE SCROLL
+        window.addEventListener('scroll', () => {
+            if(currentMode === 'search' && document.getElementById('loadMoreBtn').style.display === 'block') {
+                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+                    if(!isFetchingMore) {
+                        isFetchingMore = true;
+                        loadMore();
+                    }
+                }
+            }
         });
 
         function processDeliveryQueue() {
@@ -289,15 +353,10 @@ DOWNLOADER_HTML = """
 
         function showRecoveryModal(files) {
             const list = document.getElementById('recoveryList'); list.innerHTML = '';
-            files.forEach(f => { list.innerHTML += `<div style="padding:10px; background:#e0f2fe; border-radius:8px; font-weight:bold; font-size:0.85rem;">${f.title}</div>`; recoveredToDownload.push(f); });
+            files.forEach(f => { list.innerHTML += `<div style="padding:10px; background:#e0f2fe; border-radius:8px;">${f.title}</div>`; recoveredToDownload.push(f); });
             document.getElementById('recoveryModal').style.display = 'flex';
         }
-
-        function downloadRecovered() {
-            document.getElementById('recoveryModal').style.display = 'none';
-            recoveredToDownload.forEach(f => deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)));
-            processDeliveryQueue(); recoveredToDownload = []; 
-        }
+        function downloadRecovered() { document.getElementById('recoveryModal').style.display = 'none'; recoveredToDownload.forEach(f => { deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)); }); processDeliveryQueue(); recoveredToDownload = []; }
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -306,10 +365,10 @@ DOWNLOADER_HTML = """
         }
 
         function switchTab(mode) {
+            if (currentMode !== mode && mode !== 'dashboard') showToast(`Switched to ${mode.toUpperCase()} mode`);
             currentMode = mode;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             if(document.getElementById(`tab-${mode}`)) document.getElementById(`tab-${mode}`).classList.add('active');
-            
             ['dashboard-ui', 'inputWrapper', 'statusBadge', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
             
             if(mode === 'dashboard') {
@@ -344,23 +403,24 @@ DOWNLOADER_HTML = """
 
         async function handleInput(forcedValue = null, isNewSearch = true) {
             let val = forcedValue || document.getElementById('url').value.trim();
-            if(!val) return;
+            if(!val) { isFetchingMore = false; return; }
             setStatus("Extracting Data...");
-            
             if(isNewSearch) {
                 currentSearchLimit = 10;
                 document.getElementById('single-ui').style.display = 'none';
                 document.getElementById('list-container').style.display = 'none';
                 document.getElementById('loadMoreBtn').style.display = 'none';
             }
-
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: val, mode: currentMode, limit: currentSearchLimit}) });
                 const data = await res.json();
-                if(data.error) return setStatus("Error: " + data.error, true);
+                
+                // V30: Display FULL error message
+                if(data.error) { isFetchingMore = false; showToast(data.error, "error"); return setStatus("Error. See notification.", true); }
 
                 if(currentMode === 'single') {
                     currentData = [data];
+                    currentVideoId = data.id || val.split('v=')[1];
                     document.getElementById('s-thumb').src = data.thumbnail;
                     document.getElementById('s-title').innerText = data.title;
                     document.getElementById('s-btns').style.display = 'flex';
@@ -372,12 +432,14 @@ DOWNLOADER_HTML = """
                     if (currentMode === 'search') document.getElementById('loadMoreBtn').style.display = 'block';
                 }
                 setStatus("Data Ready.");
-            } catch(e) { setStatus("Error.", true); }
+            } catch(e) { showToast("Network Error: " + e.message, "error"); setStatus("Error.", true); }
+            isFetchingMore = false; // Reset infinite scroll lock
         }
 
         function renderItems() {
             const wrapper = document.getElementById('items-wrapper'); wrapper.innerHTML = '';
             currentData.forEach((item, i) => {
+                const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
                 wrapper.innerHTML += `
                     <div class="list-item">
                         <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px;">
@@ -406,6 +468,7 @@ DOWNLOADER_HTML = """
             if (type === 'mp4') {
                 document.getElementById('modalTitle').innerText = "MP4 Quality";
                 document.getElementById('subToggle').style.display = 'flex'; 
+                document.getElementById('id3Notice').style.display = 'none'; 
                 list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('best')"><span>⭐ AUTO BEST</span></div>`;
                 if (isBulk) {
                     list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`;
@@ -425,6 +488,7 @@ DOWNLOADER_HTML = """
             } else {
                 document.getElementById('modalTitle').innerText = "MP3 Quality";
                 document.getElementById('subToggle').style.display = 'none'; 
+                document.getElementById('id3Notice').style.display = 'flex'; 
                 list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
             }
             document.getElementById('qualityModal').style.display = 'flex';
@@ -434,6 +498,7 @@ DOWNLOADER_HTML = """
 
         async function startBackgroundDownload(quality) {
             document.getElementById('qualityModal').style.display = 'none';
+            showToast("Download Started!", "info");
             const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
             const useAudioConv = document.getElementById('audioConvToggle').checked;
 
@@ -451,7 +516,6 @@ DOWNLOADER_HTML = """
 
             if (pendingDownloadTarget.isBulk) { document.querySelectorAll('.pl-checkbox:checked').forEach(cb => dispatch(parseInt(cb.value))); } 
             else { dispatch(pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index); }
-            document.getElementById('taskModal').style.display = 'flex'; 
         }
 
         setInterval(async () => {
@@ -474,6 +538,7 @@ DOWNLOADER_HTML = """
 
                     html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol}44;"><div class="task-header" style="color: ${sCol};"><span>${t.type.toUpperCase()}: ${t.title}</span><span>${t.status.toUpperCase()}</span></div>
                             ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats"><span>${t.percent}%</span></div>` : ''}
+                            ${t.status === 'error' ? `<div style="font-size:0.85rem; color:red;">${t.error_msg}</div>` : ''}
                             ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
 
                     const mapData = taskDOMMap[id];
@@ -492,17 +557,33 @@ DOWNLOADER_HTML = """
                     }
 
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
-                        if (initialLoad && !isExpired) { newlyRecovered.push({ id, title: t.title, file: t.file }); markHandled(id); } 
-                        else if (!initialLoad && !isExpired) { markHandled(id); deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); processDeliveryQueue(); } 
-                        else if (isExpired) { markHandled(id); }
+                        if (initialLoad && !isExpired) { 
+                            newlyRecovered.push({ id, title: t.title, file: t.file }); 
+                            markHandled(id); 
+                        } else if (!initialLoad && !isExpired) { 
+                            markHandled(id); 
+                            // V30 Strict notification duplicate prevention
+                            if(!notifiedSet.has(id)) {
+                                notifiedSet.add(id);
+                                showToast(`Finished: ${t.title}`, "success");
+                            }
+                            deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); 
+                            processDeliveryQueue(); 
+                        } else if (isExpired) { 
+                            markHandled(id); 
+                        }
                     }
                 }
+                
                 if (initialLoad && newlyRecovered.length > 0) showRecoveryModal(newlyRecovered);
                 initialLoad = false; 
                 
                 const fab = document.getElementById('fabBtn');
                 if (activeCount > 0) { fab.style.display = 'flex'; } else { fab.style.display = 'none'; }
-                document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
+                
+                const finalHtml = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
+                document.getElementById('tasksWrapper').innerHTML = finalHtml;
+                document.getElementById('dashboardTasksWrapper').innerHTML = finalHtml;
                 document.getElementById('taskBadge').innerText = activeCount;
             } catch(e) {}
         }, 1000); 
@@ -529,13 +610,15 @@ PLAYER_HTML = """
         .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #1e293b; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #334155; }
+        .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #334155; display: flex; align-items: center; justify-content: space-between;}
+        .side-nav a:hover { background: #4facfe; transform: translateX(10px); }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
 
+        /* V30 TOASTS */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
         .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #4facfe; animation: slideIn 0.4s forwards; }
         .toast.success { border-left-color: #1db954; }
-        .toast.error { border-left-color: #ff0844; }
+        .toast.error { border-left-color: #ff0844; background: rgba(30, 0, 0, 0.95);}
         @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
@@ -559,7 +642,7 @@ PLAYER_HTML = """
         .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; }
         .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
         .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; overflow:hidden;}
-        .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
+        .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor:pointer;}
         .card.video-mode .info { padding: 15px; }
         
         .info { flex: 1; min-width: 0; }
@@ -584,16 +667,18 @@ PLAYER_HTML = """
         .mini-close { display: none; }
         .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto;}
 
-        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: 0.3s; }
+        /* V30 THUMBNAIL CLICK -> MODAL */
+        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: 0.3s; cursor: pointer;}
         .playing-glow { animation: pulseGlow 2s infinite alternate; }
         @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #1db954; } 100% { box-shadow: 0 0 50px #4facfe, 0 0 80px #1db954; } }
         .mini #ap-cover { width: 60px; height: 60px; margin: 0; animation: none; border-radius:8px; box-shadow:none;}
         
-        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white;}
+        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white; cursor:pointer;}
         .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
         .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; }
         .mini .marquee-text { font-size: 1rem; }
         .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
         
         #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; }
         .mini #ap-artist { display: none; }
@@ -621,18 +706,16 @@ PLAYER_HTML = """
         .bottom-action-row { display: flex; align-items: center; justify-content: center; gap: 15px; width: 100%; margin-top: auto; padding-bottom: 20px;}
         .mini .bottom-action-row { display: none; }
         
-        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: none; display:flex; align-items:center; gap:5px;}
+        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
         .open-yt-btn { color: #1db954; border: 2px solid #1db954; background: transparent; }
-        .dl-mp3-btn { color: white; background: #4facfe; border: 2px solid #4facfe; }
+        .dl-mp3-btn { color: white; background: #4facfe; border: 2px solid #4facfe; transition: 0.2s;}
         .dl-mp3-btn:disabled { background: #334155; border-color: #334155; cursor: not-allowed;}
 
-        /* VIDEO PIP & SANDBOX */
+        /* V30 VIDEO PIP & SANDBOX */
         #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
         #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
-        
         .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
         .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
-        
         .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 2501; }
         #video-modal.mini-video .vid-controls { top: -15px; right: -10px; }
         .close-video, .min-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;}
@@ -641,12 +724,12 @@ PLAYER_HTML = """
 
         .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; }
 
-        /* QUALITY MODAL WITHIN PLAYER */
+        /* MODALS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 4000; justify-content: center; align-items: center; padding: 20px; }
         .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; color: #333; }
         .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; margin-bottom: 10px; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2; }
-        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px;}
+        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px; z-index:10;}
         input[type="number"] { width: 100%; padding: 15px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; margin-bottom: 15px;}
 
         @media (max-width: 600px) { .side-nav { width: 250px; } #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; } #ap-cover { width: 85%; } }
@@ -695,7 +778,7 @@ PLAYER_HTML = """
             <button class="top-ctrl-btn" onclick="stopAudio(event)" title="Close">✖</button>
         </div>
         
-        <img id="ap-cover" src="" onclick="toggleMiniPlayer(event)">
+        <img id="ap-cover" src="" onclick="openFullThumb(event)">
         
         <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
             <span class="marquee-text" id="ap-title">Loading...</span>
@@ -703,13 +786,13 @@ PLAYER_HTML = """
         <div id="ap-artist">Nexus Audio</div>
         
         <div class="advanced-controls">
-            <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()" title="Playback Speed">1x</button>
-            <button class="adv-btn" id="loopBtn" onclick="toggleLoop()" title="Repeat Mode">🔁</button>
+            <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()">1x</button>
+            <button class="adv-btn" id="loopBtn" onclick="toggleLoop()">🔁</button>
             <div class="sleep-wrapper">
                 <div class="sleep-ring" id="sleepRing"></div>
                 <button class="adv-btn" id="sleepBtn" onclick="openSleepModal()">🌙</button>
             </div>
-            <button class="adv-btn" onclick="shareSong()" title="Share">📤</button>
+            <button class="adv-btn" onclick="shareSong()">📤</button>
         </div>
 
         <div class="progress-row">
@@ -743,6 +826,13 @@ PLAYER_HTML = """
                 <button class="close-video" onclick="closeVideo()">✖</button>
             </div>
             <iframe id="ytIframe" src="" sandbox="allow-scripts allow-same-origin allow-presentation" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
+        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+            <button class="btn-close" style="position:absolute; top:-15px; right:-15px; z-index: 6001;">X</button>
+            <img id="fullThumbImg" src="" style="width:100%; height:auto; max-height:85vh; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.8); object-fit:contain;">
         </div>
     </div>
 
@@ -794,6 +884,11 @@ PLAYER_HTML = """
         let sleepTimeLeft = 0;
         let totalSleepTime = 0;
         let currentAudioDlTaskId = null;
+        let isFetchingMore = false; // V30 Infinite Scroll Lock
+
+        // V30: CROSSFADE VARIABLES
+        let isFadingOut = false;
+        let fadeInterval = null;
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -809,7 +904,20 @@ PLAYER_HTML = """
             document.getElementById('searchInput').focus();
             document.getElementById('results').innerHTML = '';
             document.getElementById('status').innerText = mode === 'audio' ? 'Search for songs...' : 'Search for a video...';
+            showToast(`Switched to ${mode.toUpperCase()} mode`);
         }
+
+        // V30: Infinite Scroll Event Listener
+        window.addEventListener('scroll', () => {
+            if(currentMode === 'search' && document.getElementById('loadMoreBtn').style.display === 'block') {
+                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+                    if(!isFetchingMore) {
+                        isFetchingMore = true;
+                        loadMore();
+                    }
+                }
+            }
+        });
 
         function loadMore() { currentSearchLimit += 20; search(false); }
 
@@ -823,13 +931,15 @@ PLAYER_HTML = """
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) });
                 const data = await res.json();
-                if(data.error) throw new Error(data.error);
+                
+                if(data.error) { isFetchingMore = false; showToast(data.error, "error"); return document.getElementById('status').innerText = 'Error searching.'; }
                 
                 currentResults = data.entries;
                 renderResults();
                 document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
                 document.getElementById('loadMoreBtn').style.display = 'block';
-            } catch (err) { document.getElementById('status').innerText = 'Error searching.'; }
+            } catch (err) { showToast(err.message, "error"); document.getElementById('status').innerText = 'Network Error.'; }
+            isFetchingMore = false; 
         }
 
         function renderResults() {
@@ -840,7 +950,7 @@ PLAYER_HTML = """
                     container.innerHTML += `
                         <div class="card audio-mode">
                             <input type="checkbox" class="song-checkbox" value="${index}" style="width:20px;height:20px;">
-                            <img src="${item.thumbnail}">
+                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}')" style="cursor:pointer;">
                             <div class="info">
                                 <h4 title="${item.title}">${item.title}</h4>
                                 <p>👤 ${uploader} | ⏱️ ${item.duration}</p>
@@ -853,7 +963,7 @@ PLAYER_HTML = """
                 } else {
                     container.innerHTML += `
                         <div class="card video-mode">
-                            <img src="${item.thumbnail}">
+                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}')" style="cursor:pointer;">
                             <div class="info">
                                 <h4>${item.title}</h4>
                                 <p>👤 ${uploader} • ⏱️ ${item.duration}</p>
@@ -869,13 +979,26 @@ PLAYER_HTML = """
 
         function toggleAll() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.song-checkbox').forEach(cb => cb.checked = c); }
 
+        function openFullThumb(e) {
+            if(e) e.stopPropagation();
+            if(audioBar.classList.contains('mini')) { toggleMiniPlayer(); return; }
+            document.getElementById('fullThumbImg').src = document.getElementById('ap-cover').src;
+            document.getElementById('thumbModal').style.display = 'flex';
+        }
+        
+        function openFullThumbList(src) {
+            document.getElementById('fullThumbImg').src = src;
+            document.getElementById('thumbModal').style.display = 'flex';
+        }
+
+        // ==========================================
+        // V30 DOWNLOADER
+        // ==========================================
         let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
         
         function triggerDownload(index, type) {
             const item = currentResults[index];
-            pendingDlUrl = item.url || item.id;
-            pendingDlTitle = item.title;
-            pendingDlType = type;
+            pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = type;
             const list = document.getElementById('qualityList'); list.innerHTML = '';
             document.getElementById('modalTitle').innerText = type === 'mp4' ? "Select MP4 Quality" : "Select MP3 Quality";
             
@@ -896,9 +1019,7 @@ PLAYER_HTML = """
             
             if(currentIndex >= 0 && currentIndex < audioQueue.length) {
                 const item = audioQueue[currentIndex];
-                pendingDlUrl = item.url || item.id;
-                pendingDlTitle = item.title;
-                pendingDlType = 'mp3';
+                pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = 'mp3';
                 const list = document.getElementById('qualityList'); list.innerHTML = '';
                 document.getElementById('modalTitle').innerText = "Select MP3 Quality";
                 list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320', true)"><span>⭐ 320 kbps</span></div>`;
@@ -909,8 +1030,7 @@ PLAYER_HTML = """
 
         async function fireBgTask(quality, isFromPlayer = false) {
             document.getElementById('qualityModal').style.display = 'none';
-            showToast("Download Started!", "info");
-            
+            showToast("Download Sent to Server!", "info");
             let useAudioConv = localStorage.getItem('audio_conversion_enabled') ?? 'true';
             useAudioConv = (useAudioConv === 'true');
 
@@ -923,10 +1043,9 @@ PLAYER_HTML = """
                 if (isFromPlayer && data.task_id) {
                     currentAudioDlTaskId = data.task_id;
                     const btn = document.getElementById('mainPlayerDlBtn');
-                    btn.disabled = true;
-                    btn.innerText = "⏳ Starting...";
+                    btn.disabled = true; btn.innerText = "⏳ Starting...";
                 }
-            } catch(e) {}
+            } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
         setInterval(async () => {
@@ -941,24 +1060,28 @@ PLAYER_HTML = """
                         btn.innerText = t.status === 'processing' ? '⏳ Merging...' : `⏳ ${t.percent}%`;
                         btn.style.background = `linear-gradient(90deg, #1db954 ${t.percent}%, #334155 ${t.percent}%)`;
                     } else if (t.status === 'completed') {
-                        btn.innerText = '✅ SAVED';
-                        btn.style.background = '#1db954';
+                        btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
                         showToast(`Finished: ${t.title}`, "success");
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; currentAudioDlTaskId = null; }, 4000);
                     } else if (t.status === 'error') {
                         btn.innerText = '❌ Error'; btn.style.background = '#ff0844';
+                        showToast(t.error_msg, "error");
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; currentAudioDlTaskId = null; }, 3000);
                     }
                 }
             } catch(e) {}
         }, 1000);
 
+        // ==========================================
+        // V30 VIDEO LOGIC (PAUSE API INJECTED)
+        // ==========================================
         async function startVideo(id) {
             stopAudio(); 
             const modal = document.getElementById('video-modal');
             modal.classList.remove('mini-video');
             modal.style.display = 'flex';
-            document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+            // enablejsapi=1 allows us to pause it from the sleep timer
+            document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1`;
             try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch(e) {}
         }
         function toggleMiniVideo() {
@@ -975,20 +1098,40 @@ PLAYER_HTML = """
             try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
         }
 
+        // ==========================================
+        // V30 AUDIO PLAYER ENGINE WITH CROSSFADE
+        // ==========================================
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); audioBar.classList.toggle('mini'); }
 
-        function playSingleAudio(index) {
-            audioQueue = currentResults; 
-            currentIndex = index;
-            loadQueueItem();
-        }
-
+        function playSingleAudio(index) { audioQueue = currentResults; currentIndex = index; loadQueueItem(); }
         function playSelected() {
             const checked = document.querySelectorAll('.song-checkbox:checked');
             if(checked.length === 0) return alert("Select songs first!");
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
-            currentIndex = 0;
-            loadQueueItem();
+            currentIndex = 0; loadQueueItem();
+        }
+
+        function startFadeIn() {
+            clearInterval(fadeInterval);
+            isFadingOut = false;
+            audioEngine.volume = 0;
+            let targetVol = document.getElementById('volSlider').value / 100;
+            let step = targetVol / 30; // 3 seconds
+            fadeInterval = setInterval(() => {
+                if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
+                else { audioEngine.volume = targetVol; clearInterval(fadeInterval); }
+            }, 100);
+        }
+
+        function startFadeOutAndNext() {
+            if (isFadingOut) return;
+            isFadingOut = true;
+            let startVol = audioEngine.volume;
+            let step = startVol / 30; // 3 seconds
+            fadeInterval = setInterval(() => {
+                if (audioEngine.volume > step) { audioEngine.volume -= step; } 
+                else { audioEngine.volume = 0; clearInterval(fadeInterval); nextSong(); }
+            }, 100);
         }
 
         async function loadQueueItem() {
@@ -996,29 +1139,29 @@ PLAYER_HTML = """
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
             
-            audioBar.classList.add('active');
-            audioBar.classList.remove('mini');
+            audioBar.classList.add('active'); audioBar.classList.remove('mini');
             document.getElementById('ap-cover').src = item.thumbnail;
             document.getElementById('ap-artist').innerText = item.uploader || "Nexus Audio";
             document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
-            titleEl.innerText = "Loading stream... ";
-            titleEl.classList.remove('scroll');
+            titleEl.innerText = "Loading stream... "; titleEl.classList.remove('scroll');
             seekSlider.value = 0; seekSlider.style.background = `#334155`;
             
             currentAudioDlTaskId = null;
             document.getElementById('mainPlayerDlBtn').innerText = '📥 Download MP3';
-            document.getElementById('mainPlayerDlBtn').style.background = '';
-            document.getElementById('mainPlayerDlBtn').disabled = false;
+            document.getElementById('mainPlayerDlBtn').style.background = ''; document.getElementById('mainPlayerDlBtn').disabled = false;
             
             try {
                 const res = await fetch('/api/stream_audio', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: item.url || item.id}) });
                 const data = await res.json();
                 
+                if(data.error) { showToast(data.error, "error"); nextSong(); return; }
+                
                 if(data.stream_url) {
                     audioEngine.src = data.stream_url;
                     audioEngine.playbackRate = currentSpeed;
                     titleEl.innerText = item.title;
+                    startFadeIn(); // V30 Smooth Fade In
                     
                     setTimeout(() => {
                         const wrapper = document.querySelector('.marquee-wrapper');
@@ -1027,39 +1170,37 @@ PLAYER_HTML = """
 
                     if ('mediaSession' in navigator) {
                         navigator.mediaSession.metadata = new MediaMetadata({ title: item.title, artist: item.uploader || "Nexus Audio", artwork: [ { src: item.thumbnail, sizes: '512x512', type: 'image/jpeg' } ] });
-                        navigator.mediaSession.setActionHandler('play', () => togglePlay());
-                        navigator.mediaSession.setActionHandler('pause', () => togglePlay());
-                        navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
-                        navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
+                        navigator.mediaSession.setActionHandler('play', () => togglePlay()); navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+                        navigator.mediaSession.setActionHandler('previoustrack', () => prevSong()); navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
                     }
                 }
-            } catch (err) { titleEl.innerText = "Error loading stream."; }
+            } catch (err) { showToast("Error loading stream.", "error"); nextSong(); }
         }
 
-        function togglePlay(e) {
-            if(e) e.stopPropagation();
-            if(audioEngine.paused) audioEngine.play(); else audioEngine.pause();
-        }
+        function togglePlay(e) { if(e) e.stopPropagation(); if(audioEngine.paused) audioEngine.play(); else audioEngine.pause(); }
         function nextSong(e) { 
             if(e) e.stopPropagation(); 
-            if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); return; }
+            clearInterval(fadeInterval); isFadingOut = false; // Reset fade states
+            if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); startFadeIn(); return; }
             if (currentIndex < audioQueue.length - 1) { currentIndex++; loadQueueItem(); }
             else if (loopMode === 1) { currentIndex = 0; loadQueueItem(); }
             else stopAudio();
         }
         function prevSong(e) { 
             if(e) e.stopPropagation();
-            if(audioEngine.currentTime > 3 || loopMode === 2) audioEngine.currentTime = 0; 
+            clearInterval(fadeInterval); isFadingOut = false;
+            if(audioEngine.currentTime > 3 || loopMode === 2) { audioEngine.currentTime = 0; startFadeIn(); } 
             else if (currentIndex > 0) { currentIndex--; loadQueueItem(); } 
             else if (loopMode === 1) { currentIndex = audioQueue.length - 1; loadQueueItem(); }
         }
         function stopAudio(e) { 
             if(e) e.stopPropagation();
+            clearInterval(fadeInterval); isFadingOut = false;
             audioEngine.pause(); audioEngine.src = ""; audioBar.classList.remove('active'); 
             document.getElementById('ap-cover').classList.remove('playing-glow');
         }
 
-        audioEngine.onended = () => { nextSong(); };
+        audioEngine.onended = () => { if(!isFadingOut) nextSong(); };
         audioEngine.onplay = () => { playPauseBtn.innerText = '⏸'; document.getElementById('ap-cover').classList.add('playing-glow'); };
         audioEngine.onpause = () => { playPauseBtn.innerText = '▶'; document.getElementById('ap-cover').classList.remove('playing-glow'); };
 
@@ -1076,26 +1217,31 @@ PLAYER_HTML = """
             seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`;
             document.getElementById('currTime').innerText = formatTimeDetailed(audioEngine.currentTime);
             document.getElementById('durTime').innerText = formatTimeDetailed(audioEngine.duration);
+            
+            // V30: CROSSFADE OUT LOGIC
+            let timeLeft = audioEngine.duration - audioEngine.currentTime;
+            if (timeLeft <= 3.0 && timeLeft > 0 && !isFadingOut && loopMode !== 2 && (currentIndex < audioQueue.length - 1 || loopMode === 1)) {
+                startFadeOutAndNext();
+            }
         };
-        seekSlider.oninput = (e) => { let val = e.target.value; audioEngine.currentTime = (val / 100) * audioEngine.duration; seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`; };
-        volSlider.oninput = (e) => audioEngine.volume = e.target.value / 100;
+        seekSlider.oninput = (e) => { 
+            let val = e.target.value; audioEngine.currentTime = (val / 100) * audioEngine.duration; 
+            seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`; 
+        };
+        volSlider.oninput = (e) => { audioEngine.volume = e.target.value / 100; clearInterval(fadeInterval); isFadingOut = false;};
 
         function toggleSpeed() {
-            if(currentSpeed === 1.0) currentSpeed = 1.25;
-            else if(currentSpeed === 1.25) currentSpeed = 1.5;
-            else if(currentSpeed === 1.5) currentSpeed = 2.0;
-            else currentSpeed = 1.0;
-            audioEngine.playbackRate = currentSpeed;
-            document.getElementById('speedBtn').innerText = currentSpeed + 'x';
-            document.getElementById('speedBtn').classList.toggle('active', currentSpeed !== 1.0);
+            if(currentSpeed === 1.0) currentSpeed = 1.25; else if(currentSpeed === 1.25) currentSpeed = 1.5; else if(currentSpeed === 1.5) currentSpeed = 2.0; else currentSpeed = 1.0;
+            audioEngine.playbackRate = currentSpeed; document.getElementById('speedBtn').innerText = currentSpeed + 'x'; document.getElementById('speedBtn').classList.toggle('active', currentSpeed !== 1.0);
+            showToast(`Playback Speed: ${currentSpeed}x`, "info");
         }
 
         function toggleLoop() {
             loopMode = (loopMode + 1) % 3;
             const btn = document.getElementById('loopBtn');
-            if (loopMode === 0) { btn.innerText = '🔁'; btn.classList.remove('active'); }
-            if (loopMode === 1) { btn.innerText = '🔁'; btn.classList.add('active'); } 
-            if (loopMode === 2) { btn.innerText = '🔂'; btn.classList.add('active'); } 
+            if (loopMode === 0) { btn.innerText = '🔁'; btn.classList.remove('active'); showToast("Loop Off", "info"); }
+            if (loopMode === 1) { btn.innerText = '🔁'; btn.classList.add('active'); showToast("Looping Queue", "info");} 
+            if (loopMode === 2) { btn.innerText = '🔂'; btn.classList.add('active'); showToast("Looping Current Song", "info");} 
         }
 
         function openSleepModal() {
@@ -1115,11 +1261,9 @@ PLAYER_HTML = """
             if(isNaN(mins) || mins <= 0) return showToast("Enter a valid time", "error");
             
             document.getElementById('sleepModal').style.display = 'none';
-            totalSleepTime = mins * 60;
-            sleepTimeLeft = totalSleepTime;
-            
+            totalSleepTime = mins * 60; sleepTimeLeft = totalSleepTime;
             document.getElementById('sleepBtn').classList.add('active');
-            showToast(`Sleep timer set for ${mins} minutes`, "success");
+            showToast(`Music will pause in ${mins} minutes`, "success");
             
             sleepTimer = setInterval(() => {
                 sleepTimeLeft--;
@@ -1130,7 +1274,11 @@ PLAYER_HTML = """
                     clearInterval(sleepTimer); sleepTimer = null;
                     document.getElementById('sleepBtn').classList.remove('active');
                     document.getElementById('sleepRing').style.background = 'transparent';
-                    stopAudio();
+                    
+                    // V30: Soft Pause instead of kill
+                    audioEngine.pause();
+                    try { document.getElementById('ytIframe').contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*'); } catch(e) {}
+                    showToast("Sleep Timer finished. Playback paused.", "info");
                 }
             }, 1000);
         }
@@ -1152,44 +1300,28 @@ PLAYER_HTML = """
 # ==============================================================================
 @app.route('/manifest.json')
 def serve_manifest():
-    return jsonify({
-        "name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone",
-        "background_color": "#1e3c72", "theme_color": "#1e3c72",
-        "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}],
-        "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }
-    })
+    return jsonify({"name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone", "background_color": "#1e3c72", "theme_color": "#1e3c72", "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}], "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }})
 
 @app.route('/sw.js')
-def serve_sw():
-    return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
+def serve_sw(): return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
 @app.route('/')
-def index():
-    return render_template_string(DOWNLOADER_HTML)
+def index(): return render_template_string(DOWNLOADER_HTML)
 
 @app.route('/player')
-def media_player():
-    return render_template_string(PLAYER_HTML)
+def media_player(): return render_template_string(PLAYER_HTML)
 
 @app.route('/api/stream_audio', methods=['POST'])
 def stream_audio():
     url = request.json.get('url')
-    ydl_opts = { 
-        'quiet': True, 
-        'format': 'bestaudio[ext=m4a]/bestaudio/best', 
-        'noplaylist': True, 
-        'proxy': 'socks5://127.0.0.1:40000',
-        'geo_bypass': True,
-        'geo_bypass_country': 'US'
-    }
+    ydl_opts = { 'quiet': True, 'format': 'bestaudio[ext=m4a]/bestaudio/best', 'noplaylist': True, 'proxy': 'socks5://127.0.0.1:40000', 'geo_bypass': True, 'geo_bypass_country': 'US'}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             stream_url = info.get('url') 
             if stream_url: return jsonify({'stream_url': stream_url})
             else: return jsonify({'error': 'No stream found.'}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except Exception as e: return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
@@ -1201,15 +1333,9 @@ def get_info():
     url = request.json.get('url')
     mode = request.json.get('mode')
     limit = request.json.get('limit', 10) 
-    
     if mode != 'search' and 'list=RD' in url: return jsonify({'error': 'Infinite loop detected.'})
 
-    ydl_opts = {
-        'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
-        'extract_flat': True if mode in ['playlist', 'search'] else False, 
-        'noplaylist': mode in ['single', 'search'],
-        'geo_bypass': True, 'geo_bypass_country': 'US'
-    }
+    ydl_opts = {'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search'], 'geo_bypass': True, 'geo_bypass_country': 'US'}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             fetch_url = f"ytsearch{limit}:{url}" if mode == 'search' else url
@@ -1222,8 +1348,7 @@ def get_info():
                     thumb = e.get('thumbnails', [{'url': ''}])[-1]['url'] if e.get('thumbnails') else ''
                     duration_sec = e.get('duration')
                     if duration_sec:
-                        m, s = divmod(int(duration_sec), 60)
-                        h, m = divmod(m, 60)
+                        m, s = divmod(int(duration_sec), 60); h, m = divmod(m, 60)
                         duration_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
                     else: duration_str = "--:--"
                     entries.append({'id': e.get('id'), 'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb, 'uploader': e.get('uploader') or e.get('channel') or 'Unknown Channel', 'views': e.get('view_count') or 0, 'duration': duration_str})
@@ -1235,8 +1360,7 @@ def get_info():
                         res = f.get('format_note', f.get('resolution', 'Unknown'))
                         if res in ['2160p', '1440p', '1080p', '1080p60', '720p', '720p60', '480p', '360p']:
                             formats.append({'format_id': f['format_id'], 'resolution': res, 'filesize': round(f.get('filesize', 0) / 1048576, 1) if f.get('filesize') else None})
-                seen = set()
-                uniq = [f for f in reversed(formats) if not (f['resolution'] in seen or seen.add(f['resolution']))]
+                seen = set(); uniq = [f for f in reversed(formats) if not (f['resolution'] in seen or seen.add(f['resolution']))]
                 uniq.sort(key=lambda f: int(f['resolution'].replace('p60', '').replace('p', '')) if f['resolution'].replace('p60', '').replace('p', '').isdigit() else 0, reverse=True)
                 return jsonify({'id': info.get('id'), 'title': info.get('title'), 'thumbnail': info.get('thumbnail'), 'formats': uniq})
     except Exception as e: return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
@@ -1252,33 +1376,25 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, use_convers
 
     if dl_type == 'mp4':
         if quality == 'best': ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
-        elif quality.endswith('p') and quality[:-1].isdigit():
-            ydl_opts['format'] = f'bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
+        elif quality.endswith('p') and quality[:-1].isdigit(): ydl_opts['format'] = f'bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
         else: ydl_opts['format'] = f"{quality}+bestaudio[ext=m4a]/best"
-            
         if burn_subs: ydl_opts['writesubtitles'] = True; ydl_opts['subtitleslangs'] = ['en']; ydl_opts['postprocessors'] = [{'key': 'FFmpegEmbedSubtitle'}]
             
     elif dl_type == 'mp3':
         ydl_opts['writethumbnail'] = True 
-        if use_conversion:
-            ydl_opts['format'] = 'bestaudio/best'
-            ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality}, {'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
-        else:
-            ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'
-            ydl_opts['postprocessors'] = [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
+        if use_conversion: ydl_opts['format'] = 'bestaudio/best'; ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality}, {'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
+        else: ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'; ydl_opts['postprocessors'] = [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             base_filename = ydl.prepare_filename(info)
             name_without_ext = os.path.splitext(base_filename)[0]
-            
             actual_file = base_filename
             for possible_ext in ['.mp3', '.m4a', '.webm', '.opus', '.mp4', '.mkv']:
                 if os.path.exists(name_without_ext + possible_ext):
                     actual_file = name_without_ext + possible_ext
                     break
-
             if dl_type == 'mp3' and not use_conversion:
                 final_mp3_path = name_without_ext + '.mp3'
                 if actual_file != final_mp3_path and os.path.exists(actual_file):
