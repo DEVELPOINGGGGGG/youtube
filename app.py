@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V32 - BRIGHT DASHBOARD RESTORED & SIDEBAR HISTORY)
+# YOUTUBE DOWNLOADER (V33 - ANTI-SQUISH MOBILE GRID & BUTTON FIXES)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -83,11 +83,9 @@ DOWNLOADER_HTML = """
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         
-        /* RESTORED V30 BRIGHT GRADIENT BACKGROUND */
         body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3, #4facfe, #00f2fe); background-size: 600% 600%; animation: gradientBG 20s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        /* RESTORED BRIGHT GLASS CARD */
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; }
         .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .header-left { display: flex; align-items: center; gap: 15px; }
@@ -98,13 +96,11 @@ DOWNLOADER_HTML = """
         .settings-btn:hover { background: #cbd5e0; transform: rotate(90deg); }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        /* GLOBAL LOADER */
         #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; }
         #global-loader.active { top: 20px; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* TOASTS (Adjusted for light theme readability) */
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
         .toast { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .toast.success { border-left-color: #1db954; }
@@ -124,7 +120,7 @@ DOWNLOADER_HTML = """
         .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; color: #333; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
         .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
         
-        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); flex-shrink: 0;}
         .choice-btn:hover { transform: scale(1.03); }
         .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
@@ -134,9 +130,11 @@ DOWNLOADER_HTML = """
         .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
         input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; color: #333; transition: 0.3s; }
         input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79,172,254,0.2); background: white; }
-        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; }
+        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; flex-shrink:0;}
         .paste-btn:hover { background: #cbd5e0; }
-        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; transition: 0.2s;}
+        
+        /* V33 ANTI-SQUISH BUTTONS */
+        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; transition: 0.2s; white-space: nowrap;}
         .action-btn:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .action-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none;}
         .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
@@ -149,15 +147,18 @@ DOWNLOADER_HTML = """
         .dash-task-header { margin-top: 20px; font-weight: 800; color: #1e3c72; border-bottom: 2px solid #eee; padding-bottom: 10px;}
         #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
 
-        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; transition: 0.3s; animation: popIn 0.4s ease-out; }
+        /* V33 MOBILE LIST WRAP */
+        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
         .list-item:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
         @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
-        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.3s;}
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.3s; flex-shrink: 0;}
         .list-item img:hover { filter: brightness(0.8); }
         .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
         .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; color: #333; }
-        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center;}
+        
+        /* V33 HORIZONTAL SCROLL ENFORCER */
+        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center; width: 100%;}
         
         .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
         .progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
@@ -177,24 +178,32 @@ DOWNLOADER_HTML = """
         .quality-item:hover { border-color: #4facfe; background: #e0f2fe; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2;}
         
-        /* SETTINGS RADIO BUTTONS */
         .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
         .radio-item { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #ddd; cursor: pointer; transition: 0.2s;}
         .radio-item:hover { border-color: #4facfe; }
-        .radio-item input { width: 20px; height: 20px; accent-color: #ff0844; }
+        .radio-item input { width: 20px; height: 20px; accent-color: #ff0844; flex-shrink: 0;}
         .radio-desc { font-size: 0.8rem; color: #666; font-weight: normal; margin-top: 5px; }
 
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
 
-        /* HISTORY CARDS */
         .history-card { background: #f4f7f6; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
         .history-card:hover { border-color: #4facfe; box-shadow: 0 5px 15px rgba(0,0,0,0.05);}
         .history-info p { font-size: 0.75rem; color: #666; margin-top: 5px; }
-        .history-btn { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .history-btn { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink:0; white-space: nowrap;}
         .history-btn:hover { background: #ff0844; transform: scale(1.05); }
 
-        @media (max-width: 600px) { .list-item { flex-direction: column; align-items: stretch; } .list-item img { width: 100%; } .input-group { flex-direction: column; } }
+        /* V33 MOBILE RESPONSIVENESS FIXES */
+        @media (max-width: 600px) { 
+            .list-item { flex-direction: column; align-items: stretch; text-align: center;} 
+            .list-item img { width: 100%; height: auto; max-height: 200px; object-fit: cover;} 
+            .input-group { flex-direction: column; }
+            .paste-btn { position: relative; right: auto; top: auto; transform: none; width: 100%; padding: 15px; margin-top: 10px; }
+            #bulk-actions { flex-direction: column; align-items: stretch !important; gap: 15px; }
+            .btn-scroll-container { width: 100%; overflow-x: auto; justify-content: center;}
+            .history-card { flex-direction: column; text-align: center; gap: 10px;}
+            .history-btn { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -206,7 +215,6 @@ DOWNLOADER_HTML = """
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
         <h2 style="margin-bottom: 30px; text-align: center;">MENU</h2>
         
-        <!-- SIDEBAR HISTORY -->
         <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 View My History</a>
         <a href="/player">▶️ YouTube Player</a>
         <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
@@ -235,7 +243,6 @@ DOWNLOADER_HTML = """
             <button class="action-btn" id="goBtn" style="display:none;" onclick="handleInput(null, true)">GO</button>
         </div>
 
-        <!-- DASHBOARD UI RESTORED -->
         <div id="dashboard-ui" style="display:flex;">
             <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
             <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ OPEN PREMIUM PLAYER</button>
@@ -247,7 +254,6 @@ DOWNLOADER_HTML = """
             <div id="dashboardTasksWrapper"><p style="color:#888; font-size:0.9rem;">No active downloads.</p></div>
         </div>
 
-        <!-- SINGLE DL -->
         <div id="single-ui">
             <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="window.location.href='/player?url='+encodeURIComponent(currentVideoId)">
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
@@ -261,11 +267,11 @@ DOWNLOADER_HTML = """
             </div>
         </div>
 
-        <!-- LIST DL -->
         <div id="list-container" class="list-container">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <div><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#4facfe; vertical-align:middle;"> Select All</div>
-                <div class="btn-scroll-container">
+            <!-- V33 WRAP FIX FOR SELECT ALL AND BUTTONS -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:15px;" id="bulk-actions">
+                <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#4facfe; vertical-align:middle;"> <strong style="vertical-align:middle;">Select All</strong></div>
+                <div class="btn-scroll-container" style="flex:1;">
                     <button class="action-btn btn-mp4" style="padding:10px 15px;" onclick="downloadBulk('mp4')">DL SELECTED MP4</button>
                     <button class="action-btn btn-mp3" style="padding:10px 15px;" onclick="downloadBulk('mp3')">DL SELECTED MP3</button>
                 </div>
@@ -275,12 +281,9 @@ DOWNLOADER_HTML = """
         </div>
     </div>
 
-    <!-- BACKGROUND FAB -->
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
     <!-- MODALS -->
-    
-    <!-- V32 SIDEBAR HISTORY MODAL -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -309,7 +312,6 @@ DOWNLOADER_HTML = """
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:#1e3c72;">App Settings</h2>
             <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
-            
             <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">MP3 Conversion Engine</h3>
             <div class="radio-group">
                 <label class="radio-item">
@@ -347,7 +349,7 @@ DOWNLOADER_HTML = """
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 id="modalTitle" style="color:#1e3c72;">Quality</h3><button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button></div>
-            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;"></div>
+            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;flex-shrink:0;"></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
     </div>
@@ -369,7 +371,6 @@ DOWNLOADER_HTML = """
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
         function markHandled(id) { if (!handledDownloads.includes(id)) { handledDownloads.push(id); localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50))); } }
 
-        // V32 HISTORY LOGIC (Now in Modal)
         function loadHistory() {
             const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
             const container = document.getElementById('history-list');
@@ -464,6 +465,7 @@ DOWNLOADER_HTML = """
             
             if(mode === 'dashboard') {
                 document.getElementById('dashboard-ui').style.display = 'flex';
+                document.getElementById('statusBadge').style.display = 'none';
             } else {
                 document.getElementById('inputWrapper').style.display = 'flex';
                 const input = document.getElementById('url');
@@ -472,7 +474,6 @@ DOWNLOADER_HTML = """
                 document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
                 input.style.paddingRight = mode === 'search' ? '20px' : '90px';
                 
-                // Clear state when switching to search so status isn't weird
                 if(mode === 'search') {
                     document.getElementById('statusBadge').style.display = 'none';
                     document.getElementById('results').innerHTML = '';
@@ -538,7 +539,7 @@ DOWNLOADER_HTML = """
                 const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
                 wrapper.innerHTML += `
                     <div class="list-item">
-                        <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px; accent-color:#4facfe;">
+                        <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px; accent-color:#4facfe; flex-shrink:0;">
                         <img src="${item.thumbnail}" onclick="window.location.href='/player?url=${encodeURIComponent(item.url || videoId)}'">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
@@ -633,7 +634,7 @@ DOWNLOADER_HTML = """
                         saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#ff0844;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE (EXPIRED)</button>`;
                     }
 
-                    html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol};"><div class="task-header" style="color: ${sCol};"><span>${t.type.toUpperCase()}: ${t.title}</span><span>${t.status.toUpperCase()}</span></div>
+                    html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol};"><div class="task-header" style="color: ${sCol};"><span>${t.type.toUpperCase()}: ${t.title}</span><span style="color:${sCol}">${t.status.toUpperCase()}</span></div>
                             ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats" style="color:${sCol};"><span>${t.percent}%</span></div>` : ''}
                             ${t.status === 'error' ? `<div style="font-size:0.85rem; color:#ff0844;">${t.error_msg}</div>` : ''}
                             ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
@@ -670,7 +671,7 @@ DOWNLOADER_HTML = """
                 const fab = document.getElementById('fabBtn');
                 if (activeCount > 0) { fab.style.display = 'flex'; } else { fab.style.display = 'none'; }
                 
-                const finalHtml = html || '<p style="text-align:center; color:#666;">No active downloads.</p>';
+                const finalHtml = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
                 document.getElementById('tasksWrapper').innerHTML = finalHtml;
                 document.getElementById('dashboardTasksWrapper').innerHTML = finalHtml;
                 document.getElementById('taskBadge').innerText = activeCount;
@@ -684,7 +685,6 @@ DOWNLOADER_HTML = """
 # ==============================================================================
 # HTML 2: THE STRICT YOUTUBE PLAYER (ROUTE: "/player")
 # ==============================================================================
-# The V31 Player Code remains perfectly intact with the dark theme and God-Mode features.
 PLAYER_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -722,7 +722,7 @@ PLAYER_HTML = """
         .menu-btn:hover { transform: scale(1.1); }
         input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;}
         input[type="text"]:focus { border-color: #ff0844; }
-        .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); }
+        .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0;}
         .search-btn:hover { transform: translateY(-3px); }
 
         #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; gap: 20px; }
@@ -734,27 +734,28 @@ PLAYER_HTML = """
         #search-screen { display: none; }
         #results { display: flex; flex-direction: column; gap: 15px; }
 
-        .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px; border: 1px solid #334155;}
-        .play-selected-btn { background: #ff0844; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px;}
+        .play-selected-btn { background: #ff0844; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap;}
 
-        .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; border: 1px solid #334155; transition: 0.3s; animation: popIn 0.4s ease-out;}
+        /* V33 MOBILE ANTI-SQUISH CARDS */
+        .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; border: 1px solid #334155; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
         .card:hover { border-color: #ff0844; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
-        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; cursor:pointer;}
+        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; cursor:pointer; flex-shrink: 0;}
         .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; overflow:hidden;}
         .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor:pointer;}
         .card.video-mode .info { padding: 15px; }
         
-        .info { flex: 1; min-width: 0; }
+        .info { flex: 1; min-width: 0; width: 100%;}
         .info h4 { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
         .info p { font-size: 0.75rem; color: #94a3b8; }
         
-        .action-row { display: flex; gap: 10px; margin-top: 10px;}
-        .play-action-btn { flex: 1; background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;}
+        .action-row { display: flex; gap: 10px; margin-top: 10px; width: 100%;}
+        .play-action-btn { flex: 1; background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink: 0; white-space: nowrap;}
         .play-action-btn:hover { background: #4facfe; }
         .card.video-mode .play-action-btn { background: #ff0844; padding: 15px; }
-        .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+        .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
         .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
 
         /* AUDIO PLAYER */
@@ -810,13 +811,13 @@ PLAYER_HTML = """
         .mini .bottom-action-row { display: none; }
         
         .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; transition: 0.2s; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
-        .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; }
+        .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; flex-shrink: 0;}
         .open-yt-btn:hover { background: #ff0844; color: white; }
-        .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s;}
+        .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s; flex-shrink: 0; white-space: nowrap;}
         .dl-mp3-btn:hover:not(:disabled) { background: #4facfe; border-color: #4facfe; transform: translateY(-3px);}
         .dl-mp3-btn:disabled { opacity: 0.8; cursor: not-allowed; }
 
-        /* VIDEO PIP */
+        /* VIDEO PIP & SANDBOX */
         #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
         #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
         .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
@@ -828,8 +829,8 @@ PLAYER_HTML = """
         .min-video { background: rgba(51, 65, 85, 0.9); }
         #video-modal.mini-video .min-video { display: none; }
 
-        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.2s;}
-        .load-more-btn:hover { background: #4facfe; }
+        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.2s; flex-shrink: 0;}
+        .load-more-btn:hover { background: #ff0844; }
 
         /* MODALS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 4000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px);}
@@ -845,7 +846,16 @@ PLAYER_HTML = """
         #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; justify-content: center;}
         #thumbModal img { width: 100%; height: auto; max-height: 85vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; }
 
-        @media (max-width: 600px) { .side-nav { width: 250px; } #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; } #ap-cover { width: 85%; } }
+        /* V33 RESPONSIVE TWEAKS */
+        @media (max-width: 600px) { 
+            .side-nav { width: 250px; } 
+            #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; } 
+            #ap-cover { width: 85%; } 
+            
+            .card.audio-mode { flex-direction: column; align-items: center; text-align: center; }
+            .card.audio-mode img { width: 100%; max-width: 200px; height: auto; aspect-ratio: 1; margin: 0 auto;}
+            .card.audio-mode .action-row { width: 100%; display: flex; }
+        }
     </style>
 </head>
 <body>
@@ -877,7 +887,7 @@ PLAYER_HTML = """
                 <button class="search-btn" onclick="search(true)">Search</button>
             </div>
             <div id="queue-actions" class="queue-actions" style="display:none;">
-                <div><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px;vertical-align:middle;accent-color:#ff0844;"> Select All</div>
+                <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px;vertical-align:middle;accent-color:#ff0844;"> <strong style="vertical-align:middle;">Select All</strong></div>
                 <button class="play-selected-btn" onclick="playSelected()">▶ PLAY SELECTED</button>
             </div>
             <div id="status" style="text-align:center; color:#94a3b8; margin-bottom:15px;"></div>
@@ -886,7 +896,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- AUDIO PLAYER -->
+    <!-- GOD-MODE AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">🗕</button>
@@ -894,7 +904,10 @@ PLAYER_HTML = """
         </div>
         
         <img id="ap-cover" src="" onclick="openFullThumb(event)">
-        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)"><span class="marquee-text" id="ap-title">Loading...</span></div>
+        
+        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
+            <span class="marquee-text" id="ap-title">Loading...</span>
+        </div>
         <div id="ap-artist">Nexus Audio</div>
         
         <div class="advanced-controls">
@@ -931,7 +944,7 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
-    <!-- VIDEO MODAL -->
+    <!-- VIDEO MODAL (SANDBOXED + PAUSE FIX) -->
     <div id="video-modal">
         <div class="video-container">
             <div class="vid-controls">
@@ -1071,7 +1084,7 @@ PLAYER_HTML = """
                 if(currentMode === 'audio') {
                     container.innerHTML += `
                         <div class="card audio-mode">
-                            <input type="checkbox" class="song-checkbox" value="${index}" style="width:20px;height:20px; accent-color:#ff0844;">
+                            <input type="checkbox" class="song-checkbox" value="${index}" style="width:20px;height:20px; accent-color:#ff0844; flex-shrink:0;">
                             <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}')" style="cursor:pointer;">
                             <div class="info">
                                 <h4 title="${item.title}">${item.title}</h4>
@@ -1189,7 +1202,7 @@ PLAYER_HTML = """
         }, 1000);
 
         // ==========================================
-        // V31 VIDEO LOGIC
+        // VIDEO LOGIC
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
@@ -1217,7 +1230,7 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // V31 AUDIO CROSSFADE
+        // AUDIO PLAYER ENGINE & CROSSFADE
         // ==========================================
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); audioBar.classList.toggle('mini'); }
 
@@ -1559,5 +1572,6 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V32 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V33 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
+    
