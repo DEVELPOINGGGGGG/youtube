@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V36 - STRICT ROUTES, INLINE VIDEO & PROGRESS FIXES)
+# YOUTUBE DOWNLOADER (V37 - TITANIUM: BUG FIXES & STABILITY)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -66,7 +66,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# FRONTEND 1: THE STRICT DOWNLOADER (ROUTE: "/")
+# FRONTEND 1: THE DOWNLOADER (ROUTE: "/")
 # ==============================================================================
 DOWNLOADER_HTML = """
 <!DOCTYPE html>
@@ -78,93 +78,108 @@ DOWNLOADER_HTML = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3); background-size: 400% 400%; animation: gradientBG 15s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
+        
+        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; margin: 0; overflow-x: hidden; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; margin: 0 auto;}
-        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; }
-        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; margin: 0 auto; }
+        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
+        
+        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; }
+        .hamburger-btn:hover { transform: scale(1.1); }
+        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
+        .settings-btn:hover { background: #cbd5e0; transform: rotate(90deg); }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s; display: flex; align-items: center; gap: 10px; }
+        /* FAILSAFE LOADER */
+        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; }
         #global-loader.active { top: 20px; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* TOASTS */
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
-        .toast { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s forwards; }
+        .toast { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .toast.success { border-left-color: #1db954; }
         .toast.error { border-left-color: #ff0844; }
         @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; }
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #f4f7f6; display: flex; justify-content: space-between; align-items: center;}
+        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
+        .side-nav a:hover { background: #e0f2fe; color: #1e3c72; transform: translateX(10px); }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
-        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; }
-        .tab-btn.active { background: #4facfe; color: white; }
+        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; color: #333; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
         
-        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .btn-dash-player { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); }
-        .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .btn-dash-search { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
-
-        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px; flex-wrap:wrap;}
-        input[type="text"] { flex: 1; min-width: 200px; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
-        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; flex-shrink:0;}
-        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; white-space:nowrap;}
-        .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
-        .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); flex-shrink: 0;}
+        .choice-btn:hover { transform: scale(1.03); }
+        .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+        
+        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px; flex-wrap: wrap;}
+        input[type="text"] { flex: 1; min-width: 200px; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; color: #333; transition: 0.3s; }
+        input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79,172,254,0.2); background: white; }
+        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; flex-shrink:0;}
+        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; transition: 0.2s; white-space: nowrap;}
         
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
         
-        #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
+        #single-ui, #list-container, #dashboard-ui, #history-ui { display: none; flex-direction: column; gap: 10px; }
         
         .dash-task-header { margin-top: 20px; font-weight: 800; color: #1e3c72; border-bottom: 2px solid #eee; padding-bottom: 10px;}
         #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
 
-        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; flex-wrap:wrap;}
-        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; flex-shrink:0;}
-        .list-item img:hover { filter: brightness(0.8); }
-        .item-info { flex: 1; min-width: 0; }
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
-        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center; width:100%;}
+        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
+        .list-item:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
-        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;}
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.3s; flex-shrink: 0;}
+        .list-item img:hover { filter: brightness(0.8); }
+        .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; color: #333; }
+        
+        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center; width: 100%;}
+        
+        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
         .progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
         
-        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(17,153,142,0.5);}
-        .badge { background: white; color: #11998e; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
+        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: #ff0844; color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,8,68,0.5); transition: 0.3s;}
+        .fab:hover { transform: scale(1.05); }
+        .badge { background: white; color: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
 
+        /* MODALS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 3000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px); }
-        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; }
-        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px;}
+        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: popIn 0.3s ease-out;}
+        .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 20px; right: 20px; transition: 0.2s;}
         
-        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .quality-item.best { border-color: #ff0844; background: #fff0f2; }
+        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
+        .quality-item:hover { border-color: #4facfe; background: #e0f2fe; }
+        .quality-item.best { border-color: #ff0844; background: #fff0f2;}
         
         .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
-        .radio-item { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #ddd; cursor: pointer; }
+        .radio-item { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #ddd; cursor: pointer; transition: 0.2s;}
         .radio-item input { width: 20px; height: 20px; accent-color: #ff0844; flex-shrink: 0;}
         .radio-desc { font-size: 0.8rem; color: #666; font-weight: normal; margin-top: 5px; }
 
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
 
-        /* V36 INLINE VIDEO PLAYER MODAL */
-        #inline-video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 5000; flex-direction: column; justify-content: center; align-items: center; }
-        .inline-video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; }
-        .inline-video-container iframe { width: 100%; height: 100%; border: none; }
-        .close-inline-video { position: absolute; top: 20px; right: 20px; background: rgba(255,8,68,0.9); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; z-index: 5001; }
+        /* HISTORY CARDS */
+        .history-card { background: #f4f7f6; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
+        .history-card:hover { border-color: #4facfe; box-shadow: 0 5px 15px rgba(0,0,0,0.05);}
+        .history-info p { font-size: 0.75rem; color: #666; margin-top: 5px; }
+        .history-btn { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink:0; white-space: nowrap;}
+        .history-btn:hover { background: #ff0844; transform: scale(1.05); }
+        
+        .load-more-btn { background: #333; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.2s;}
+        .load-more-btn:hover { background: #ff0844; }
 
         @media (max-width: 600px) { 
             .list-item { flex-direction: column; align-items: stretch; text-align: center;} 
@@ -176,6 +191,8 @@ DOWNLOADER_HTML = """
             #bulk-actions { flex-direction: column; align-items: stretch !important; gap: 15px; }
             .btn-scroll-container { width: 100%; overflow-x: auto; justify-content: center; flex-wrap: wrap;}
             .btn-scroll-container .action-btn { flex: 1; min-width: 48%; text-align: center;}
+            .history-card { flex-direction: column; text-align: center; gap: 10px;}
+            .history-btn { width: 100%; }
         }
     </style>
 </head>
@@ -187,7 +204,9 @@ DOWNLOADER_HTML = """
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
         <h2 style="margin-bottom: 30px; text-align: center;">MENU</h2>
-        <a href="/player">▶️ Premium Player</a>
+        
+        <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 View My History</a>
+        <a href="/player">▶️ YouTube Player</a>
         <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
         <a href="#" onclick="switchTab('dashboard'); toggleMenu()">🏠 Dashboard</a>
         <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Download Video</a>
@@ -215,18 +234,20 @@ DOWNLOADER_HTML = """
         </div>
 
         <div id="dashboard-ui" style="display:flex;">
-            <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
+            <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">Welcome Back.</h3>
             <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ OPEN PREMIUM PLAYER</button>
-            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
-            <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download Playlist</button>
-            <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Download</button>
+            
+            <div class="dash-task-header" style="margin-top:10px;">🕒 RECENT HISTORY</div>
+            <div id="history-list" style="margin-top: 5px; max-height:200px; overflow-y:auto; padding-right:5px;">
+                <p style="color:#888; text-align:center;">No history yet.</p>
+            </div>
             
             <div class="dash-task-header">ACTIVE DOWNLOADS</div>
             <div id="dashboardTasksWrapper"><p style="color:#888; font-size:0.9rem;">No active downloads.</p></div>
         </div>
 
         <div id="single-ui">
-            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="startInlineVideo(currentVideoId)">
+            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="window.location.href='/player?url='+encodeURIComponent(currentVideoId)">
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -247,16 +268,19 @@ DOWNLOADER_HTML = """
                 </div>
             </div>
             <div id="items-wrapper" style="display:flex; flex-direction:column; gap:12px;"></div>
-            <button class="action-btn" id="loadMoreBtn" style="display:none; width:100%; margin-top:15px; background:#333;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
+            <button class="load-more-btn" id="loadMoreBtn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
         </div>
     </div>
 
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
-    <div id="inline-video-modal">
-        <div class="inline-video-container">
-            <button class="close-inline-video" onclick="closeInlineVideo()">X</button>
-            <iframe id="inlineYtIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="font-size:1.5rem; color:#1e3c72;">🕒 My History</h2>
+                <button class="btn-close" onclick="document.getElementById('historyModal').style.display='none'">X</button>
+            </div>
+            <div id="history-list-modal" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:5px;"></div>
         </div>
     </div>
 
@@ -281,15 +305,24 @@ DOWNLOADER_HTML = """
             <div class="radio-group">
                 <label class="radio-item">
                     <input type="radio" name="convMode" value="full" onchange="saveSettings()">
-                    <div><strong>Full FFmpeg (High Quality)</strong><div class="radio-desc">Perfectly encodes MP3, injects cover art. (Slowest)</div></div>
+                    <div>
+                        <strong>Full FFmpeg (High Quality)</strong>
+                        <div class="radio-desc">Perfectly encodes MP3, injects cover art. (Slowest)</div>
+                    </div>
                 </label>
                 <label class="radio-item">
                     <input type="radio" name="convMode" value="fast" onchange="saveSettings()">
-                    <div><strong>Fast Metadata (Native Audio)</strong><div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div></div>
+                    <div>
+                        <strong>Fast Metadata (Native Audio)</strong>
+                        <div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div>
+                    </div>
                 </label>
                 <label class="radio-item" style="border-color:#ff0844; background:#fff0f2;">
                     <input type="radio" name="convMode" value="rename" onchange="saveSettings()">
-                    <div><strong>Rename Only (Zero Math)</strong><div class="radio-desc">Raw download, instantly renames to .mp3. No cover art. (Ultra Fast ⚡)</div></div>
+                    <div>
+                        <strong>Rename Only (Zero Math)</strong>
+                        <div class="radio-desc">Raw download, instantly renames to .mp3. No cover art. (Ultra Fast ⚡)</div>
+                    </div>
                 </label>
             </div>
         </div>
@@ -302,7 +335,7 @@ DOWNLOADER_HTML = """
         </div>
     </div>
 
-    <div class="modal-overlay" id="qualityModal" style="z-index: 4000;">
+    <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 id="modalTitle" style="color:#1e3c72;">Quality</h3><button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button></div>
             <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;"></div>
@@ -326,6 +359,32 @@ DOWNLOADER_HTML = """
         localStorage.setItem('yt_dl_client_id', clientId);
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
         function markHandled(id) { if (!handledDownloads.includes(id)) { handledDownloads.push(id); localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50))); } }
+
+        function loadHistory() {
+            const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
+            const containerMain = document.getElementById('history-list');
+            const containerModal = document.getElementById('history-list-modal');
+            
+            if(hist.length === 0) { 
+                containerMain.innerHTML = '<p style="color:#888; text-align:center;">No history yet. Go watch something!</p>'; 
+                containerModal.innerHTML = '<p style="color:#888; text-align:center;">No history yet. Go watch something!</p>'; 
+                return; 
+            }
+            
+            let html = '';
+            hist.forEach(h => {
+                html += `
+                    <div class="history-card">
+                        <div class="history-info">
+                            <strong style="color:#333; font-size:0.95rem;">${h.title}</strong>
+                            <p>👤 ${h.uploader} • ⏱️ ${h.duration} • 📅 ${h.date}</p>
+                        </div>
+                        <button class="history-btn" onclick="window.location.href='/player?url=${encodeURIComponent(h.url)}'">▶ Play</button>
+                    </div>`;
+            });
+            containerMain.innerHTML = html;
+            containerModal.innerHTML = html;
+        }
 
         function loadSettings() {
             let mode = localStorage.getItem('audio_conversion_mode') || 'fast';
@@ -359,6 +418,7 @@ DOWNLOADER_HTML = """
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
+            loadHistory();
             const params = new URLSearchParams(window.location.search);
             if (params.get('url')) { switchTab('single'); document.getElementById('url').value = params.get('url'); handleInput(params.get('url'), true); return; }
             switchTab('dashboard');
@@ -471,19 +531,6 @@ DOWNLOADER_HTML = """
             finally { hideLoader(); isFetchingMore = false; }
         }
 
-        // V36 START INLINE VIDEO FUNCTION (No redirect)
-        function startInlineVideo(id) {
-            const modal = document.getElementById('inline-video-modal');
-            modal.style.display = 'flex';
-            document.getElementById('inlineYtIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
-            try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape"); } catch(e) {}
-        }
-        function closeInlineVideo() {
-            document.getElementById('inline-video-modal').style.display = 'none';
-            document.getElementById('inlineYtIframe').src = "";
-            try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
-        }
-
         function renderItems() {
             const wrapper = document.getElementById('items-wrapper'); wrapper.innerHTML = '';
             currentData.forEach((item, i) => {
@@ -491,12 +538,12 @@ DOWNLOADER_HTML = """
                 wrapper.innerHTML += `
                     <div class="list-item">
                         <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px; accent-color:#4facfe; flex-shrink:0;">
-                        <img src="${item.thumbnail}" onclick="startInlineVideo('${videoId}')" style="cursor:pointer;">
+                        <img src="${item.thumbnail}" onclick="window.location.href='/player?url=${encodeURIComponent(item.url || videoId)}'">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
                             <p style="font-size:0.8rem; color:#666;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
                             <div class="btn-scroll-container" style="margin-top:5px;">
-                                <button class="action-btn btn-mp4" style="padding:8px 15px; background:#333;" onclick="startInlineVideo('${videoId}')">▶ PLAY</button>
+                                <button class="action-btn btn-mp4" style="padding:8px 15px; background:#333;" onclick="window.location.href='/player?url=${encodeURIComponent(item.url || videoId)}'">▶ PLAY</button>
                                 <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp4')">MP4</button>
                                 <button class="action-btn btn-mp3" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp3')">MP3</button>
                             </div>
@@ -538,7 +585,12 @@ DOWNLOADER_HTML = """
             } else {
                 document.getElementById('modalTitle').innerText = "MP3 Quality";
                 document.getElementById('subToggle').style.display = 'none'; 
-                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
+                // V37 EXPANDED MP3 QUALITIES
+                list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('256')"><span>🎵 256 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('128')"><span>📱 128 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('64')"><span>📉 64 kbps (Data Saver)</span></div>`;
             }
             document.getElementById('qualityModal').style.display = 'flex';
         }
@@ -708,7 +760,7 @@ PLAYER_HTML = """
         .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
         .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
 
-        /* V36 AUDIO PLAYER */
+        /* V37 GOD-MODE AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 20px 20px 0 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5); border-top: 1px solid #334155;}
@@ -716,22 +768,23 @@ PLAYER_HTML = """
         .full-only { display: flex; width: 100%; justify-content: space-between; position: absolute; top: 20px; padding: 0 25px; z-index: 3000; pointer-events: auto;}
         .mini .full-only { display: none !important; }
         
-        .top-ctrl-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); transition: 0.2s;}
-        .top-ctrl-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.1); }
+        .top-ctrl-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
         
         .mini-close { display: none; }
-        .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto;}
+        /* V37 FIX: Clean Minus Icon */
+        .mini .mini-close { display: block; font-size: 1.8rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto; font-family: monospace;}
 
-        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: all 0.3s ease; cursor: pointer; box-shadow: 0 20px 50px rgba(0,0,0,0.6);}
+        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: 0.3s; cursor: pointer;}
         .playing-glow { animation: pulseGlow 2s infinite alternate; }
-        @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #ff0844; } 100% { box-shadow: 0 0 50px #ffb199, 0 0 80px #ff0844; } }
+        @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #1db954; } 100% { box-shadow: 0 0 50px #4facfe, 0 0 80px #1db954; } }
         .mini #ap-cover { width: 60px; height: 60px; margin: 0; animation: none; border-radius:8px; box-shadow:none;}
         
-        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white; cursor:pointer;}
+        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white;}
         .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
         .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; }
         .mini .marquee-text { font-size: 1rem; }
         .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
         
         #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; }
         .mini #ap-artist { display: none; }
@@ -739,12 +792,12 @@ PLAYER_HTML = """
         .progress-row { width: 100%; max-width: 400px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #94a3b8; }
         .mini .progress-row { display: none; }
         input[type="range"] { flex: 1; -webkit-appearance: none; background: #334155; height: 6px; border-radius: 3px; outline: none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #ff0844; cursor: pointer; box-shadow: 0 0 10px #ff0844;}
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #1db954; cursor: pointer; }
 
         .advanced-controls { display: flex; width: 100%; max-width: 400px; justify-content: space-between; margin-bottom: 10px; color: #94a3b8; align-items:center;}
         .mini .advanced-controls { display: none; }
         .adv-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; font-weight: bold; transition: 0.2s; display:flex; justify-content:center; align-items:center;}
-        .adv-btn.active { color: #ff0844; text-shadow: 0 0 10px #ff0844; }
+        .adv-btn.active { color: #1db954; text-shadow: 0 0 10px #1db954; }
 
         .sleep-wrapper { position: relative; display: flex; justify-content: center; align-items: center; width: 40px; height: 40px; border-radius: 50%; }
         .sleep-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: transparent; z-index: 1; pointer-events: none; }
@@ -752,30 +805,37 @@ PLAYER_HTML = """
 
         .controls { display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; margin-bottom: 20px;}
         .mini .controls { width: auto; gap: 15px; margin-bottom: 0;}
-        .ctrl-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition: 0.2s;}
-        .ctrl-btn:hover { transform: scale(1.1); }
-        .ctrl-play { background: white; color: black; width: 65px; height: 65px; border-radius: 50%; font-size: 2rem; display: flex; justify-content: center; align-items: center; box-shadow: 0 5px 15px rgba(255,255,255,0.2);}
-        .mini .ctrl-play { width: 45px; height: 45px; font-size: 1.5rem; background: transparent; color: white; box-shadow: none;}
+        .ctrl-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
+        .ctrl-play { background: white; color: black; width: 65px; height: 65px; border-radius: 50%; font-size: 2rem; display: flex; justify-content: center; align-items: center; }
+        .mini .ctrl-play { width: 45px; height: 45px; font-size: 1.5rem; background: transparent; color: white;}
         
         .bottom-action-row { display: flex; align-items: center; justify-content: center; gap: 15px; width: 100%; margin-top: auto; padding-bottom: 20px;}
         .mini .bottom-action-row { display: none; }
         
-        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; transition: 0.2s; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
-        .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; flex-shrink: 0;}
+        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
+        .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; }
         .open-yt-btn:hover { background: #ff0844; color: white; }
-        .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s; flex-shrink: 0; white-space: nowrap;}
-        .dl-mp3-btn:hover:not(:disabled) { background: #4facfe; border-color: #4facfe; transform: translateY(-3px);}
-        .dl-mp3-btn:disabled { opacity: 0.8; cursor: not-allowed; }
+        .dl-mp3-btn { color: white; background: #4facfe; border: 2px solid #4facfe; transition: 0.3s;}
+        .dl-mp3-btn:hover:not(:disabled) { background: transparent; color: #4facfe; transform: translateY(-3px);}
+        .dl-mp3-btn:disabled { background: #334155; border-color: #334155; cursor: not-allowed;}
 
-        /* V36 VIDEO MODAL */
+        /* V37 TRUE LANDSCAPE VIDEO MODAL */
         #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 5000; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
-        .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
+        .video-container { width: 100%; height: 100%; max-width: 100vw; background: black; position: relative; display: flex; justify-content: center; align-items: center;}
         .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
+        
         .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 5001; }
         .close-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.2s; font-size:1.2rem;}
         .close-video:hover { transform: scale(1.1); }
+        
+        /* Fallback button if embed is blocked */
+        .yt-fallback-btn { position: absolute; bottom: 30px; background: rgba(255,255,255,0.1); color: white; border: 1px solid white; padding: 10px 20px; border-radius: 20px; font-weight: bold; text-decoration: none; backdrop-filter: blur(5px); z-index: 5001; transition: 0.2s;}
+        .yt-fallback-btn:hover { background: white; color: black; }
 
-        /* V36 THUMBNAIL LIGHTBOX MODAL + PLAY BUTTON */
+        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.2s; flex-shrink: 0;}
+        .load-more-btn:hover { background: #ff0844; }
+
+        /* MODALS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 4000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px);}
         .modal-box { background: #1e293b; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; color: white; border: 1px solid #334155; box-shadow: 0 20px 50px rgba(0,0,0,0.8); animation: popIn 0.3s ease-out;}
         .quality-item { background: #0f172a; border: 2px solid #334155; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; margin-bottom: 10px; transition: 0.2s;}
@@ -783,6 +843,8 @@ PLAYER_HTML = """
         .quality-item.best { border-color: #ff0844; background: rgba(255,8,68,0.1); }
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px; z-index:10; transition: 0.2s;}
         .btn-close:hover { transform: rotate(90deg); }
+        input[type="number"] { width: 100%; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; outline: none; font-size: 1.1rem; background: #0f172a; color: white; margin-bottom: 15px; transition: 0.3s;}
+        input[type="number"]:focus { border-color: #ff0844; }
         
         #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; justify-content: center; align-items:center;}
         #thumbModal img { width: 100%; height: auto; max-height: 70vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; margin-bottom:20px;}
@@ -840,7 +902,7 @@ PLAYER_HTML = """
 
     <div id="audio-player-bar">
         <div class="full-only">
-            <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">🗕</button>
+            <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize" style="font-family: monospace;">—</button>
             <button class="top-ctrl-btn" onclick="stopAudio(event)" title="Close">✖</button>
         </div>
         
@@ -871,7 +933,7 @@ PLAYER_HTML = """
             <button class="ctrl-btn" onclick="prevSong(event)">⏮</button>
             <button class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlay(event)">⏸</button>
             <button class="ctrl-btn" onclick="nextSong(event)">⏭</button>
-            <button class="mini-close" onclick="stopAudio(event); event.stopPropagation();">✖</button>
+            <button class="mini-close" onclick="stopAudio(event); event.stopPropagation();" style="font-family: monospace;">✖</button>
         </div>
         
         <div class="volume-row">
@@ -879,18 +941,19 @@ PLAYER_HTML = """
         </div>
         
         <div class="bottom-action-row">
-            <a id="ap-yt-link" class="open-yt-btn" href="#" target="_blank">↗ YouTube</a>
+            <a id="ap-yt-link" class="open-yt-btn" href="#" target="_blank">↗ YouTube App</a>
             <button id="mainPlayerDlBtn" class="dl-mp3-btn" onclick="downloadCurrentSong(event)">📥 Download MP3</button>
         </div>
         <audio id="audioEngine" crossorigin="anonymous" autoplay></audio>
     </div>
 
     <div id="video-modal">
-        <div class="video-container">
+        <div class="video-container" id="videoContainer">
             <div class="vid-controls">
                 <button class="close-video" onclick="closeVideo()">✖</button>
             </div>
             <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            <a id="ytFallbackLink" class="yt-fallback-btn" href="#" target="_blank" style="display:none;">Watch in YouTube App</a>
         </div>
     </div>
 
@@ -910,6 +973,15 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <div class="modal-overlay" id="sleepModal" style="z-index: 5000;">
+        <div class="modal-box" style="text-align: center;">
+            <button class="btn-close" onclick="document.getElementById('sleepModal').style.display='none'">X</button>
+            <h3 style="margin-bottom: 15px; color:white;">Set Sleep Timer</h3>
+            <input type="number" id="sleepInput" placeholder="Minutes..." style="width: 100%; margin-bottom: 15px;">
+            <button class="dl-mp3-btn" style="width: 100%; padding:15px; border-radius:12px; font-weight:bold; font-size:1.1rem; background:#ff0844; border:none;" onclick="setSleepTimer()">START TIMER</button>
+        </div>
+    </div>
+
     <script>
         function showToast(msg, type='info') {
             const container = document.getElementById('toast-container');
@@ -925,13 +997,21 @@ PLAYER_HTML = """
         let clientId = localStorage.getItem('yt_dl_client_id') || (Math.random().toString(36).substring(2) + Date.now().toString(36));
         localStorage.setItem('yt_dl_client_id', clientId);
 
+        function saveToHistory(item) {
+            let hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
+            const date = new Date().toLocaleDateString();
+            hist.unshift({ title: item.title, uploader: item.uploader || 'Unknown', duration: item.duration || '--', url: item.url || item.id, date: date });
+            if (hist.length > 50) hist = hist.slice(0, 50);
+            localStorage.setItem('yt_dl_history', JSON.stringify(hist));
+        }
+
         let currentMode = '';
         let currentResults = [];
         let currentSearchLimit = 10;
         
         let audioQueue = [];
         let currentIndex = -1;
-        let currentPlayingVideoId = ""; // Used for Lightbox Play button
+        let currentPlayingVideoId = ""; 
         
         const audioEngine = document.getElementById('audioEngine');
         const playPauseBtn = document.getElementById('playPauseBtn');
@@ -944,7 +1024,7 @@ PLAYER_HTML = """
         let currentAudioDlTaskId = null;
         let isFetchingMore = false; 
 
-        // V36 WEB AUDIO API
+        // V37 WEB AUDIO API
         let audioCtx, sourceNode, gainNode, bassFilter;
         let isAudioAPIReady = false;
 
@@ -1014,6 +1094,7 @@ PLAYER_HTML = """
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) });
                 const data = await res.json();
                 
+                // V37: Strict failure catch
                 if(data.error) { showToast(data.error, "error"); document.getElementById('status').innerText = 'Error searching.'; return; }
                 
                 currentResults = data.entries;
@@ -1021,7 +1102,7 @@ PLAYER_HTML = """
                 document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
                 document.getElementById('loadMoreBtn').style.display = 'block';
             } catch (err) { showToast(err.message, "error"); document.getElementById('status').innerText = 'Network Error.'; }
-            finally { hideLoader(); isFetchingMore = false; }
+            finally { hideLoader(); isFetchingMore = false; } // V37 Failsafe un-block
         }
 
         function renderResults() {
@@ -1070,11 +1151,10 @@ PLAYER_HTML = """
         }
         function openFullThumbList(src, vidId) { 
             document.getElementById('fullThumbImg').src = src; 
-            currentPlayingVideoId = vidId; // Prepare ID for the Play button
+            currentPlayingVideoId = vidId; 
             document.getElementById('thumbModal').style.display = 'flex'; 
         }
 
-        // V36: Lightbox Play Button Action
         function playFromLightbox() {
             document.getElementById('thumbModal').style.display = 'none';
             if(currentPlayingVideoId) { startVideo(currentPlayingVideoId); }
@@ -1096,8 +1176,12 @@ PLAYER_HTML = """
                 list.innerHTML += `<div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div>`;
                 list.innerHTML += `<div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
             } else {
+                // V37 EXPANDED MP3 LIST
                 list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('256')"><span>🎵 256 kbps</span></div>`;
                 list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('128')"><span>📱 128 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('64')"><span>📉 64 kbps (Data Saver)</span></div>`;
             }
             document.getElementById('qualityModal').style.display = 'flex';
         }
@@ -1111,7 +1195,10 @@ PLAYER_HTML = """
                 const list = document.getElementById('qualityList'); list.innerHTML = '';
                 document.getElementById('modalTitle').innerText = "Select MP3 Quality";
                 list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320', true)"><span>⭐ 320 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('256', true)"><span>🎵 256 kbps</span></div>`;
                 list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192', true)"><span>🎵 192 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('128', true)"><span>📱 128 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('64', true)"><span>📉 64 kbps</span></div>`;
                 document.getElementById('qualityModal').style.display = 'flex';
             }
         }
@@ -1135,7 +1222,6 @@ PLAYER_HTML = """
             } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
-        // Auto Download System
         let deliveryQueue = [];
         let isDelivering = false;
         function processDeliveryQueue() {
@@ -1160,7 +1246,6 @@ PLAYER_HTML = """
                     } else if (t.status === 'completed') {
                         btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
                         showToast(`Finished: ${t.title}`, "success");
-                        // Trigger delivery instantly for Player UI
                         deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file));
                         processDeliveryQueue();
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; currentAudioDlTaskId = null; }, 4000);
@@ -1174,26 +1259,42 @@ PLAYER_HTML = """
         }, 1000);
 
         // ==========================================
-        // V36 VIDEO LOGIC
+        // V37 TRUE LANDSCAPE VIDEO
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
+            let itemToSave = currentResults.find(i => (i.id === id || i.url.includes(id))) || {title: "Video Stream", uploader: "Nexus", url: id};
+            saveToHistory(itemToSave);
+
             const modal = document.getElementById('video-modal');
             modal.style.display = 'flex';
+            
+            const ytLink = document.getElementById('ytFallbackLink');
+            ytLink.href = `https://youtube.com/watch?v=${id}`;
+            ytLink.style.display = 'block';
+
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
-            try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch(e) {}
+            
+            // V37 FULLSCREEN LOCK HACK
+            try {
+                const container = document.getElementById('videoContainer');
+                if (container.requestFullscreen) { await container.requestFullscreen(); }
+                if (screen.orientation && screen.orientation.lock) { await screen.orientation.lock("landscape"); }
+            } catch(e) {}
         }
+        
         async function closeVideo() {
             document.getElementById('video-modal').style.display = 'none';
             document.getElementById('ytIframe').src = "";
-            try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
+            try { 
+                if (document.exitFullscreen) { await document.exitFullscreen(); }
+                if (screen.orientation && screen.orientation.unlock) { screen.orientation.unlock(); }
+            } catch(e) {}
         }
 
         // ==========================================
-        // V36 AUDIO PLAYER ENGINE
+        // AUDIO PLAYER ENGINE
         // ==========================================
-        function toggleMiniPlayer(e) { if(e) e.stopPropagation(); audioBar.classList.toggle('mini'); }
-
         function playSingleAudio(index) { audioQueue = currentResults; currentIndex = index; loadQueueItem(); }
         function playSelected() {
             const checked = document.querySelectorAll('.song-checkbox:checked');
@@ -1208,6 +1309,8 @@ PLAYER_HTML = """
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
             currentPlayingVideoId = item.id || item.url.split('v=')[1];
+            
+            saveToHistory(item); 
 
             audioBar.classList.add('active'); audioBar.classList.remove('mini');
             document.getElementById('ap-cover').src = item.thumbnail;
@@ -1244,7 +1347,7 @@ PLAYER_HTML = """
                         navigator.mediaSession.setActionHandler('previoustrack', () => prevSong()); navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
                     }
                 }
-            } catch (err) { showToast("Error loading stream.", "error"); nextSong(); }
+            } catch (err) { showToast("Stream Error: " + err.message, "error"); nextSong(); }
             finally { hideLoader(); }
         }
 
@@ -1305,6 +1408,43 @@ PLAYER_HTML = """
             if (loopMode === 2) { btn.innerText = '🔂'; btn.classList.add('active'); showToast("Looping Current Song", "info");} 
         }
 
+        function openSleepModal() {
+            const btn = document.getElementById('sleepBtn');
+            if(sleepTimer) {
+                clearInterval(sleepTimer); sleepTimer = null;
+                btn.classList.remove('active'); 
+                document.getElementById('sleepRing').style.background = 'transparent';
+                showToast("Sleep timer cancelled", "info");
+                return;
+            }
+            document.getElementById('sleepModal').style.display = 'flex';
+        }
+
+        function setSleepTimer() {
+            const mins = parseInt(document.getElementById('sleepInput').value);
+            if(isNaN(mins) || mins <= 0) return showToast("Enter a valid time", "error");
+            
+            document.getElementById('sleepModal').style.display = 'none';
+            totalSleepTime = mins * 60; sleepTimeLeft = totalSleepTime;
+            document.getElementById('sleepBtn').classList.add('active');
+            showToast(`Media will pause in ${mins} minutes`, "success");
+            
+            sleepTimer = setInterval(() => {
+                sleepTimeLeft--;
+                let pct = (sleepTimeLeft / totalSleepTime) * 100;
+                document.getElementById('sleepRing').style.background = `conic-gradient(#ff0844 ${pct}%, transparent ${pct}%)`;
+                
+                if(sleepTimeLeft <= 0) {
+                    clearInterval(sleepTimer); sleepTimer = null;
+                    document.getElementById('sleepBtn').classList.remove('active');
+                    document.getElementById('sleepRing').style.background = 'transparent';
+                    
+                    audioEngine.pause();
+                    showToast("Sleep Timer finished. Playback paused.", "info");
+                }
+            }, 1000);
+        }
+
         function shareSong() {
             if(currentIndex >= 0 && currentIndex < audioQueue.length) {
                 const item = audioQueue[currentIndex];
@@ -1316,150 +1456,3 @@ PLAYER_HTML = """
 </body>
 </html>
 """
-
-# ==============================================================================
-# BACKEND ROUTING
-# ==============================================================================
-@app.route('/manifest.json')
-def serve_manifest():
-    return jsonify({"name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a", "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230f172a'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}], "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }})
-
-@app.route('/sw.js')
-def serve_sw(): return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
-
-@app.route('/')
-def index(): return render_template_string(DOWNLOADER_HTML)
-
-@app.route('/player')
-def media_player(): return render_template_string(PLAYER_HTML)
-
-@app.route('/api/stream_audio', methods=['POST'])
-def stream_audio():
-    url = request.json.get('url')
-    ydl_opts = { 
-        'quiet': True, 
-        'format': 'bestaudio[abr<=64][ext=m4a]/bestaudio[ext=m4a]/worstaudio/best', 
-        'noplaylist': True, 
-        'proxy': 'socks5://127.0.0.1:40000', 
-        'geo_bypass': True, 
-        'geo_bypass_country': 'US'
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            stream_url = info.get('url') 
-            if stream_url: return jsonify({'stream_url': stream_url})
-            else: return jsonify({'error': 'No stream found.'}), 400
-    except Exception as e: return jsonify({'error': str(e)}), 500
-
-@app.route('/api/tasks', methods=['GET'])
-def get_tasks():
-    client_id = request.args.get('client_id')
-    return jsonify({k: v for k, v in active_tasks.items() if v.get('client_id') == client_id})
-
-@app.route('/api/info', methods=['POST'])
-def get_info():
-    url = request.json.get('url')
-    mode = request.json.get('mode')
-    limit = request.json.get('limit', 10) 
-    if mode != 'search' and 'list=RD' in url: return jsonify({'error': 'Infinite loop detected.'})
-
-    ydl_opts = {'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search'], 'geo_bypass': True, 'geo_bypass_country': 'US'}
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            fetch_url = f"ytsearch{limit}:{url}" if mode == 'search' else url
-            info = ydl.extract_info(fetch_url, download=False)
-            
-            if mode in ['playlist', 'search']:
-                entries = []
-                for e in info.get('entries', []):
-                    if not e: continue
-                    thumb = e.get('thumbnails', [{'url': ''}])[-1]['url'] if e.get('thumbnails') else ''
-                    duration_sec = e.get('duration')
-                    if duration_sec:
-                        m, s = divmod(int(duration_sec), 60); h, m = divmod(m, 60)
-                        duration_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
-                    else: duration_str = "--:--"
-                    entries.append({'id': e.get('id'), 'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb, 'uploader': e.get('uploader') or e.get('channel') or 'Unknown Channel', 'views': e.get('view_count') or 0, 'duration': duration_str})
-                return jsonify({'entries': entries})
-            else:
-                formats = []
-                for f in info.get('formats', []):
-                    if f.get('vcodec') != 'none':
-                        res = f.get('format_note', f.get('resolution', 'Unknown'))
-                        if res in ['2160p', '1440p', '1080p', '1080p60', '720p', '720p60', '480p', '360p']:
-                            formats.append({'format_id': f['format_id'], 'resolution': res, 'filesize': round(f.get('filesize', 0) / 1048576, 1) if f.get('filesize') else None})
-                seen = set(); uniq = [f for f in reversed(formats) if not (f['resolution'] in seen or seen.add(f['resolution']))]
-                uniq.sort(key=lambda f: int(f['resolution'].replace('p60', '').replace('p', '')) if f['resolution'].replace('p60', '').replace('p', '').isdigit() else 0, reverse=True)
-                return jsonify({'id': info.get('id'), 'title': info.get('title'), 'thumbnail': info.get('thumbnail'), 'formats': uniq})
-    except Exception as e: return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
-
-def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
-    ydl_opts = {
-        'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s', 'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
-        'geo_bypass': True, 'geo_bypass_country': 'US', 'nocheckcertificate': True,
-        'progress_hooks': [get_progress_hook(task_id)], 'noplaylist': True, 'ffmpeg_location': '/usr/bin/ffmpeg', 
-        'external_downloader': 'aria2c', 'external_downloader_args': ['-j', '16', '-x', '16', '-s', '16', '-k', '1M'],
-        'postprocessor_args': ['-threads', '0', '-preset', 'ultrafast', '-strict', 'experimental'],
-    }
-
-    if dl_type == 'mp4':
-        if quality == 'best': ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
-        elif quality.endswith('p') and quality[:-1].isdigit(): ydl_opts['format'] = f'bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
-        else: ydl_opts['format'] = f"{quality}+bestaudio[ext=m4a]/best"
-        if burn_subs: ydl_opts['writesubtitles'] = True; ydl_opts['subtitleslangs'] = ['en']; ydl_opts['postprocessors'] = [{'key': 'FFmpegEmbedSubtitle'}]
-            
-    elif dl_type == 'mp3':
-        if conv_mode == 'full':
-            ydl_opts['writethumbnail'] = True 
-            ydl_opts['format'] = 'bestaudio/best'
-            ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality}, {'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
-        elif conv_mode == 'fast':
-            ydl_opts['writethumbnail'] = True 
-            ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'
-            ydl_opts['postprocessors'] = [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
-        else:
-            ydl_opts['writethumbnail'] = False
-            ydl_opts['format'] = 'bestaudio/best'
-            ydl_opts['postprocessors'] = [] 
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            base_filename = ydl.prepare_filename(info)
-            name_without_ext = os.path.splitext(base_filename)[0]
-            actual_file = base_filename
-            for possible_ext in ['.mp3', '.m4a', '.webm', '.opus', '.mp4', '.mkv']:
-                if os.path.exists(name_without_ext + possible_ext):
-                    actual_file = name_without_ext + possible_ext
-                    break
-            
-            if dl_type == 'mp3' and conv_mode == 'rename':
-                final_mp3_path = name_without_ext + '.mp3'
-                if actual_file != final_mp3_path and os.path.exists(actual_file):
-                    os.replace(actual_file, final_mp3_path) 
-                    actual_file = final_mp3_path
-
-            active_tasks[task_id]['status'] = 'completed'
-            active_tasks[task_id]['file'] = actual_file
-            active_tasks[task_id]['completed_at'] = time.time() 
-    except Exception as e:
-        active_tasks[task_id]['status'] = 'error'; active_tasks[task_id]['error_msg'] = str(e)
-
-@app.route('/api/download', methods=['POST'])
-def trigger_download():
-    task_id = str(uuid.uuid4())
-    conv_mode = request.json.get('conv_mode', 'fast')
-    active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at': time.time()}
-    threading.Thread(target=background_downloader, args=(task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), request.json.get('burn_subs', False), conv_mode), daemon=True).start()
-    return jsonify({'task_id': task_id})
-
-@app.route('/api/serve', methods=['GET'])
-def serve_file():
-    file_path = request.args.get('file')
-    if not file_path or not os.path.exists(file_path): return "File not found", 404
-    return send_file(os.path.abspath(file_path), as_attachment=True)
-
-if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V36 ONLINE 🔥\n" + "="*50 + "\n")
-    app.run(host="0.0.0.0", port=5000)
