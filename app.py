@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V33 - ANTI-SQUISH MOBILE GRID & BUTTON FIXES)
+# YOUTUBE DOWNLOADER (V34 - MOBILE RESPONSIVE UI FIX)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -66,7 +66,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# FRONTEND 1: THE DOWNLOADER (ROUTE: "/" - BRIGHT WHITE THEME RESTORED)
+# FRONTEND 1: THE DOWNLOADER (ROUTE: "/")
 # ==============================================================================
 DOWNLOADER_HTML = """
 <!DOCTYPE html>
@@ -74,26 +74,20 @@ DOWNLOADER_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YouTube Downloader</title>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#1e3c72">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    
+    <title>YT Downloader</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         
-        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3, #4facfe, #00f2fe); background-size: 600% 600%; animation: gradientBG 20s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
+        /* V34 ALIGNMENT FIX */
+        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3); background-size: 400% 400%; animation: gradientBG 15s ease infinite; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; margin: 0; overflow-x: hidden; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; }
-        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .header-left { display: flex; align-items: center; gap: 15px; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; margin: 0 auto; }
+        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;}
         
         .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; }
-        .hamburger-btn:hover { transform: scale(1.1); }
         .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
-        .settings-btn:hover { background: #cbd5e0; transform: rotate(90deg); }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
         #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; }
@@ -127,37 +121,25 @@ DOWNLOADER_HTML = """
         .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .btn-dash-search { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
 
-        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
-        input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; color: #333; transition: 0.3s; }
-        input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79,172,254,0.2); background: white; }
+        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px; flex-wrap: wrap;}
+        input[type="text"] { flex: 1; min-width: 200px; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; color: #333; transition: 0.3s; }
         .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; flex-shrink:0;}
-        .paste-btn:hover { background: #cbd5e0; }
-        
-        /* V33 ANTI-SQUISH BUTTONS */
         .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; transition: 0.2s; white-space: nowrap;}
-        .action-btn:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .action-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none;}
-        .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
-        .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         
         .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
         
-        #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
+        #single-ui, #list-container, #dashboard-ui, #history-ui { display: none; flex-direction: column; gap: 10px; }
         
         .dash-task-header { margin-top: 20px; font-weight: 800; color: #1e3c72; border-bottom: 2px solid #eee; padding-bottom: 10px;}
         #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
 
-        /* V33 MOBILE LIST WRAP */
         .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
-        .list-item:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
         @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
         .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.3s; flex-shrink: 0;}
-        .list-item img:hover { filter: brightness(0.8); }
         .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
         .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; color: #333; }
         
-        /* V33 HORIZONTAL SCROLL ENFORCER */
         .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center; width: 100%;}
         
         .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
@@ -165,22 +147,18 @@ DOWNLOADER_HTML = """
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
         
-        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(17,153,142,0.5); transition: 0.3s;}
-        .fab:hover { transform: scale(1.05); }
-        .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; color: white;}
+        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: #ff0844; color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,8,68,0.5); transition: 0.3s;}
+        .badge { background: white; color: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem;}
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 3000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px); }
-        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: popIn 0.3s ease-out;}
+        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.8); animation: popIn 0.3s ease-out;}
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 20px; right: 20px; transition: 0.2s;}
-        .btn-close:hover { transform: rotate(90deg); }
         
         .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
-        .quality-item:hover { border-color: #4facfe; background: #e0f2fe; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2;}
         
         .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
         .radio-item { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #ddd; cursor: pointer; transition: 0.2s;}
-        .radio-item:hover { border-color: #4facfe; }
         .radio-item input { width: 20px; height: 20px; accent-color: #ff0844; flex-shrink: 0;}
         .radio-desc { font-size: 0.8rem; color: #666; font-weight: normal; margin-top: 5px; }
 
@@ -188,21 +166,30 @@ DOWNLOADER_HTML = """
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
 
         .history-card { background: #f4f7f6; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
-        .history-card:hover { border-color: #4facfe; box-shadow: 0 5px 15px rgba(0,0,0,0.05);}
         .history-info p { font-size: 0.75rem; color: #666; margin-top: 5px; }
         .history-btn { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink:0; white-space: nowrap;}
-        .history-btn:hover { background: #ff0844; transform: scale(1.05); }
 
-        /* V33 MOBILE RESPONSIVENESS FIXES */
+        /* V34 MOBILE RESPONSIVENESS FIXES */
         @media (max-width: 600px) { 
             .list-item { flex-direction: column; align-items: stretch; text-align: center;} 
-            .list-item img { width: 100%; height: auto; max-height: 200px; object-fit: cover;} 
-            .input-group { flex-direction: column; }
-            .paste-btn { position: relative; right: auto; top: auto; transform: none; width: 100%; padding: 15px; margin-top: 10px; }
+            .list-item img { width: 100%; height: auto; max-height: 200px; object-fit: cover; margin: 0 auto;} 
+            
+            /* SQUISH FIX: Stack Search Bar and Go button */
+            .input-group { flex-direction: column; align-items: stretch; }
+            #url { width: 100%; min-width: 0; padding-right: 20px !important; }
+            #pasteBtn { position: relative; right: auto; top: auto; transform: none; width: 100%; padding: 15px; margin-top: 5px; }
+            #goBtn { width: 100%; margin-top: 5px; }
+
+            /* SQUISH FIX: Queue Actions Drop Down */
             #bulk-actions { flex-direction: column; align-items: stretch !important; gap: 15px; }
-            .btn-scroll-container { width: 100%; overflow-x: auto; justify-content: center;}
+            #bulk-actions > div:first-child { text-align: center; } /* Select All text */
+            .btn-scroll-container { width: 100%; overflow-x: auto; justify-content: center; flex-wrap: wrap;}
+            .btn-scroll-container .action-btn { flex: 1; min-width: 48%; text-align: center;}
+
             .history-card { flex-direction: column; text-align: center; gap: 10px;}
             .history-btn { width: 100%; }
+            .header-area { flex-direction: column; gap: 15px; align-items: flex-start; }
+            .settings-btn { align-self: flex-end; margin-top: -55px; }
         }
     </style>
 </head>
@@ -216,7 +203,7 @@ DOWNLOADER_HTML = """
         <h2 style="margin-bottom: 30px; text-align: center;">MENU</h2>
         
         <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 View My History</a>
-        <a href="/player">▶️ YouTube Player</a>
+        <a href="/player">▶️ Premium Player</a>
         <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
         <a href="#" onclick="switchTab('dashboard'); toggleMenu()">🏠 Dashboard</a>
         <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Download Video</a>
@@ -231,7 +218,7 @@ DOWNLOADER_HTML = """
         </div>
         
         <div class="tabs">
-            <button class="tab-btn active" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+            <button class="tab-btn active" id="tab-history" onclick="switchTab('history')">History</button>
             <button class="tab-btn" id="tab-single" onclick="switchTab('single')">Single</button>
             <button class="tab-btn" id="tab-playlist" onclick="switchTab('playlist')">Playlist</button>
             <button class="tab-btn" id="tab-search" onclick="switchTab('search')">Search</button>
@@ -243,15 +230,12 @@ DOWNLOADER_HTML = """
             <button class="action-btn" id="goBtn" style="display:none;" onclick="handleInput(null, true)">GO</button>
         </div>
 
-        <div id="dashboard-ui" style="display:flex;">
-            <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
+        <div id="history-ui" style="display:flex;">
+            <h3 style="color:#1e3c72; margin-bottom: 15px;">🕒 Recently Played</h3>
             <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ OPEN PREMIUM PLAYER</button>
-            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
-            <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download Playlist</button>
-            <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Download</button>
-            
-            <div class="dash-task-header">ACTIVE DOWNLOADS</div>
-            <div id="dashboardTasksWrapper"><p style="color:#888; font-size:0.9rem;">No active downloads.</p></div>
+            <div id="history-list" style="margin-top: 10px;">
+                <p style="color:#888; text-align:center;">No history yet. Go watch something!</p>
+            </div>
         </div>
 
         <div id="single-ui">
@@ -268,9 +252,8 @@ DOWNLOADER_HTML = """
         </div>
 
         <div id="list-container" class="list-container">
-            <!-- V33 WRAP FIX FOR SELECT ALL AND BUTTONS -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:15px;" id="bulk-actions">
-                <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#4facfe; vertical-align:middle;"> <strong style="vertical-align:middle;">Select All</strong></div>
+                <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#ff0844; vertical-align:middle;"> <strong style="vertical-align:middle;">Select All</strong></div>
                 <div class="btn-scroll-container" style="flex:1;">
                     <button class="action-btn btn-mp4" style="padding:10px 15px;" onclick="downloadBulk('mp4')">DL SELECTED MP4</button>
                     <button class="action-btn btn-mp3" style="padding:10px 15px;" onclick="downloadBulk('mp3')">DL SELECTED MP3</button>
@@ -283,16 +266,13 @@ DOWNLOADER_HTML = """
 
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
-    <!-- MODALS -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
                 <h2 style="font-size:1.5rem; color:#1e3c72;">🕒 My History</h2>
                 <button class="btn-close" onclick="document.getElementById('historyModal').style.display='none'">X</button>
             </div>
-            <div id="history-list" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:5px;">
-                <p style="color:#666; text-align:center;">No history yet. Go watch something!</p>
-            </div>
+            <div id="history-list-modal" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:5px;"></div>
         </div>
     </div>
 
@@ -312,28 +292,20 @@ DOWNLOADER_HTML = """
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:#1e3c72;">App Settings</h2>
             <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
+            
             <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">MP3 Conversion Engine</h3>
             <div class="radio-group">
                 <label class="radio-item">
                     <input type="radio" name="convMode" value="full" onchange="saveSettings()">
-                    <div>
-                        <strong>Full FFmpeg (High Quality)</strong>
-                        <div class="radio-desc">Perfectly encodes MP3, injects cover art. (Slowest)</div>
-                    </div>
+                    <div><strong>Full FFmpeg (High Quality)</strong><div class="radio-desc">Perfectly encodes MP3, injects cover art. (Slowest)</div></div>
                 </label>
                 <label class="radio-item">
                     <input type="radio" name="convMode" value="fast" onchange="saveSettings()">
-                    <div>
-                        <strong>Fast Metadata (Native Audio)</strong>
-                        <div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div>
-                    </div>
+                    <div><strong>Fast Metadata (Native Audio)</strong><div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div></div>
                 </label>
                 <label class="radio-item" style="border-color:#ff0844; background:#fff0f2;">
                     <input type="radio" name="convMode" value="rename" onchange="saveSettings()">
-                    <div>
-                        <strong>Rename Only (Zero Math)</strong>
-                        <div class="radio-desc">Raw download, instantly renames to .mp3. No cover art. (Ultra Fast ⚡)</div>
-                    </div>
+                    <div><strong>Rename Only (Zero Math)</strong><div class="radio-desc">Raw download, instantly renames to .mp3. No cover art. (Ultra Fast ⚡)</div></div>
                 </label>
             </div>
         </div>
@@ -349,7 +321,7 @@ DOWNLOADER_HTML = """
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 id="modalTitle" style="color:#1e3c72;">Quality</h3><button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button></div>
-            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;flex-shrink:0;"></div>
+            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;"></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
     </div>
@@ -373,12 +345,18 @@ DOWNLOADER_HTML = """
 
         function loadHistory() {
             const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
-            const container = document.getElementById('history-list');
-            if(hist.length === 0) { container.innerHTML = '<p style="color:#666; text-align:center;">No history yet. Go watch something!</p>'; return; }
+            const containerMain = document.getElementById('history-list');
+            const containerModal = document.getElementById('history-list-modal');
             
-            container.innerHTML = '';
+            if(hist.length === 0) { 
+                containerMain.innerHTML = '<p style="color:#888; text-align:center;">No history yet. Go watch something!</p>'; 
+                containerModal.innerHTML = '<p style="color:#888; text-align:center;">No history yet. Go watch something!</p>'; 
+                return; 
+            }
+            
+            let html = '';
             hist.forEach(h => {
-                container.innerHTML += `
+                html += `
                     <div class="history-card">
                         <div class="history-info">
                             <strong style="color:#333; font-size:0.95rem;">${h.title}</strong>
@@ -387,6 +365,8 @@ DOWNLOADER_HTML = """
                         <button class="history-btn" onclick="window.location.href='/player?url=${encodeURIComponent(h.url)}'">▶ Play</button>
                     </div>`;
             });
+            containerMain.innerHTML = html;
+            containerModal.innerHTML = html;
         }
 
         function loadSettings() {
@@ -405,7 +385,7 @@ DOWNLOADER_HTML = """
             }
         }
         
-        let currentMode = 'dashboard';
+        let currentMode = 'history';
         let currentData = []; 
         let currentSearchLimit = 10;
         let pendingDownloadTarget = null; 
@@ -424,7 +404,7 @@ DOWNLOADER_HTML = """
             loadHistory();
             const params = new URLSearchParams(window.location.search);
             if (params.get('url')) { switchTab('single'); document.getElementById('url').value = params.get('url'); handleInput(params.get('url'), true); return; }
-            switchTab('dashboard');
+            switchTab('history');
         });
 
         window.addEventListener('scroll', () => {
@@ -461,10 +441,10 @@ DOWNLOADER_HTML = """
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             if(document.getElementById(`tab-${mode}`)) document.getElementById(`tab-${mode}`).classList.add('active');
             
-            ['dashboard-ui', 'inputWrapper', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
+            ['history-ui', 'inputWrapper', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
             
-            if(mode === 'dashboard') {
-                document.getElementById('dashboard-ui').style.display = 'flex';
+            if(mode === 'history') {
+                document.getElementById('history-ui').style.display = 'flex';
                 document.getElementById('statusBadge').style.display = 'none';
             } else {
                 document.getElementById('inputWrapper').style.display = 'flex';
@@ -472,7 +452,13 @@ DOWNLOADER_HTML = """
                 input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
                 document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block';
                 document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
-                input.style.paddingRight = mode === 'search' ? '20px' : '90px';
+                
+                // V34 Squish fix logic: we no longer use absolute positioning for paste button on mobile, but on desktop we need padding
+                if(window.innerWidth > 600) {
+                    input.style.paddingRight = mode === 'search' ? '20px' : '90px';
+                } else {
+                    input.style.paddingRight = '20px'; // Mobile sets width to 100% and buttons drop down
+                }
                 
                 if(mode === 'search') {
                     document.getElementById('statusBadge').style.display = 'none';
@@ -539,7 +525,7 @@ DOWNLOADER_HTML = """
                 const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
                 wrapper.innerHTML += `
                     <div class="list-item">
-                        <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px; accent-color:#4facfe; flex-shrink:0;">
+                        <input type="checkbox" class="pl-checkbox" value="${i}">
                         <img src="${item.thumbnail}" onclick="window.location.href='/player?url=${encodeURIComponent(item.url || videoId)}'">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
@@ -671,9 +657,8 @@ DOWNLOADER_HTML = """
                 const fab = document.getElementById('fabBtn');
                 if (activeCount > 0) { fab.style.display = 'flex'; } else { fab.style.display = 'none'; }
                 
-                const finalHtml = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
+                const finalHtml = html || '<p style="text-align:center; color:#666;">No active downloads.</p>';
                 document.getElementById('tasksWrapper').innerHTML = finalHtml;
-                document.getElementById('dashboardTasksWrapper').innerHTML = finalHtml;
                 document.getElementById('taskBadge').innerText = activeCount;
             } catch(e) {}
         }, 1000); 
@@ -683,7 +668,7 @@ DOWNLOADER_HTML = """
 """
 
 # ==============================================================================
-# HTML 2: THE STRICT YOUTUBE PLAYER (ROUTE: "/player")
+# HTML 2: THE PREMIUM PLAYER (ROUTE: "/player" - REMAINS DARK THEME)
 # ==============================================================================
 PLAYER_HTML = """
 <!DOCTYPE html>
@@ -695,7 +680,10 @@ PLAYER_HTML = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        body { background: #0f172a; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
+        
+        /* V34 ALIGNMENT FIX */
+        body { background: #0f172a; color: white; min-height: 100vh; padding: 20px; overflow-x: hidden; margin: 0; display: block; }
+        .container { width: 100%; max-width: 600px; padding-bottom: 150px; margin: 0 auto; }
         
         #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s; display: flex; align-items: center; gap: 10px; }
         #global-loader.active { top: 20px; }
@@ -716,13 +704,14 @@ PLAYER_HTML = """
         @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
-        .container { width: 100%; max-width: 600px; padding-bottom: 150px; }
-        .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items:center;}
-        .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition:0.2s;}
+        .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items:center; flex-wrap: wrap;}
+        .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition:0.2s; flex-shrink: 0;}
         .menu-btn:hover { transform: scale(1.1); }
-        input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;}
+        input[type="text"] { flex: 1; min-width: 150px; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;}
         input[type="text"]:focus { border-color: #ff0844; }
-        .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0;}
+        
+        /* V34 WRAP FIX */
+        .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0; white-space: nowrap;}
         .search-btn:hover { transform: translateY(-3px); }
 
         #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; gap: 20px; }
@@ -737,7 +726,6 @@ PLAYER_HTML = """
         .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px;}
         .play-selected-btn { background: #ff0844; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap;}
 
-        /* V33 MOBILE ANTI-SQUISH CARDS */
         .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; border: 1px solid #334155; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
         .card:hover { border-color: #ff0844; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
@@ -758,7 +746,7 @@ PLAYER_HTML = """
         .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
         .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
 
-        /* AUDIO PLAYER */
+        /* V34 AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 20px 20px 0 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5); border-top: 1px solid #334155;}
@@ -846,7 +834,7 @@ PLAYER_HTML = """
         #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; justify-content: center;}
         #thumbModal img { width: 100%; height: auto; max-height: 85vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; }
 
-        /* V33 RESPONSIVE TWEAKS */
+        /* V34 MOBILE RESPONSIVENESS FIXES */
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
             #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; } 
@@ -854,7 +842,15 @@ PLAYER_HTML = """
             
             .card.audio-mode { flex-direction: column; align-items: center; text-align: center; }
             .card.audio-mode img { width: 100%; max-width: 200px; height: auto; aspect-ratio: 1; margin: 0 auto;}
-            .card.audio-mode .action-row { width: 100%; display: flex; }
+            .card.audio-mode .action-row { width: 100%; display: flex; flex-wrap: wrap; justify-content: center;}
+            
+            /* TOP BAR SQUISH FIX */
+            .top-bar { display: flex; flex-wrap: wrap; }
+            .search-btn { width: 100%; margin-top: 5px; }
+            
+            /* QUEUE ACTIONS SQUISH FIX */
+            .queue-actions { flex-direction: column; align-items: flex-start; gap: 10px;}
+            .play-selected-btn { width: 100%; margin-top: 5px;}
         }
     </style>
 </head>
@@ -896,7 +892,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- GOD-MODE AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">🗕</button>
@@ -944,7 +939,6 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
-    <!-- VIDEO MODAL (SANDBOXED + PAUSE FIX) -->
     <div id="video-modal">
         <div class="video-container">
             <div class="vid-controls">
@@ -955,7 +949,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
@@ -1572,6 +1565,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V33 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V34 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
-    
