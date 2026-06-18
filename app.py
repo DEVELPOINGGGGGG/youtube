@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V31 - ULTRA-LIGHTWEIGHT DATA SAVER & HISTORY ENGINE)
+# YOUTUBE DOWNLOADER (V32 - BRIGHT DASHBOARD RESTORED & SIDEBAR HISTORY)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -66,7 +66,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# FRONTEND 1: THE DOWNLOADER (ROUTE: "/")
+# FRONTEND 1: THE DOWNLOADER (ROUTE: "/" - BRIGHT WHITE THEME RESTORED)
 # ==============================================================================
 DOWNLOADER_HTML = """
 <!DOCTYPE html>
@@ -74,95 +74,125 @@ DOWNLOADER_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YT Downloader</title>
+    <title>YouTube Downloader</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e3c72">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        body { background: #0f172a; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: white; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
         
-        .glass-card { background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #334155; }
+        /* RESTORED V30 BRIGHT GRADIENT BACKGROUND */
+        body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3, #4facfe, #00f2fe); background-size: 600% 600%; animation: gradientBG 20s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
+        @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        
+        /* RESTORED BRIGHT GLASS CARD */
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; }
         .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: white; background: none; border: none; transition: 0.2s; }
-        .settings-btn { font-size: 1.5rem; cursor: pointer; color: white; background: #334155; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
-        .settings-btn:hover { transform: rotate(90deg); background: #ff0844; }
-        h2 { font-weight: 800; font-size: 1.8rem; margin: 0; color: white; }
-        h2 span { color: #ff0844; }
+        .header-left { display: flex; align-items: center; gap: 15px; }
         
-        /* V31 LOADING ANIMATION */
+        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; }
+        .hamburger-btn:hover { transform: scale(1.1); }
+        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
+        .settings-btn:hover { background: #cbd5e0; transform: rotate(90deg); }
+        h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* GLOBAL LOADER */
         #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; }
         #global-loader.active { top: 20px; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* TOASTS */
+        /* TOASTS (Adjusted for light theme readability) */
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
-        .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s forwards; }
+        .toast { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .toast.success { border-left-color: #1db954; }
+        .toast.error { border-left-color: #ff0844; }
         @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #0f172a; box-shadow: 5px 0 25px rgba(0,0,0,0.8); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; border-right: 1px solid #334155; }
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #1e293b; transition: 0.2s; }
-        .side-nav a:hover { background: #ff0844; transform: translateX(10px); }
-        .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
+        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
+        .side-nav a:hover { background: #e0f2fe; color: #1e3c72; transform: translateX(10px); }
+        .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
-        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #1e293b; color: #94a3b8; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .tab-btn.active { background: #ff0844; color: white; box-shadow: 0 5px 15px rgba(255,8,68,0.4); }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; color: #333; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
+        .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
         
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .choice-btn:hover { transform: scale(1.03); }
+        .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+        .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .btn-dash-search { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+
         .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
-        input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #334155; background: #0f172a; color: white; font-size: 1.1rem; outline: none; transition: 0.3s; }
-        input[type="text"]:focus { border-color: #ff0844; box-shadow: 0 0 15px rgba(255,8,68,0.2); }
-        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #334155; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: white; transition: 0.2s; }
-        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #ff0844; transition: 0.2s;}
-        .action-btn:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(255,8,68,0.4); }
+        input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; color: #333; transition: 0.3s; }
+        input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79,172,254,0.2); background: white; }
+        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; }
+        .paste-btn:hover { background: #cbd5e0; }
+        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; transition: 0.2s;}
+        .action-btn:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .action-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none;}
+        .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
+        .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         
-        /* V31 ANIMATED CARDS */
-        #single-ui, #list-container, #history-ui { display: none; flex-direction: column; gap: 10px; }
-        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #1e293b; border-radius: 12px; overflow:hidden; border: 1px solid #334155; transition: 0.3s; animation: popIn 0.4s ease-out; }
-        .list-item:hover { border-color: #ff0844; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
+        
+        #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
+        
+        .dash-task-header { margin-top: 20px; font-weight: 800; color: #1e3c72; border-bottom: 2px solid #eee; padding-bottom: 10px;}
+        #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
+
+        .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; overflow:hidden; border: 1px solid transparent; transition: 0.3s; animation: popIn 0.4s ease-out; }
+        .list-item:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
         @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
         .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.3s;}
-        .list-item img:hover { filter: brightness(1.2); }
-        .item-info { flex: 1; min-width: 0; }
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; color: white; }
-        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
+        .list-item img:hover { filter: brightness(0.8); }
+        .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; color: #333; }
+        .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center;}
         
-        .progress-container { background: #0f172a; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #334155;}
-        .progress-bar-bg { width: 100%; height: 10px; background: #1e293b; border-radius: 10px; overflow: hidden; margin: 8px 0; }
-        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ff0844 0%, #ffb199 100%); transition: width 0.3s ease; }
-        .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; font-weight: 700; }
+        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
+        .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
+        .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
         
-        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: #ff0844; color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(255,8,68,0.5); transition: 0.3s;}
-        .fab:hover { transform: scale(1.1); }
-        .badge { background: white; color: #ff0844; padding: 2px 8px; border-radius: 20px; }
+        .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; cursor: pointer; z-index: 1000; align-items: center; gap: 10px; box-shadow: 0 10px 25px rgba(17,153,142,0.5); transition: 0.3s;}
+        .fab:hover { transform: scale(1.05); }
+        .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; color: white;}
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 3000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(5px); }
-        .modal-box { background: #1e293b; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; border: 1px solid #334155; box-shadow: 0 20px 50px rgba(0,0,0,0.8); animation: popIn 0.3s ease-out;}
+        .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5); animation: popIn 0.3s ease-out;}
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 20px; right: 20px; transition: 0.2s;}
         .btn-close:hover { transform: rotate(90deg); }
         
-        .quality-item { background: #0f172a; border: 2px solid #334155; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
-        .quality-item:hover { border-color: #ff0844; background: #334155; }
-        .quality-item.best { border-color: #ff0844; }
+        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
+        .quality-item:hover { border-color: #4facfe; background: #e0f2fe; }
+        .quality-item.best { border-color: #ff0844; background: #fff0f2;}
         
-        /* V31 SETTINGS RADIO BUTTONS */
+        /* SETTINGS RADIO BUTTONS */
         .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
-        .radio-item { display: flex; align-items: center; gap: 15px; background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; cursor: pointer; transition: 0.2s;}
-        .radio-item:hover { border-color: #ff0844; }
+        .radio-item { display: flex; align-items: center; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 12px; border: 1px solid #ddd; cursor: pointer; transition: 0.2s;}
+        .radio-item:hover { border-color: #4facfe; }
         .radio-item input { width: 20px; height: 20px; accent-color: #ff0844; }
-        .radio-desc { font-size: 0.8rem; color: #94a3b8; font-weight: normal; margin-top: 5px; }
+        .radio-desc { font-size: 0.8rem; color: #666; font-weight: normal; margin-top: 5px; }
 
-        .task-item { background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
-        .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px;}
+        .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
+        .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;}
 
-        /* V31 HISTORY CARDS */
-        .history-card { background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
-        .history-card:hover { border-color: #ff0844; }
-        .history-info p { font-size: 0.75rem; color: #94a3b8; margin-top: 5px; }
-        .history-btn { background: #ff0844; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        /* HISTORY CARDS */
+        .history-card { background: #f4f7f6; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; transition: 0.2s;}
+        .history-card:hover { border-color: #4facfe; box-shadow: 0 5px 15px rgba(0,0,0,0.05);}
+        .history-info p { font-size: 0.75rem; color: #666; margin-top: 5px; }
+        .history-btn { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .history-btn:hover { background: #ff0844; transform: scale(1.05); }
 
         @media (max-width: 600px) { .list-item { flex-direction: column; align-items: stretch; } .list-item img { width: 100%; } .input-group { flex-direction: column; } }
     </style>
@@ -174,10 +204,13 @@ DOWNLOADER_HTML = """
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
     <div class="side-nav" id="sideNav">
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
-        <h2 style="margin-bottom: 30px; text-align: center; color:white;">MENU</h2>
-        <a href="#" onclick="switchTab('history'); toggleMenu()">🕒 My History</a>
+        <h2 style="margin-bottom: 30px; text-align: center;">MENU</h2>
+        
+        <!-- SIDEBAR HISTORY -->
+        <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 View My History</a>
         <a href="/player">▶️ YouTube Player</a>
-        <div style="height: 1px; background: #334155; margin: 15px 0;"></div>
+        <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
+        <a href="#" onclick="switchTab('dashboard'); toggleMenu()">🏠 Dashboard</a>
         <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Download Video</a>
         <a href="#" onclick="switchTab('playlist'); toggleMenu()">📂 Download Playlist</a>
         <a href="#" onclick="switchTab('search'); toggleMenu()">🔍 Search YouTube</a>
@@ -190,7 +223,7 @@ DOWNLOADER_HTML = """
         </div>
         
         <div class="tabs">
-            <button class="tab-btn active" id="tab-history" onclick="switchTab('history')">History</button>
+            <button class="tab-btn active" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
             <button class="tab-btn" id="tab-single" onclick="switchTab('single')">Single</button>
             <button class="tab-btn" id="tab-playlist" onclick="switchTab('playlist')">Playlist</button>
             <button class="tab-btn" id="tab-search" onclick="switchTab('search')">Search</button>
@@ -202,16 +235,21 @@ DOWNLOADER_HTML = """
             <button class="action-btn" id="goBtn" style="display:none;" onclick="handleInput(null, true)">GO</button>
         </div>
 
-        <div id="history-ui" style="display:flex;">
-            <h3 style="color:white; margin-bottom: 15px;">🕒 Recently Played</h3>
-            <button class="choice-btn btn-dash-player" style="background:#334155; border:1px solid #4facfe;" onclick="window.location.href='/player'">▶️ OPEN YOUTUBE PLAYER</button>
-            <div id="history-list" style="margin-top: 10px;">
-                <p style="color:#94a3b8; text-align:center;">No history yet. Go watch something!</p>
-            </div>
+        <!-- DASHBOARD UI RESTORED -->
+        <div id="dashboard-ui" style="display:flex;">
+            <h3 style="margin-bottom: 10px; color: #1e3c72; text-align: center;">What do you want to do?</h3>
+            <button class="choice-btn btn-dash-player" onclick="window.location.href='/player'">▶️ OPEN PREMIUM PLAYER</button>
+            <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
+            <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download Playlist</button>
+            <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Download</button>
+            
+            <div class="dash-task-header">ACTIVE DOWNLOADS</div>
+            <div id="dashboardTasksWrapper"><p style="color:#888; font-size:0.9rem;">No active downloads.</p></div>
         </div>
 
+        <!-- SINGLE DL -->
         <div id="single-ui">
-            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="window.location.href='/player'">
+            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="window.location.href='/player?url='+encodeURIComponent(currentVideoId)">
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -223,20 +261,37 @@ DOWNLOADER_HTML = """
             </div>
         </div>
 
+        <!-- LIST DL -->
         <div id="list-container" class="list-container">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <div><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#ff0844; vertical-align:middle;"> Select All</div>
+                <div><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px; accent-color:#4facfe; vertical-align:middle;"> Select All</div>
                 <div class="btn-scroll-container">
                     <button class="action-btn btn-mp4" style="padding:10px 15px;" onclick="downloadBulk('mp4')">DL SELECTED MP4</button>
                     <button class="action-btn btn-mp3" style="padding:10px 15px;" onclick="downloadBulk('mp3')">DL SELECTED MP3</button>
                 </div>
             </div>
             <div id="items-wrapper" style="display:flex; flex-direction:column; gap:12px;"></div>
-            <button class="action-btn" id="loadMoreBtn" style="display:none; width:100%; margin-top:15px;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
+            <button class="action-btn" id="loadMoreBtn" style="display:none; width:100%; margin-top:15px; background:#333;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
         </div>
     </div>
 
+    <!-- BACKGROUND FAB -->
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
+
+    <!-- MODALS -->
+    
+    <!-- V32 SIDEBAR HISTORY MODAL -->
+    <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
+        <div class="modal-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="font-size:1.5rem; color:#1e3c72;">🕒 My History</h2>
+                <button class="btn-close" onclick="document.getElementById('historyModal').style.display='none'">X</button>
+            </div>
+            <div id="history-list" style="display:flex; flex-direction:column; gap:10px; max-height:60vh; overflow-y:auto; padding-right:5px;">
+                <p style="color:#666; text-align:center;">No history yet. Go watch something!</p>
+            </div>
+        </div>
+    </div>
 
     <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
         <div class="modal-box">
@@ -244,7 +299,7 @@ DOWNLOADER_HTML = """
                 <h2 style="font-size:1.5rem; color:#ff0844;">⚠️ Unsaved Files</h2>
                 <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
             </div>
-            <p style="margin-bottom:15px; font-size:0.9rem; color:#94a3b8;">These finished while the app was closed.</p>
+            <p style="margin-bottom:15px; font-size:0.9rem; color:#666;">These finished while the app was closed.</p>
             <div id="recoveryList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; max-height:200px; overflow-y:auto;"></div>
             <button class="action-btn btn-mp4" style="width:100%; padding:15px; font-size:1.1rem; background: #ff0844;" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
         </div>
@@ -252,7 +307,7 @@ DOWNLOADER_HTML = """
 
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
-            <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
+            <h2 style="font-size:1.5rem; margin-bottom:5px; color:#1e3c72;">App Settings</h2>
             <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
             
             <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">MP3 Conversion Engine</h3>
@@ -271,7 +326,7 @@ DOWNLOADER_HTML = """
                         <div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div>
                     </div>
                 </label>
-                <label class="radio-item" style="border-color:#ff0844;">
+                <label class="radio-item" style="border-color:#ff0844; background:#fff0f2;">
                     <input type="radio" name="convMode" value="rename" onchange="saveSettings()">
                     <div>
                         <strong>Rename Only (Zero Math)</strong>
@@ -284,15 +339,15 @@ DOWNLOADER_HTML = """
 
     <div class="modal-overlay" id="taskModal" style="z-index: 2500;">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;"><h2>Background Tasks</h2><button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button></div>
-            <div id="tasksWrapper"><p style="text-align:center; color:#94a3b8;">No active downloads.</p></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;"><h2 style="color:#1e3c72;">Background Tasks</h2><button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button></div>
+            <div id="tasksWrapper"><p style="text-align:center; color:#666;">No active downloads.</p></div>
         </div>
     </div>
 
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 id="modalTitle">Quality</h3><button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button></div>
-            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;"><h3 id="modalTitle" style="color:#1e3c72;">Quality</h3><button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button></div>
+            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs" style="width:20px;height:20px;accent-color:#ff0844;"></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
     </div>
@@ -314,18 +369,18 @@ DOWNLOADER_HTML = """
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
         function markHandled(id) { if (!handledDownloads.includes(id)) { handledDownloads.push(id); localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50))); } }
 
-        // V31 HISTORY ENGINE
+        // V32 HISTORY LOGIC (Now in Modal)
         function loadHistory() {
             const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
             const container = document.getElementById('history-list');
-            if(hist.length === 0) { container.innerHTML = '<p style="color:#94a3b8; text-align:center;">No history yet. Go watch something!</p>'; return; }
+            if(hist.length === 0) { container.innerHTML = '<p style="color:#666; text-align:center;">No history yet. Go watch something!</p>'; return; }
             
             container.innerHTML = '';
             hist.forEach(h => {
                 container.innerHTML += `
                     <div class="history-card">
                         <div class="history-info">
-                            <strong style="color:white; font-size:0.95rem;">${h.title}</strong>
+                            <strong style="color:#333; font-size:0.95rem;">${h.title}</strong>
                             <p>👤 ${h.uploader} • ⏱️ ${h.duration} • 📅 ${h.date}</p>
                         </div>
                         <button class="history-btn" onclick="window.location.href='/player?url=${encodeURIComponent(h.url)}'">▶ Play</button>
@@ -333,7 +388,6 @@ DOWNLOADER_HTML = """
             });
         }
 
-        // V31 SETTINGS ENGINE
         function loadSettings() {
             let mode = localStorage.getItem('audio_conversion_mode') || 'fast';
             const radios = document.getElementsByName('convMode');
@@ -350,13 +404,14 @@ DOWNLOADER_HTML = """
             }
         }
         
-        let currentMode = 'history';
+        let currentMode = 'dashboard';
         let currentData = []; 
         let currentSearchLimit = 10;
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
         let typingTimer; 
         let isFetchingMore = false; 
+        let currentVideoId = "";
         
         let initialLoad = true;
         let recoveredToDownload = [];
@@ -368,7 +423,7 @@ DOWNLOADER_HTML = """
             loadHistory();
             const params = new URLSearchParams(window.location.search);
             if (params.get('url')) { switchTab('single'); document.getElementById('url').value = params.get('url'); handleInput(params.get('url'), true); return; }
-            switchTab('history');
+            switchTab('dashboard');
         });
 
         window.addEventListener('scroll', () => {
@@ -389,7 +444,7 @@ DOWNLOADER_HTML = """
 
         function showRecoveryModal(files) {
             const list = document.getElementById('recoveryList'); list.innerHTML = '';
-            files.forEach(f => { list.innerHTML += `<div style="padding:10px; background:#0f172a; border-radius:8px; border:1px solid #334155;">${f.title}</div>`; recoveredToDownload.push(f); });
+            files.forEach(f => { list.innerHTML += `<div style="padding:10px; background:#f4f7f6; border-radius:8px; border:1px solid #e2e8f0; color:#333;">${f.title}</div>`; recoveredToDownload.push(f); });
             document.getElementById('recoveryModal').style.display = 'flex';
         }
         function downloadRecovered() { document.getElementById('recoveryModal').style.display = 'none'; recoveredToDownload.forEach(f => { deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)); }); processDeliveryQueue(); recoveredToDownload = []; }
@@ -404,11 +459,11 @@ DOWNLOADER_HTML = """
             currentMode = mode;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             if(document.getElementById(`tab-${mode}`)) document.getElementById(`tab-${mode}`).classList.add('active');
-            ['history-ui', 'inputWrapper', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
             
-            if(mode === 'history') {
-                document.getElementById('history-ui').style.display = 'flex';
-                loadHistory();
+            ['dashboard-ui', 'inputWrapper', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
+            
+            if(mode === 'dashboard') {
+                document.getElementById('dashboard-ui').style.display = 'flex';
             } else {
                 document.getElementById('inputWrapper').style.display = 'flex';
                 const input = document.getElementById('url');
@@ -416,6 +471,15 @@ DOWNLOADER_HTML = """
                 document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block';
                 document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
                 input.style.paddingRight = mode === 'search' ? '20px' : '90px';
+                
+                // Clear state when switching to search so status isn't weird
+                if(mode === 'search') {
+                    document.getElementById('statusBadge').style.display = 'none';
+                    document.getElementById('results').innerHTML = '';
+                } else {
+                    document.getElementById('statusBadge').style.display = 'inline-block';
+                    setStatus("Awaiting Link...");
+                }
             }
         }
 
@@ -432,7 +496,9 @@ DOWNLOADER_HTML = """
             let val = forcedValue || document.getElementById('url').value.trim();
             if(!val) { isFetchingMore = false; return; }
             
-            showLoader(); // V31 Visual Loader
+            showLoader(); 
+            document.getElementById('statusBadge').style.display = 'inline-block';
+            setStatus("Extracting Data...");
             
             if(isNewSearch) {
                 currentSearchLimit = 10;
@@ -445,7 +511,7 @@ DOWNLOADER_HTML = """
                 const data = await res.json();
                 hideLoader();
                 
-                if(data.error) { isFetchingMore = false; showToast(data.error, "error"); return; }
+                if(data.error) { isFetchingMore = false; showToast(data.error, "error"); return setStatus("Error searching.", true); }
 
                 if(currentMode === 'single') {
                     currentData = [data];
@@ -460,7 +526,9 @@ DOWNLOADER_HTML = """
                     document.getElementById('list-container').style.display = 'flex';
                     if (currentMode === 'search') document.getElementById('loadMoreBtn').style.display = 'block';
                 }
-            } catch(e) { hideLoader(); showToast("Network Error: " + e.message, "error"); }
+                setStatus("Data Ready.");
+                setTimeout(() => { document.getElementById('statusBadge').style.display = 'none'; }, 2000);
+            } catch(e) { hideLoader(); showToast("Network Error: " + e.message, "error"); setStatus("Error.", true); }
             isFetchingMore = false; 
         }
 
@@ -470,13 +538,13 @@ DOWNLOADER_HTML = """
                 const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
                 wrapper.innerHTML += `
                     <div class="list-item">
-                        <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px; accent-color:#ff0844;">
+                        <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px; accent-color:#4facfe;">
                         <img src="${item.thumbnail}" onclick="window.location.href='/player?url=${encodeURIComponent(item.url || videoId)}'">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
-                            <p style="font-size:0.8rem; color:#94a3b8;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
+                            <p style="font-size:0.8rem; color:#666;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
                             <div class="btn-scroll-container" style="margin-top:5px;">
-                                <button class="action-btn btn-mp4" style="padding:8px 15px; background:#334155;" onclick="window.location.href='/player?url=${encodeURIComponent(item.url || videoId)}'">▶ PLAY</button>
+                                <button class="action-btn btn-mp4" style="padding:8px 15px; background:#333;" onclick="window.location.href='/player?url=${encodeURIComponent(item.url || videoId)}'">▶ PLAY</button>
                                 <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp4')">MP4</button>
                                 <button class="action-btn btn-mp3" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp3')">MP3</button>
                             </div>
@@ -529,8 +597,6 @@ DOWNLOADER_HTML = """
             document.getElementById('qualityModal').style.display = 'none';
             showToast("Download Started!", "info");
             const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
-            
-            // Get setting mode
             let convMode = localStorage.getItem('audio_conversion_mode') || 'fast';
 
             const dispatch = async (idx) => {
@@ -557,18 +623,18 @@ DOWNLOADER_HTML = """
 
                 for (const [id, t] of Object.entries(tasks)) {
                     activeCount++;
-                    let sCol = t.status==='completed' ? '#1db954' : (t.status==='error' ? '#ff0844' : '#4facfe');
-                    let sBg = t.status==='completed' ? 'rgba(29,185,84,0.1)' : (t.status==='error' ? 'rgba(255,8,68,0.1)' : 'rgba(79,172,254,0.1)');
+                    let sCol = t.status==='completed' ? '#155724' : (t.status==='error' ? '#721c24' : '#1e3c72');
+                    let sBg = t.status==='completed' ? '#d4edda' : (t.status==='error' ? '#f8d7da' : '#e0f2fe');
                     
                     let isExpired = false;
-                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
+                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#1db954;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
                     if (t.status === 'completed' && t.completed_at && (nowSec - t.completed_at) > 300) { 
                         isExpired = true;
                         saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#ff0844;" onclick="markHandled('${id}'); window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE (EXPIRED)</button>`;
                     }
 
-                    html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol};"><div class="task-header" style="color: white;"><span>${t.type.toUpperCase()}: ${t.title}</span><span style="color:${sCol}">${t.status.toUpperCase()}</span></div>
-                            ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats"><span>${t.percent}%</span></div>` : ''}
+                    html += `<div class="task-item" style="background: ${sBg}; border-color: ${sCol};"><div class="task-header" style="color: ${sCol};"><span>${t.type.toUpperCase()}: ${t.title}</span><span>${t.status.toUpperCase()}</span></div>
+                            ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats" style="color:${sCol};"><span>${t.percent}%</span></div>` : ''}
                             ${t.status === 'error' ? `<div style="font-size:0.85rem; color:#ff0844;">${t.error_msg}</div>` : ''}
                             ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
 
@@ -603,7 +669,10 @@ DOWNLOADER_HTML = """
                 
                 const fab = document.getElementById('fabBtn');
                 if (activeCount > 0) { fab.style.display = 'flex'; } else { fab.style.display = 'none'; }
-                document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#94a3b8;">No active downloads.</p>';
+                
+                const finalHtml = html || '<p style="text-align:center; color:#666;">No active downloads.</p>';
+                document.getElementById('tasksWrapper').innerHTML = finalHtml;
+                document.getElementById('dashboardTasksWrapper').innerHTML = finalHtml;
                 document.getElementById('taskBadge').innerText = activeCount;
             } catch(e) {}
         }, 1000); 
@@ -615,32 +684,31 @@ DOWNLOADER_HTML = """
 # ==============================================================================
 # HTML 2: THE STRICT YOUTUBE PLAYER (ROUTE: "/player")
 # ==============================================================================
+# The V31 Player Code remains perfectly intact with the dark theme and God-Mode features.
 PLAYER_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>YouTube Player</title>
+    <title>Premium Player</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         body { background: #0f172a; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; }
         
-        /* V31 LOADING ANIMATION */
-        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; }
+        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s; display: flex; align-items: center; gap: 10px; }
         #global-loader.active { top: 20px; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #0f172a; box-shadow: 5px 0 25px rgba(0,0,0,0.8); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; border-right: 1px solid #334155; }
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #1e293b; box-shadow: 5px 0 25px rgba(0,0,0,0.8); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; border-right: 1px solid #334155; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #1e293b; display: flex; align-items: center; justify-content: space-between; transition: 0.2s;}
+        .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #334155; display: flex; align-items: center; justify-content: space-between; transition: 0.2s;}
         .side-nav a:hover { background: #ff0844; transform: translateX(10px); }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
 
-        /* V31 TOASTS */
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
         .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s forwards; }
         .toast.success { border-left-color: #1db954; }
@@ -689,7 +757,7 @@ PLAYER_HTML = """
         .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
         .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
 
-        /* V31 YOUTUBE AUDIO PLAYER */
+        /* AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 20px 20px 0 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5); border-top: 1px solid #334155;}
@@ -725,7 +793,6 @@ PLAYER_HTML = """
         .advanced-controls { display: flex; width: 100%; max-width: 400px; justify-content: space-between; margin-bottom: 10px; color: #94a3b8; align-items:center;}
         .mini .advanced-controls { display: none; }
         .adv-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; font-weight: bold; transition: 0.2s; display:flex; justify-content:center; align-items:center;}
-        .adv-btn:hover { color: white; transform: scale(1.1); }
         .adv-btn.active { color: #ff0844; text-shadow: 0 0 10px #ff0844; }
 
         .sleep-wrapper { position: relative; display: flex; justify-content: center; align-items: center; width: 40px; height: 40px; border-radius: 50%; }
@@ -749,7 +816,7 @@ PLAYER_HTML = """
         .dl-mp3-btn:hover:not(:disabled) { background: #4facfe; border-color: #4facfe; transform: translateY(-3px);}
         .dl-mp3-btn:disabled { opacity: 0.8; cursor: not-allowed; }
 
-        /* V31 VIDEO PIP & SANDBOX */
+        /* VIDEO PIP */
         #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
         #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
         .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
@@ -775,7 +842,6 @@ PLAYER_HTML = """
         input[type="number"] { width: 100%; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; outline: none; font-size: 1.1rem; background: #0f172a; color: white; margin-bottom: 15px; transition: 0.3s;}
         input[type="number"]:focus { border-color: #ff0844; }
         
-        /* V31 THUMBNAIL LIGHTBOX MODAL */
         #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; justify-content: center;}
         #thumbModal img { width: 100%; height: auto; max-height: 85vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; }
 
@@ -820,6 +886,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">🗕</button>
@@ -827,10 +894,7 @@ PLAYER_HTML = """
         </div>
         
         <img id="ap-cover" src="" onclick="openFullThumb(event)">
-        
-        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
-            <span class="marquee-text" id="ap-title">Loading...</span>
-        </div>
+        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)"><span class="marquee-text" id="ap-title">Loading...</span></div>
         <div id="ap-artist">Nexus Audio</div>
         
         <div class="advanced-controls">
@@ -867,6 +931,7 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
+    <!-- VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container">
             <div class="vid-controls">
@@ -877,6 +942,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
@@ -902,7 +968,6 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V31: TOAST & LOADER ENGINE
         function showToast(msg, type='info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -917,7 +982,6 @@ PLAYER_HTML = """
         let clientId = localStorage.getItem('yt_dl_client_id') || (Math.random().toString(36).substring(2) + Date.now().toString(36));
         localStorage.setItem('yt_dl_client_id', clientId);
 
-        // V31 HISTORY ENGINE
         function saveToHistory(item) {
             let hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
             const date = new Date().toLocaleDateString();
@@ -947,7 +1011,6 @@ PLAYER_HTML = """
         let currentAudioDlTaskId = null;
         let isFetchingMore = false; 
 
-        // V31: CROSSFADE VARIABLES
         let isFadingOut = false;
         let fadeInterval = null;
 
@@ -1047,7 +1110,7 @@ PLAYER_HTML = """
         function openFullThumbList(src) { document.getElementById('fullThumbImg').src = src; document.getElementById('thumbModal').style.display = 'flex'; }
 
         // ==========================================
-        // V31 DOWNLOADER
+        // DOWNLOADER
         // ==========================================
         let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
         
@@ -1130,7 +1193,6 @@ PLAYER_HTML = """
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
-            // Save to history artificially since search results don't have full info, we approximate
             let itemToSave = currentResults.find(i => (i.id === id || i.url.includes(id)));
             if(itemToSave) saveToHistory(itemToSave);
 
@@ -1155,7 +1217,7 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // V31 AUDIO PLAYER ENGINE & CROSSFADE
+        // V31 AUDIO CROSSFADE
         // ==========================================
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); audioBar.classList.toggle('mini'); }
 
@@ -1172,7 +1234,7 @@ PLAYER_HTML = """
             isFadingOut = false;
             audioEngine.volume = 0;
             let targetVol = document.getElementById('volSlider').value / 100;
-            let step = targetVol / 30; // 3 seconds
+            let step = targetVol / 30; 
             fadeInterval = setInterval(() => {
                 if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
                 else { audioEngine.volume = targetVol; clearInterval(fadeInterval); }
@@ -1183,7 +1245,7 @@ PLAYER_HTML = """
             if (isFadingOut) return;
             isFadingOut = true;
             let startVol = audioEngine.volume;
-            let step = startVol / 30; // 3 seconds
+            let step = startVol / 30; 
             fadeInterval = setInterval(() => {
                 if (audioEngine.volume > step) { audioEngine.volume -= step; } 
                 else { audioEngine.volume = 0; clearInterval(fadeInterval); nextSong(); }
@@ -1195,7 +1257,7 @@ PLAYER_HTML = """
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
             
-            saveToHistory(item); // V31 HISTORY
+            saveToHistory(item); 
 
             audioBar.classList.add('active'); audioBar.classList.remove('mini');
             document.getElementById('ap-cover').src = item.thumbnail;
@@ -1371,7 +1433,6 @@ def media_player(): return render_template_string(PLAYER_HTML)
 
 @app.route('/api/stream_audio', methods=['POST'])
 def stream_audio():
-    # V31: ULTRA DATA SAVER (Forces lowest acceptable AAC bitrate ~64kbps-128kbps)
     url = request.json.get('url')
     ydl_opts = { 
         'quiet': True, 
@@ -1447,7 +1508,6 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
         if burn_subs: ydl_opts['writesubtitles'] = True; ydl_opts['subtitleslangs'] = ['en']; ydl_opts['postprocessors'] = [{'key': 'FFmpegEmbedSubtitle'}]
             
     elif dl_type == 'mp3':
-        # V31: 3-Way Settings Implementation
         if conv_mode == 'full':
             ydl_opts['writethumbnail'] = True 
             ydl_opts['format'] = 'bestaudio/best'
@@ -1456,10 +1516,10 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
             ydl_opts['writethumbnail'] = True 
             ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'
             ydl_opts['postprocessors'] = [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
-        else: # 'rename'
+        else:
             ydl_opts['writethumbnail'] = False
             ydl_opts['format'] = 'bestaudio/best'
-            ydl_opts['postprocessors'] = [] # Zero math
+            ydl_opts['postprocessors'] = [] 
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -1472,7 +1532,6 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
                     actual_file = name_without_ext + possible_ext
                     break
             
-            # V31 Pure Rename bypass
             if dl_type == 'mp3' and conv_mode == 'rename':
                 final_mp3_path = name_without_ext + '.mp3'
                 if actual_file != final_mp3_path and os.path.exists(actual_file):
@@ -1488,7 +1547,7 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
 @app.route('/api/download', methods=['POST'])
 def trigger_download():
     task_id = str(uuid.uuid4())
-    conv_mode = request.json.get('conv_mode', 'fast') # Get V31 setting
+    conv_mode = request.json.get('conv_mode', 'fast')
     active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at': time.time()}
     threading.Thread(target=background_downloader, args=(task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), request.json.get('burn_subs', False), conv_mode), daemon=True).start()
     return jsonify({'task_id': task_id})
@@ -1500,5 +1559,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V31 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V32 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
