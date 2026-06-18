@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V31 - THE GOD-TIER PLATINUM STABLE BUILD)
+# YOUTUBE DOWNLOADER (V32 - MOBILE UI FIX & KEYBOARD SUPPORT)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, send_file, Response
@@ -86,7 +86,7 @@ DOWNLOADER_HTML = """
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
         .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .header-left { display: flex; align-items: center; gap: 15px; }
-        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; }
+        .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; flex-shrink:0;}
         .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
@@ -107,15 +107,20 @@ DOWNLOADER_HTML = """
         .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; }
         .tab-btn.active { background: #4facfe; color: white; }
         
-        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; }
-        .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .btn-dash-player { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); }
         .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
         .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .btn-dash-search { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
 
-        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
-        input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
-        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; }
+        .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px; flex-wrap:wrap;}
+        .search-wrapper { position: relative; flex: 1; min-width: 250px;}
+        input[type="text"] { width: 100%; padding: 18px 120px 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
+        
+        .paste-btn, .action-btn-inline { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); border: none; padding: 12px 20px; border-radius: 8px; font-weight: 800; cursor: pointer; }
+        .paste-btn { background: #e2e8f0; color: #1e3c72; }
+        .action-btn-inline { background: #333; color: white; }
+
         .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; }
         .action-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
@@ -153,7 +158,11 @@ DOWNLOADER_HTML = """
         .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd; color:#333;}
         .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; }
 
-        @media (max-width: 600px) { .list-item { flex-direction: column; align-items: stretch; } .list-item img { width: 100%; } .input-group { flex-direction: column; } .side-nav { width: 250px; } }
+        @media (max-width: 600px) { 
+            .list-item { flex-direction: column; align-items: stretch; } 
+            .list-item img { width: 100%; } 
+            .side-nav { width: 250px; } 
+        }
     </style>
 </head>
 <body>
@@ -172,7 +181,7 @@ DOWNLOADER_HTML = """
 
     <div class="glass-card">
         <div class="header-area">
-            <div class="header-left"><button class="hamburger-btn" onclick="toggleMenu()">☰</button><h2>YT DOWNLOADER</h2></div>
+            <div style="display:flex; align-items:center; gap:15px;"><button class="hamburger-btn" onclick="toggleMenu()">☰</button><h2>YT DOWNLOADER</h2></div>
             <button class="settings-btn" onclick="document.getElementById('settingsModal').style.display='flex'">⚙️</button>
         </div>
         
@@ -195,15 +204,18 @@ DOWNLOADER_HTML = """
         </div>
 
         <div class="input-group" id="inputWrapper">
-            <input type="text" id="url" placeholder="Paste URL..." autocomplete="off">
-            <button class="paste-btn" id="pasteBtn" onclick="pasteLink()">PASTE</button>
-            <button class="action-btn" id="goBtn" style="display:none; padding:15px 30px;" onclick="handleInput(null, true)">GO</button>
+            <div class="search-wrapper">
+                <input type="text" id="url" placeholder="Paste URL..." autocomplete="off">
+                <button class="paste-btn" id="pasteBtn" onclick="pasteLink()">PASTE</button>
+                <button class="action-btn-inline" id="goBtn" style="display:none;" onclick="handleInput(null, true)">SEARCH</button>
+            </div>
         </div>
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
+        <!-- SINGLE DL -->
         <div id="single-ui">
-            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="openFullThumb(this.src)">
+            <div class="image-wrapper" onclick="window.location.href='/player'"><img id="s-thumb" src=""></div>
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -215,6 +227,7 @@ DOWNLOADER_HTML = """
             </div>
         </div>
 
+        <!-- LIST DL -->
         <div id="list-container" class="list-container">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> Select All</div>
@@ -228,29 +241,28 @@ DOWNLOADER_HTML = """
         </div>
     </div>
 
+    <!-- BACKGROUND FAB -->
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
-    <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
-        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
-            <button class="btn-close" style="position:absolute; top:-15px; right:-15px; z-index: 6001;">X</button>
-            <img id="fullThumbImg" src="" style="width:100%; height:auto; max-height:85vh; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.8); object-fit:contain;">
-        </div>
-    </div>
-
+    <!-- MODALS -->
     <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
         <div class="modal-box">
-            <h2 style="font-size:1.5rem; color:#d32f2f; margin-bottom:15px;">⚠️ Unsaved Downloads</h2>
-            <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2 style="font-size:1.5rem; color:#d32f2f;">⚠️ Unsaved Downloads</h2>
+                <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
+            </div>
             <p style="margin-bottom:15px; font-size:0.9rem; color:#555;">These videos finished processing while the app was closed.</p>
             <div id="recoveryList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; max-height:200px; overflow-y:auto;"></div>
-            <button class="action-btn btn-mp4" style="width:100%; padding:15px;" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
+            <button class="action-btn btn-mp4" style="width:100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
         </div>
     </div>
 
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
-            <h2 style="font-size:1.5rem; margin-bottom:25px;">App Settings</h2>
-            <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+                <h2>Settings</h2>
+                <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
+            </div>
             <div class="switch-container">
                 <div><label style="font-weight:800; color:#1e3c72;">Strict Audio Conversion</label><p style="font-size:0.75rem; color:#666;">ON: Perfect MP3.<br>OFF: Instant metadata injection.</p></div>
                 <input type="checkbox" id="audioConvToggle" onchange="saveSettings()">
@@ -260,8 +272,10 @@ DOWNLOADER_HTML = """
 
     <div class="modal-overlay" id="taskModal" style="z-index: 2500;">
         <div class="modal-box">
-            <h2 style="font-size:1.5rem; margin-bottom:25px;">Background Tasks</h2>
-            <button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px;">
+                <h2>Background Tasks</h2>
+                <button class="btn-close" onclick="document.getElementById('taskModal').style.display='none'">X</button>
+            </div>
             <div id="tasksWrapper"><p style="text-align:center; color:#888;">No active downloads.</p></div>
         </div>
     </div>
@@ -270,7 +284,7 @@ DOWNLOADER_HTML = """
         <div class="modal-box">
             <h3 id="modalTitle" style="margin-bottom:15px;">Select Quality</h3>
             <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
-            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs"></div>
+            <div id="subToggle" class="switch-container" style="display:none;"><label style="font-weight:700; color:#1e3c72;">💬 Burn Subtitles</label><input type="checkbox" id="burnSubs"></div>
             <div id="qualityList" style="display:flex; flex-direction:column; gap:10px;"></div>
         </div>
     </div>
@@ -291,6 +305,7 @@ DOWNLOADER_HTML = """
 
         function loadSettings() { document.getElementById('audioConvToggle').checked = (localStorage.getItem('audio_conversion_enabled') ?? 'true') === 'true'; }
         function saveSettings() { localStorage.setItem('audio_conversion_enabled', document.getElementById('audioConvToggle').checked); showToast("Settings Saved", "success"); }
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
         let currentMode = 'dashboard';
         let currentData = []; 
@@ -299,6 +314,7 @@ DOWNLOADER_HTML = """
         let taskDOMMap = {}; 
         let typingTimer; 
         let isFetchingMore = false; 
+        
         let initialLoad = true;
         let recoveredToDownload = [];
         let deliveryQueue = [];
@@ -309,10 +325,14 @@ DOWNLOADER_HTML = """
             loadSettings(); 
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
-            if (sharedData) { const urlMatch = sharedData.match(/(https?:\/\/[^\s]+)/); if (urlMatch) { switchTab('single'); document.getElementById('url').value = urlMatch[0]; handleInput(urlMatch[0], true); return; } }
+            if (sharedData) {
+                const urlMatch = sharedData.match(/(https?:\/\/[^\s]+)/);
+                if (urlMatch) { switchTab('single'); document.getElementById('url').value = urlMatch[0]; handleInput(urlMatch[0], true); return; }
+            }
             switchTab('dashboard');
         });
 
+        // Infinite Scroll
         window.addEventListener('scroll', () => {
             if(currentMode === 'search' && document.getElementById('loadMoreBtn').style.display === 'block') {
                 if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
@@ -336,53 +356,90 @@ DOWNLOADER_HTML = """
         }
         function downloadRecovered() { document.getElementById('recoveryModal').style.display = 'none'; recoveredToDownload.forEach(f => { deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)); }); processDeliveryQueue(); recoveredToDownload = []; }
 
-        function toggleMenu() { const nav = document.getElementById('sideNav'); nav.classList.toggle('open'); document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none'; }
-
-        function openFullThumb(src) { document.getElementById('fullThumbImg').src = src; document.getElementById('thumbModal').style.display = 'flex'; }
+        function toggleMenu() {
+            const nav = document.getElementById('sideNav');
+            nav.classList.toggle('open');
+            document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none';
+        }
 
         function switchTab(mode) {
-            if (currentMode !== mode && mode !== 'dashboard') showToast(`Switched to ${mode.toUpperCase()}`);
+            if (currentMode !== mode && mode !== 'dashboard') showToast(`Switched to ${mode.toUpperCase()} mode`);
             currentMode = mode;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             if(document.getElementById(`tab-${mode}`)) document.getElementById(`tab-${mode}`).classList.add('active');
             ['dashboard-ui', 'inputWrapper', 'statusBadge', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
             
-            if(mode === 'dashboard') { document.getElementById('dashboard-ui').style.display = 'flex'; } 
-            else {
-                document.getElementById('inputWrapper').style.display = 'flex'; document.getElementById('statusBadge').style.display = 'inline-block';
-                const input = document.getElementById('url'); input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
-                document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block'; document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
-                input.style.paddingRight = mode === 'search' ? '20px' : '90px'; setStatus(mode === 'search' ? "Ready to search." : "Awaiting Link...");
+            if(mode === 'dashboard') {
+                document.getElementById('dashboard-ui').style.display = 'flex';
+            } else {
+                document.getElementById('inputWrapper').style.display = 'flex';
+                document.getElementById('statusBadge').style.display = 'inline-block';
+                const input = document.getElementById('url');
+                input.placeholder = mode === 'search' ? "Search YouTube..." : "Paste YouTube URL...";
+                document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block';
+                document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
+                input.style.paddingRight = mode === 'search' ? '120px' : '90px'; // Make room for inline buttons
+                setStatus(mode === 'search' ? "Ready to search." : "Awaiting Link...");
             }
         }
 
-        function setStatus(msg, isErr=false) { const b = document.getElementById('statusBadge'); b.innerText = msg; b.style.background = isErr ? '#ffebee' : '#eee'; b.style.color = isErr ? '#c62828' : '#333'; }
+        function setStatus(msg, isErr=false) {
+            const b = document.getElementById('statusBadge');
+            b.innerText = msg; b.style.background = isErr ? '#ffebee' : '#eee'; b.style.color = isErr ? '#c62828' : '#333';
+        }
 
-        document.getElementById('url').addEventListener('input', (e) => { clearTimeout(typingTimer); if(!e.target.value.trim()) return setStatus("Awaiting Input..."); setStatus("Waiting 3 seconds..."); typingTimer = setTimeout(() => { handleInput(e.target.value.trim(), true); }, 3000); });
+        // V32: KEYBOARD ENTER SUPPORT
+        document.getElementById('url').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(typingTimer);
+                handleInput(this.value.trim(), true);
+                this.blur(); // Hide keyboard on mobile
+            }
+        });
+
+        document.getElementById('url').addEventListener('input', (e) => {
+            clearTimeout(typingTimer);
+            if(!e.target.value.trim()) return setStatus("Awaiting Input...");
+            setStatus("Waiting 3 seconds...");
+            typingTimer = setTimeout(() => { handleInput(e.target.value.trim(), true); }, 3000); 
+        });
+
         async function pasteLink() { try { document.getElementById('url').value = await navigator.clipboard.readText(); clearTimeout(typingTimer); handleInput(null, true); } catch (err) {} }
+
         function loadMore() { currentSearchLimit += 20; handleInput(null, false); }
 
         async function handleInput(forcedValue = null, isNewSearch = true) {
             let val = forcedValue || document.getElementById('url').value.trim();
             if(!val) { isFetchingMore = false; return; }
             setStatus("Extracting Data...");
-            if(isNewSearch) { currentSearchLimit = 10; document.getElementById('single-ui').style.display = 'none'; document.getElementById('list-container').style.display = 'none'; document.getElementById('loadMoreBtn').style.display = 'none'; }
-
+            if(isNewSearch) {
+                currentSearchLimit = 10;
+                document.getElementById('single-ui').style.display = 'none';
+                document.getElementById('list-container').style.display = 'none';
+                document.getElementById('loadMoreBtn').style.display = 'none';
+            }
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: val, mode: currentMode, limit: currentSearchLimit}) });
                 const data = await res.json();
+                
                 if(data.error) { isFetchingMore = false; showToast(data.error, "error"); return setStatus("Error. See notification.", true); }
 
                 if(currentMode === 'single') {
-                    currentData = [data]; currentVideoId = data.id || val.split('v=')[1];
-                    document.getElementById('s-thumb').src = data.thumbnail; document.getElementById('s-title').innerText = data.title;
-                    document.getElementById('s-btns').style.display = 'flex'; document.getElementById('single-ui').style.display = 'block';
+                    currentData = [data];
+                    currentVideoId = data.id || val.split('v=')[1];
+                    document.getElementById('s-thumb').src = data.thumbnail;
+                    document.getElementById('s-title').innerText = data.title;
+                    document.getElementById('s-btns').style.display = 'flex';
+                    document.getElementById('single-ui').style.display = 'block';
                 } else {
-                    currentData = data.entries; renderItems(); document.getElementById('list-container').style.display = 'flex';
+                    currentData = data.entries;
+                    renderItems();
+                    document.getElementById('list-container').style.display = 'flex';
                     if (currentMode === 'search') document.getElementById('loadMoreBtn').style.display = 'block';
                 }
                 setStatus("Data Ready.");
-            } catch(e) { showToast("Network Error", "error"); setStatus("Error.", true); }
+            } catch(e) { showToast("Network Error: " + e.message, "error"); setStatus("Error.", true); }
             isFetchingMore = false; 
         }
 
@@ -391,8 +448,8 @@ DOWNLOADER_HTML = """
             currentData.forEach((item, i) => {
                 wrapper.innerHTML += `
                     <div class="list-item">
-                        <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px;">
-                        <img src="${item.thumbnail}" onclick="openFullThumb('${item.thumbnail}')" style="width:150px; cursor:pointer;">
+                        <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px;flex-shrink:0;">
+                        <img src="${item.thumbnail}">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
                             <p style="font-size:0.8rem; color:#666;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
@@ -400,7 +457,10 @@ DOWNLOADER_HTML = """
                                 <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp4')">DL MP4</button>
                                 <button class="action-btn btn-mp3" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp3')">DL MP3</button>
                             </div>
-                            <div class="progress-container" id="progBox-${i}" style="display:none;"><div class="progress-stats"><span id="progStatus-${i}">Wait...</span><span id="progPercent-${i}">0%</span></div><div class="progress-bar-bg"><div class="progress-fill" id="progFill-${i}"></div></div></div>
+                            <div class="progress-container" id="progBox-${i}" style="display:none;">
+                                <div class="progress-stats"><span id="progStatus-${i}">Wait...</span><span id="progPercent-${i}">0%</span></div>
+                                <div class="progress-bar-bg"><div class="progress-fill" id="progFill-${i}"></div></div>
+                            </div>
                         </div>
                     </div>`;
             });
@@ -408,37 +468,33 @@ DOWNLOADER_HTML = """
 
         function toggleAll() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = c); }
 
-        let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
-        
-        function triggerDownload(index, type) {
-            const item = currentResults[index]; pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = type;
-            const list = document.getElementById('qualityList'); list.innerHTML = '';
-            document.getElementById('modalTitle').innerText = type === 'mp4' ? "Select MP4 Quality" : "Select MP3 Quality";
-            
-            if(type === 'mp4') {
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('best')"><span>⭐ AUTO BEST</span></div><div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
-            } else {
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
-            }
-            document.getElementById('qualityModal').style.display = 'flex';
-        }
-        
         async function openQuality(index, type, isBulk=false) {
             pendingDownloadTarget = { index, type, isBulk };
             const list = document.getElementById('qualityList'); list.innerHTML = '';
             if (type === 'mp4') {
                 document.getElementById('modalTitle').innerText = "MP4 Quality";
+                document.getElementById('subToggle').style.display = 'flex'; 
+                document.getElementById('id3Notice').style.display = 'none'; 
                 list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('best')"><span>⭐ AUTO BEST</span></div>`;
-                if (isBulk) { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`; } 
-                else {
+                if (isBulk) {
+                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`;
+                } else {
                     let actualIndex = index === -1 ? 0 : index;
                     if (!currentData[actualIndex].formats) {
-                        try { const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url || currentData[actualIndex].id, mode: 'single'}) }); const data = await res.json(); if(data.formats) currentData[actualIndex].formats = data.formats; } catch(e) {}
+                        try {
+                            const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url || currentData[actualIndex].id, mode: 'single'}) });
+                            const data = await res.json();
+                            if(data.formats) currentData[actualIndex].formats = data.formats;
+                        } catch(e) {}
                     }
-                    if(currentData[actualIndex].formats) { currentData[actualIndex].formats.forEach(f => { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`; }); }
+                    if(currentData[actualIndex].formats) {
+                        currentData[actualIndex].formats.forEach(f => { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`; });
+                    }
                 }
             } else {
                 document.getElementById('modalTitle').innerText = "MP3 Quality";
+                document.getElementById('subToggle').style.display = 'none'; 
+                document.getElementById('id3Notice').style.display = 'flex'; 
                 list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
             }
             document.getElementById('qualityModal').style.display = 'flex';
@@ -447,13 +503,23 @@ DOWNLOADER_HTML = """
         function downloadBulk(type) { openQuality(null, type, true); }
 
         async function startBackgroundDownload(quality) {
-            document.getElementById('qualityModal').style.display = 'none'; showToast("Download Started!", "info");
+            document.getElementById('qualityModal').style.display = 'none';
+            showToast("Download Started!", "info");
+            const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
             const useAudioConv = document.getElementById('audioConvToggle').checked;
+
             const dispatch = async (idx) => {
-                const res = await fetch('/api/download', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ client_id: clientId, url: currentData[idx].url || currentData[idx].id || document.getElementById('url').value, title: currentData[idx].title, type: pendingDownloadTarget.type, quality: quality, burn_subs: false, use_conversion: useAudioConv }) });
+                const res = await fetch('/api/download', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ client_id: clientId, url: currentData[idx].url || currentData[idx].id || document.getElementById('url').value, title: currentData[idx].title, type: pendingDownloadTarget.type, quality: quality, burn_subs: burnSubs, use_conversion: useAudioConv })
+                });
                 const data = await res.json();
-                if(data.task_id) { taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: idx }; document.getElementById(pendingDownloadTarget.index === -1 ? 'progBox-single' : `progBox-${idx}`).style.display = 'block'; }
+                if(data.task_id) {
+                    taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: idx };
+                    document.getElementById(pendingDownloadTarget.index === -1 ? 'progBox-single' : `progBox-${idx}`).style.display = 'block';
+                }
             };
+
             if (pendingDownloadTarget.isBulk) { document.querySelectorAll('.pl-checkbox:checked').forEach(cb => dispatch(parseInt(cb.value))); } 
             else { dispatch(pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index); }
         }
@@ -500,7 +566,10 @@ DOWNLOADER_HTML = """
                         if (initialLoad && !isExpired) { newlyRecovered.push({ id, title: t.title, file: t.file }); markHandled(id); } 
                         else if (!initialLoad && !isExpired) { 
                             markHandled(id); 
-                            if(!notifiedSet.has(id)) { notifiedSet.add(id); showToast(`Finished: ${t.title}`, "success"); }
+                            if(!notifiedSet.has(id)) {
+                                notifiedSet.add(id);
+                                showToast(`Finished: ${t.title}`, "success");
+                            }
                             deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); 
                             processDeliveryQueue(); 
                         } 
@@ -516,7 +585,7 @@ DOWNLOADER_HTML = """
                 
                 const finalHtml = html || '<p style="text-align:center; color:#888;">No active downloads.</p>';
                 document.getElementById('tasksWrapper').innerHTML = finalHtml;
-                document.getElementById('dashboardTasksWrapper').innerHTML = finalHtml;
+                document.getElementById('dashboardTasksWrapper').innerHTML = finalHtml; 
                 document.getElementById('taskBadge').innerText = activeCount;
             } catch(e) {}
         }, 1000); 
@@ -555,10 +624,14 @@ PLAYER_HTML = """
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
         .container { width: 100%; max-width: 600px; padding-bottom: 150px; }
+        
+        /* V32 MOBILE TOP BAR FIX (Absolute Search Shield) */
         .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items:center;}
-        .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
-        input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; }
-        .search-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+        .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; flex-shrink: 0;}
+        .search-wrapper { position: relative; flex: 1; width: 100%; }
+        input[type="text"] { width: 100%; padding: 15px 120px 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; }
+        input[type="text"]:focus { border-color: #4facfe; }
+        .search-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; margin: 0;}
 
         #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; gap: 20px; }
         .choice-btn { width: 100%; padding: 25px; border-radius: 16px; border: none; font-size: 1.5rem; font-weight: 800; cursor: pointer; color: white; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
@@ -586,7 +659,7 @@ PLAYER_HTML = """
         .card.video-mode .play-action-btn { background: #ff0844; padding: 15px; }
         .dl-icon-btn { background: #4facfe; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; }
 
-        /* V30 GOD-MODE AUDIO PLAYER */
+        /* GOD-MODE AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s; z-index: 2000; overflow-y: auto;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 20px 20px 0 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5);}
@@ -688,10 +761,13 @@ PLAYER_HTML = """
         </div>
 
         <div id="search-screen">
+            <!-- V32 MOBILE TOP BAR FIX -->
             <div class="top-bar">
                 <button class="menu-btn" onclick="toggleMenu()">☰</button>
-                <input type="text" id="searchInput" placeholder="Search YouTube...">
-                <button class="search-btn" onclick="search(true)">Search</button>
+                <div class="search-wrapper">
+                    <input type="text" id="searchInput" placeholder="Search YouTube...">
+                    <button class="search-btn" onclick="search(true)">Search</button>
+                </div>
             </div>
             <div id="queue-actions" class="queue-actions" style="display:none;">
                 <div><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px;vertical-align:middle;"> Select All</div>
@@ -703,6 +779,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- GOD-MODE AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">🗕</button>
@@ -717,8 +794,8 @@ PLAYER_HTML = """
         <div id="ap-artist">Nexus Audio</div>
         
         <div class="advanced-controls">
-            <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()" title="Playback Speed">1x</button>
-            <button class="adv-btn" id="loopBtn" onclick="toggleLoop()" title="Repeat Mode">🔁</button>
+            <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()">1x</button>
+            <button class="adv-btn" id="loopBtn" onclick="toggleLoop()">🔁</button>
             <div class="sleep-wrapper">
                 <div class="sleep-ring" id="sleepRing"></div>
                 <button class="adv-btn" id="sleepBtn" onclick="openSleepModal()">🌙</button>
@@ -750,6 +827,7 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
+    <!-- VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container">
             <div class="vid-controls">
@@ -760,6 +838,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- THUMBNAIL LIGHTBOX MODAL -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div style="position: relative; max-width: 90vw; max-height: 90vh;">
             <button class="btn-close" style="position:absolute; top:-15px; right:-15px; z-index: 6001;">X</button>
@@ -817,7 +896,7 @@ PLAYER_HTML = """
         let currentAudioDlTaskId = null;
         let isFetchingMore = false; 
 
-        // V30: CROSSFADE VARIABLES
+        // CROSSFADE VARIABLES
         let isFadingOut = false;
         let fadeInterval = null;
 
@@ -847,6 +926,15 @@ PLAYER_HTML = """
         });
 
         function loadMore() { currentSearchLimit += 20; search(false); }
+
+        // V32 KEYBOARD ENTER SUPPORT
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                search(true);
+                this.blur(); 
+            }
+        });
 
         async function search(isNew = true) {
             const query = document.getElementById('searchInput').value.trim();
@@ -964,7 +1052,7 @@ PLAYER_HTML = """
                     const btn = document.getElementById('mainPlayerDlBtn');
                     btn.disabled = true; btn.innerText = "⏳ Starting...";
                 }
-            } catch(e) { showToast("Download failed to start.", "error");}
+            } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
         setInterval(async () => {
@@ -1191,28 +1279,44 @@ PLAYER_HTML = """
 # ==============================================================================
 @app.route('/manifest.json')
 def serve_manifest():
-    return jsonify({"name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone", "background_color": "#1e3c72", "theme_color": "#1e3c72", "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}], "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }})
+    return jsonify({
+        "name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone",
+        "background_color": "#1e3c72", "theme_color": "#1e3c72",
+        "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231e3c72'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}],
+        "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }
+    })
 
 @app.route('/sw.js')
-def serve_sw(): return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
+def serve_sw():
+    return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
 @app.route('/')
-def index(): return DOWNLOADER_HTML
+def index():
+    return DOWNLOADER_HTML
 
 @app.route('/player')
-def media_player(): return PLAYER_HTML
+def media_player():
+    return PLAYER_HTML
 
 @app.route('/api/stream_audio', methods=['POST'])
 def stream_audio():
     url = request.json.get('url')
-    ydl_opts = { 'quiet': True, 'format': 'bestaudio[ext=m4a]/bestaudio/best', 'noplaylist': True, 'proxy': 'socks5://127.0.0.1:40000', 'geo_bypass': True, 'geo_bypass_country': 'US'}
+    ydl_opts = { 
+        'quiet': True, 
+        'format': 'bestaudio[ext=m4a]/bestaudio/best', 
+        'noplaylist': True, 
+        'proxy': 'socks5://127.0.0.1:40000',
+        'geo_bypass': True,
+        'geo_bypass_country': 'US'
+    }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             stream_url = info.get('url') 
             if stream_url: return jsonify({'stream_url': stream_url})
             else: return jsonify({'error': 'No stream found.'}), 400
-    except Exception as e: return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
@@ -1224,9 +1328,15 @@ def get_info():
     url = request.json.get('url')
     mode = request.json.get('mode')
     limit = request.json.get('limit', 10) 
+    
     if mode != 'search' and 'list=RD' in url: return jsonify({'error': 'Infinite loop detected.'})
 
-    ydl_opts = {'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search'], 'geo_bypass': True, 'geo_bypass_country': 'US'}
+    ydl_opts = {
+        'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
+        'extract_flat': True if mode in ['playlist', 'search'] else False, 
+        'noplaylist': mode in ['single', 'search'],
+        'geo_bypass': True, 'geo_bypass_country': 'US'
+    }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             fetch_url = f"ytsearch{limit}:{url}" if mode == 'search' else url
@@ -1239,7 +1349,8 @@ def get_info():
                     thumb = e.get('thumbnails', [{'url': ''}])[-1]['url'] if e.get('thumbnails') else ''
                     duration_sec = e.get('duration')
                     if duration_sec:
-                        m, s = divmod(int(duration_sec), 60); h, m = divmod(m, 60)
+                        m, s = divmod(int(duration_sec), 60)
+                        h, m = divmod(m, 60)
                         duration_str = f"{h}:{m:02d}:{s:02d}" if h > 0 else f"{m}:{s:02d}"
                     else: duration_str = "--:--"
                     entries.append({'id': e.get('id'), 'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb, 'uploader': e.get('uploader') or e.get('channel') or 'Unknown Channel', 'views': e.get('view_count') or 0, 'duration': duration_str})
@@ -1251,7 +1362,8 @@ def get_info():
                         res = f.get('format_note', f.get('resolution', 'Unknown'))
                         if res in ['2160p', '1440p', '1080p', '1080p60', '720p', '720p60', '480p', '360p']:
                             formats.append({'format_id': f['format_id'], 'resolution': res, 'filesize': round(f.get('filesize', 0) / 1048576, 1) if f.get('filesize') else None})
-                seen = set(); uniq = [f for f in reversed(formats) if not (f['resolution'] in seen or seen.add(f['resolution']))]
+                seen = set()
+                uniq = [f for f in reversed(formats) if not (f['resolution'] in seen or seen.add(f['resolution']))]
                 uniq.sort(key=lambda f: int(f['resolution'].replace('p60', '').replace('p', '')) if f['resolution'].replace('p60', '').replace('p', '').isdigit() else 0, reverse=True)
                 return jsonify({'id': info.get('id'), 'title': info.get('title'), 'thumbnail': info.get('thumbnail'), 'formats': uniq})
     except Exception as e: return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
@@ -1267,25 +1379,33 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, use_convers
 
     if dl_type == 'mp4':
         if quality == 'best': ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
-        elif quality.endswith('p') and quality[:-1].isdigit(): ydl_opts['format'] = f'bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
+        elif quality.endswith('p') and quality[:-1].isdigit():
+            ydl_opts['format'] = f'bestvideo[height<={quality[:-1]}][ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best'
         else: ydl_opts['format'] = f"{quality}+bestaudio[ext=m4a]/best"
+            
         if burn_subs: ydl_opts['writesubtitles'] = True; ydl_opts['subtitleslangs'] = ['en']; ydl_opts['postprocessors'] = [{'key': 'FFmpegEmbedSubtitle'}]
             
     elif dl_type == 'mp3':
         ydl_opts['writethumbnail'] = True 
-        if use_conversion: ydl_opts['format'] = 'bestaudio/best'; ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality}, {'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
-        else: ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'; ydl_opts['postprocessors'] = [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
+        if use_conversion:
+            ydl_opts['format'] = 'bestaudio/best'
+            ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': quality}, {'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
+        else:
+            ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio'
+            ydl_opts['postprocessors'] = [{'key': 'EmbedThumbnail'}, {'key': 'FFmpegMetadata'}]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             base_filename = ydl.prepare_filename(info)
             name_without_ext = os.path.splitext(base_filename)[0]
+            
             actual_file = base_filename
             for possible_ext in ['.mp3', '.m4a', '.webm', '.opus', '.mp4', '.mkv']:
                 if os.path.exists(name_without_ext + possible_ext):
                     actual_file = name_without_ext + possible_ext
                     break
+
             if dl_type == 'mp3' and not use_conversion:
                 final_mp3_path = name_without_ext + '.mp3'
                 if actual_file != final_mp3_path and os.path.exists(actual_file):
@@ -1312,5 +1432,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V31 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V32 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
