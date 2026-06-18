@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V33 - SPOTIFY CLONE, INSTANT LOAD & BG AUDIO FIX)
+# YOUTUBE DOWNLOADER (V34 - CLOUDFLARE WARP PROXY RESTORED)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, send_file, Response
@@ -134,9 +134,10 @@ DOWNLOADER_HTML = """
         #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
 
         .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent; overflow:hidden;}
-        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; }
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
+        .list-item img:hover { filter: brightness(0.7); transform: scale(1.05); }
         .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom:3px;}
         .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center;}
         
         .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;}
@@ -152,16 +153,12 @@ DOWNLOADER_HTML = """
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px;}
         
         .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color:#333; }
+        .quality-item.best { border-color: #ff0844; background: #fff0f2; }
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; font-size: 0.95rem; border-bottom: 1px solid #eee; padding-bottom: 10px;}
         .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd; color:#333;}
-        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; }
 
-        @media (max-width: 600px) { 
-            .list-item { flex-direction: column; align-items: stretch; } 
-            .list-item img { width: 100%; } 
-            .side-nav { width: 250px; } 
-        }
+        @media (max-width: 600px) { .list-item { flex-direction: column; align-items: stretch; } .list-item img { width: 100%; } .side-nav { width: 250px; } }
     </style>
 </head>
 <body>
@@ -212,9 +209,8 @@ DOWNLOADER_HTML = """
         
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
-        <!-- SINGLE DL -->
         <div id="single-ui">
-            <div class="image-wrapper" onclick="window.location.href='/player'"><img id="s-thumb" src=""></div>
+            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="openFullThumb(this.src)">
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -226,7 +222,6 @@ DOWNLOADER_HTML = """
             </div>
         </div>
 
-        <!-- LIST DL -->
         <div id="list-container" class="list-container">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <div><input type="checkbox" id="selectAll" onclick="toggleAll()"> Select All</div>
@@ -240,10 +235,15 @@ DOWNLOADER_HTML = """
         </div>
     </div>
 
-    <!-- BACKGROUND FAB -->
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
-    <!-- MODALS -->
+    <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
+        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+            <button class="btn-close" style="position:absolute; top:-15px; right:-15px; z-index: 6001;">X</button>
+            <img id="fullThumbImg" src="" style="width:100%; height:auto; max-height:85vh; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.8); object-fit:contain;">
+        </div>
+    </div>
+
     <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
@@ -360,6 +360,8 @@ DOWNLOADER_HTML = """
             document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none';
         }
 
+        function openFullThumb(src) { document.getElementById('fullThumbImg').src = src; document.getElementById('thumbModal').style.display = 'flex'; }
+
         function switchTab(mode) {
             if (currentMode !== mode && mode !== 'dashboard') showToast(`Switched to ${mode.toUpperCase()} mode`);
             currentMode = mode;
@@ -376,7 +378,7 @@ DOWNLOADER_HTML = """
                 input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
                 document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block';
                 document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
-                input.style.paddingRight = mode === 'search' ? '120px' : '90px';
+                input.style.paddingRight = mode === 'search' ? '20px' : '90px';
                 setStatus(mode === 'search' ? "Ready to search." : "Awaiting Link...");
             }
         }
@@ -387,12 +389,7 @@ DOWNLOADER_HTML = """
         }
 
         document.getElementById('url').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                clearTimeout(typingTimer);
-                handleInput(this.value.trim(), true);
-                this.blur();
-            }
+            if (e.key === 'Enter') { e.preventDefault(); clearTimeout(typingTimer); handleInput(this.value.trim(), true); this.blur(); }
         });
 
         document.getElementById('url').addEventListener('input', (e) => {
@@ -410,12 +407,14 @@ DOWNLOADER_HTML = """
             let val = forcedValue || document.getElementById('url').value.trim();
             if(!val) { isFetchingMore = false; return; }
             setStatus("Extracting Data...");
+            
             if(isNewSearch) {
                 currentSearchLimit = 10;
                 document.getElementById('single-ui').style.display = 'none';
                 document.getElementById('list-container').style.display = 'none';
                 document.getElementById('loadMoreBtn').style.display = 'none';
             }
+
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: val, mode: currentMode, limit: currentSearchLimit}) });
                 const data = await res.json();
@@ -436,7 +435,7 @@ DOWNLOADER_HTML = """
                     if (currentMode === 'search') document.getElementById('loadMoreBtn').style.display = 'block';
                 }
                 setStatus("Data Ready.");
-            } catch(e) { showToast("Network Error: " + e.message, "error"); setStatus("Error.", true); }
+            } catch(e) { showToast("Network Error", "error"); setStatus("Error.", true); }
             isFetchingMore = false; 
         }
 
@@ -466,6 +465,22 @@ DOWNLOADER_HTML = """
 
         function toggleAll() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = c); }
 
+        let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
+        
+        function triggerDownload(index, type) {
+            const item = currentResults[index];
+            pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = type;
+            const list = document.getElementById('qualityList'); list.innerHTML = '';
+            document.getElementById('modalTitle').innerText = type === 'mp4' ? "Select MP4 Quality" : "Select MP3 Quality";
+            
+            if(type === 'mp4') {
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('best')"><span>⭐ AUTO BEST</span></div><div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
+            } else {
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
+            }
+            document.getElementById('qualityModal').style.display = 'flex';
+        }
+        
         async function openQuality(index, type, isBulk=false) {
             pendingDownloadTarget = { index, type, isBulk };
             const list = document.getElementById('qualityList'); list.innerHTML = '';
@@ -614,7 +629,6 @@ PLAYER_HTML = """
         .side-nav a:hover { background: #1db954; transform: translateX(10px); }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
 
-        /* TOASTS */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
         .toast { background: #282828; color: white; padding: 15px 25px; border-radius: 8px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #1db954; animation: slideIn 0.4s forwards; }
         .toast.error { border-left-color: #ff0844; }
@@ -623,7 +637,6 @@ PLAYER_HTML = """
 
         .container { width: 100%; max-width: 600px; padding-bottom: 150px; }
         
-        /* V32 MOBILE TOP BAR FIX */
         .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items:center;}
         .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; flex-shrink: 0;}
         .search-wrapper { position: relative; flex: 1; width: 100%; }
@@ -667,7 +680,6 @@ PLAYER_HTML = """
         .full-only { display: flex; width: 100%; justify-content: space-between; position: absolute; top: 20px; padding: 0 25px; z-index: 3000; pointer-events: auto;}
         .mini .full-only { display: none !important; }
         
-        /* V32 SPOTIFY DOWN ARROW */
         .top-ctrl-btn { background: transparent; border: none; color: white; font-size: 2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; }
         
         .mini-close { display: none; }
@@ -778,7 +790,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- GOD-MODE SPOTIFY AUDIO PLAYER -->
     <div id="audio-player-bar" onclick="openPlayerUI(event)">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">🔽</button>
@@ -813,7 +824,7 @@ PLAYER_HTML = """
             <button class="ctrl-btn" onclick="prevSong(event)">⏮</button>
             <button class="ctrl-btn ctrl-play" id="playPauseBtn" onclick="togglePlay(event)">⏸</button>
             <button class="ctrl-btn" onclick="nextSong(event)">⏭</button>
-            <button class="mini-close" onclick="stopAudio(event)">✖</button>
+            <button class="mini-close" onclick="stopAudio(event); event.stopPropagation();">✖</button>
         </div>
         
         <div class="bottom-action-row">
@@ -823,7 +834,6 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
-    <!-- VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container">
             <div class="vid-controls">
@@ -834,7 +844,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- THUMBNAIL MODAL -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div style="position: relative; max-width: 90vw; max-height: 90vh;">
             <button class="btn-close" style="position:absolute; top:-15px; right:-15px; z-index: 6001;">X</button>
@@ -890,12 +899,10 @@ PLAYER_HTML = """
         let totalSleepTime = 0;
         let isFetchingMore = false; 
 
-        // V30: CROSSFADE VARIABLES
         let isFadingOut = false;
         let fadeInterval = null;
         
-        // V30: Persistent VideoID Download Map
-        let activeSongDownloads = {}; // Maps videoId -> taskId
+        let activeSongDownloads = {}; 
 
         function toggleMenu() {
             const nav = document.getElementById('sideNav');
@@ -1020,8 +1027,7 @@ PLAYER_HTML = """
                 const item = audioQueue[currentIndex];
                 const currentVidId = item.id || (item.url ? item.url.split('v=')[1] : null);
                 
-                // V30: Check persistent dictionary
-                if(activeSongDownloads[currentVidId]) return; // Already downloading
+                if(activeSongDownloads[currentVidId]) return; 
                 
                 pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = 'mp3';
                 pendingDlVidId = currentVidId;
@@ -1044,13 +1050,12 @@ PLAYER_HTML = """
                 });
                 const data = await res.json();
                 if (data.task_id && pendingDlVidId) {
-                    activeSongDownloads[pendingDlVidId] = data.task_id; // Register in persistent dict
-                    checkCurrentSongDownloadState(); // Update UI instantly
+                    activeSongDownloads[pendingDlVidId] = data.task_id; 
+                    checkCurrentSongDownloadState(); 
                 }
             } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
-        // Updates the main player button based on dictionary state
         function checkCurrentSongDownloadState() {
             if(currentIndex < 0 || currentIndex >= audioQueue.length) return;
             const item = audioQueue[currentIndex];
@@ -1059,7 +1064,6 @@ PLAYER_HTML = """
             
             if (activeSongDownloads[vidId]) {
                 btn.disabled = true; 
-                // The polling interval will fill in the text and background
             } else {
                 btn.innerText = '📥 Download';
                 btn.style.background = '#1db954'; 
@@ -1073,19 +1077,16 @@ PLAYER_HTML = """
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
                 const tasks = await res.json();
                 
-                // V30: Loop through all active song downloads in the dict
                 for (let vidId in activeSongDownloads) {
                     let tid = activeSongDownloads[vidId];
                     let t = tasks[tid];
                     
-                    // If the task was cleared from backend or missing
                     if (!t) {
                         delete activeSongDownloads[vidId];
                         checkCurrentSongDownloadState();
                         continue;
                     }
                     
-                    // If this task belongs to the CURRENTLY PLAYING song, update the UI button
                     if (currentIndex >= 0 && currentIndex < audioQueue.length) {
                         const currentItem = audioQueue[currentIndex];
                         const currentVidId = currentItem.id || (currentItem.url ? currentItem.url.split('v=')[1] : null);
@@ -1107,19 +1108,13 @@ PLAYER_HTML = """
                             }
                         }
                     }
-                    
-                    // Global logic for completed stuff (even if not playing)
                     if (t.status === 'completed') {
-                        // Keep task in dict for 4 seconds then delete
                         setTimeout(() => { delete activeSongDownloads[vidId]; }, 4000);
                     }
                 }
             } catch(e) {}
         }, 1000);
 
-        // ==========================================
-        // V30 VIDEO LOGIC
-        // ==========================================
         async function startVideo(id) {
             stopAudio(null); 
             const modal = document.getElementById('video-modal');
@@ -1142,9 +1137,6 @@ PLAYER_HTML = """
             try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
         }
 
-        // ==========================================
-        // V30 AUDIO PLAYER ENGINE WITH CROSSFADE
-        // ==========================================
         function openPlayerUI(e) {
             if(audioBar.classList.contains('mini')) {
                 audioBar.classList.remove('mini');
@@ -1194,7 +1186,7 @@ PLAYER_HTML = """
             titleEl.innerText = "Loading stream... "; titleEl.classList.remove('scroll');
             seekSlider.value = 0; seekSlider.style.background = `#4d4d4d`;
             
-            checkCurrentSongDownloadState(); // V30 Check if already downloading
+            checkCurrentSongDownloadState(); 
             
             try {
                 const res = await fetch('/api/stream_audio', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: item.url || item.id}) });
@@ -1346,8 +1338,7 @@ def media_player(): return PLAYER_HTML
 @app.route('/api/stream_audio', methods=['POST'])
 def stream_audio():
     url = request.json.get('url')
-    # PROXY REMOVED FOR MAXIMUM SPEED
-    ydl_opts = { 'quiet': True, 'format': 'bestaudio[ext=m4a]/bestaudio/best', 'noplaylist': True, 'geo_bypass': True, 'geo_bypass_country': 'US'}
+    ydl_opts = { 'quiet': True, 'format': 'bestaudio[ext=m4a]/bestaudio/best', 'noplaylist': True, 'proxy': 'socks5://127.0.0.1:40000', 'geo_bypass': True, 'geo_bypass_country': 'US'}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -1368,8 +1359,7 @@ def get_info():
     limit = request.json.get('limit', 10) 
     if mode != 'search' and 'list=RD' in url: return jsonify({'error': 'Infinite loop detected.'})
 
-    # PROXY REMOVED
-    ydl_opts = {'quiet': True, 'color': 'no_color', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search'], 'geo_bypass': True, 'geo_bypass_country': 'US'}
+    ydl_opts = {'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search'], 'geo_bypass': True, 'geo_bypass_country': 'US'}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             fetch_url = f"ytsearch{limit}:{url}" if mode == 'search' else url
@@ -1401,7 +1391,7 @@ def get_info():
 
 def background_downloader(task_id, url, dl_type, quality, burn_subs, use_conversion):
     ydl_opts = {
-        'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s', 'quiet': True, 'color': 'no_color', 
+        'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s', 'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
         'geo_bypass': True, 'geo_bypass_country': 'US', 'nocheckcertificate': True,
         'progress_hooks': [get_progress_hook(task_id)], 'noplaylist': True, 'ffmpeg_location': '/usr/bin/ffmpeg', 
         'external_downloader': 'aria2c', 'external_downloader_args': ['-j', '16', '-x', '16', '-s', '16', '-k', '1M'],
@@ -1455,5 +1445,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V33 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V34 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
