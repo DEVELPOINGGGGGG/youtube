@@ -1,8 +1,8 @@
 # ==============================================================================
-# YOUTUBE DOWNLOADER (V30 - GOD TIER PLATINUM BUILD)
+# YOUTUBE DOWNLOADER (V31 - THE GOD-TIER PLATINUM STABLE BUILD)
 # ==============================================================================
 
-from flask import Flask, request, jsonify, render_template_string, send_file, Response
+from flask import Flask, request, jsonify, send_file, Response
 import yt_dlp
 import os
 import time
@@ -66,9 +66,9 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# FRONTEND: MAIN DASHBOARD & PREMIUM PLAYER
+# HTML 1: THE STRICT DOWNLOADER DASHBOARD (ROUTE: "/")
 # ==============================================================================
-HTML_TEMPLATE = """
+DOWNLOADER_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -77,47 +77,37 @@ HTML_TEMPLATE = """
     <title>YouTube Downloader</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1e3c72">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         body { background: linear-gradient(-45deg, #1e3c72, #2a5298, #ff758c, #ff7eb3, #4facfe, #00f2fe); background-size: 600% 600%; animation: gradientBG 20s ease infinite; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; color: #333; padding: 20px; padding-bottom: 100px; overflow-x: hidden; }
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); position: relative; z-index: 10; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; width: 100%; max-width: 800px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
         .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .header-left { display: flex; align-items: center; gap: 15px; }
-        
         .hamburger-btn { font-size: 1.8rem; cursor: pointer; color: #1e3c72; background: none; border: none; transition: 0.2s; }
-        .hamburger-btn:hover { transform: scale(1.1); }
-        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
-        .settings-btn:hover { background: #cbd5e0; transform: rotate(45deg); }
-        
+        .settings-btn { font-size: 1.5rem; cursor: pointer; color: #1e3c72; background: #e2e8f0; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; }
         h2 { font-weight: 800; font-size: 1.8rem; margin: 0; background: linear-gradient(45deg, #1e3c72, #ff0844); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; }
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: white; box-shadow: 5px 0 25px rgba(0,0,0,0.5); z-index: 9999; transition: left 0.3s; display: flex; flex-direction: column; padding: 30px 20px; }
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
-        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; transition: 0.2s; background: #f4f7f6; display: flex; align-items: center; justify-content: space-between; }
-        .side-nav a:hover { background: #e0f2fe; color: #1e3c72; transform: translateX(10px); }
+        .side-nav a { text-decoration: none; color: #333; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: #f4f7f6; }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998; }
         
-        /* TOAST NOTIFICATIONS */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
-        .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #4facfe; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #4facfe; animation: slideIn 0.4s forwards; }
         .toast.success { border-left-color: #1db954; }
-        .toast.error { border-left-color: #ff0844; background: rgba(30, 0, 0, 0.95);}
+        .toast.error { border-left-color: #ff0844; }
         @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; }
-        .tabs::-webkit-scrollbar { display: none; }
-        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .tab-btn.active { background: #4facfe; color: white; box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4); }
+        .tab-btn { flex-shrink: 0; padding: 12px 25px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: 800; cursor: pointer; }
+        .tab-btn.active { background: #4facfe; color: white; }
         
-        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; transition: 0.2s; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .choice-btn:hover { transform: scale(1.03); }
+        .choice-btn { width: 100%; padding: 18px; border-radius: 16px; border: none; font-size: 1.1rem; font-weight: 800; cursor: pointer; color: white; margin-bottom: 15px; }
         .btn-dash-player { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         .btn-dash-single { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
         .btn-dash-playlist { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -125,14 +115,13 @@ HTML_TEMPLATE = """
 
         .input-group { position: relative; margin-bottom: 20px; display:flex; gap:10px;}
         input[type="text"] { flex: 1; padding: 18px 20px; border-radius: 12px; border: 2px solid #ddd; outline: none; font-size: 1.1rem; background: #f8f9fa; }
-        input[type="text"]:focus { border-color: #4facfe; box-shadow: 0 0 15px rgba(79, 172, 254, 0.4); background: white; }
-        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; transition: 0.2s; }
-        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; transition: transform 0.2s; background: #333; }
+        .paste-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #e2e8f0; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; color: #1e3c72; }
+        .action-btn { flex-shrink: 0; padding: 15px 25px; border: none; border-radius: 12px; font-weight: 800; color: white; cursor: pointer; background: #333; }
         .action-btn:disabled { opacity: 0.7; cursor: not-allowed; }
         .btn-mp4 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } 
         .btn-mp3 { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
         
-        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; transition: 0.3s; }
+        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 50px; background: #eee; font-weight: 600; margin-bottom: 20px; width: 100%; text-align: center; }
         
         #single-ui, #list-container, #dashboard-ui { display: none; flex-direction: column; gap: 10px; }
         
@@ -140,22 +129,15 @@ HTML_TEMPLATE = """
         #dashboardTasksWrapper { max-height: 400px; overflow-y: auto; padding-right: 5px;}
 
         .list-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: #f4f7f6; border-radius: 12px; border: 1px solid transparent; overflow:hidden;}
-        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 10px rgba(0,0,0,0.1); }
-        .list-item img:hover { filter: brightness(0.7); transform: scale(1.05); }
+        .list-item img { width: 150px; border-radius: 8px; cursor: pointer; }
         .item-info { flex: 1; min-width: 0; display:flex; flex-direction:column; justify-content:center;}
-        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom:3px;}
-        .scrolling-title::-webkit-scrollbar { display: none; }
+        .scrolling-title { font-size: 0.95rem; margin-bottom: 5px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
         .btn-scroll-container { display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; padding-bottom: 10px; scrollbar-width: none; align-items:center;}
         
-        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #eee;}
+        .progress-container { background: #fff; padding: 12px; border-radius: 12px; margin-top: 10px; border: 1px solid #eee;}
         .progress-bar-bg { width: 100%; height: 10px; background: #e2e8f0; border-radius: 10px; overflow: hidden; margin: 8px 0; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%); transition: width 0.3s ease; }
         .progress-stats { display: flex; justify-content: space-between; font-size: 0.75rem; color: #666; font-weight: 700; }
-        
-        .image-wrapper { border-radius: 16px; overflow: hidden; margin-bottom: 20px; position: relative; cursor: pointer; }
-        .image-wrapper::after { content: "▶ PLAY"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 25px; border-radius: 30px; font-weight: 800; font-size: 1.2rem; opacity: 0; transition: 0.3s; }
-        .image-wrapper:hover::after { opacity: 1; }
-        .image-wrapper img { width: 100%; display: block; }
         
         .fab { display: none; position: fixed; bottom: 30px; right: 30px; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 15px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 25px rgba(17, 153, 142, 0.5); cursor: pointer; z-index: 1000; align-items: center; gap: 10px; }
         .badge { background: #ff0844; padding: 2px 8px; border-radius: 20px; font-size: 0.8rem; }
@@ -164,18 +146,14 @@ HTML_TEMPLATE = """
         .modal-box { background: white; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; max-height: 85vh; overflow-y: auto; }
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px;}
         
-        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .quality-item { background: #f4f7f6; border: 2px solid #e2e8f0; padding: 15px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color:#333; }
         .quality-item.best { border-color: #ff0844; background: #fff0f2; }
         .task-item { background: #f8f9fa; border: 1px solid #e9ecef; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; font-size: 0.95rem; border-bottom: 1px solid #eee; padding-bottom: 10px;}
-        .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd;}
+        .switch-container { display: flex; align-items: center; justify-content: space-between; background: #e0f2fe; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 2px solid #a1c4fd; color:#333;}
+        .load-more-btn { background: #334155; color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; }
 
-        @media (max-width: 600px) { 
-            .list-item { flex-direction: column; align-items: stretch; } 
-            .list-item img { width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover;} 
-            .input-group { flex-direction: column; }
-            .side-nav { width: 250px; }
-        }
+        @media (max-width: 600px) { .list-item { flex-direction: column; align-items: stretch; } .list-item img { width: 100%; } .input-group { flex-direction: column; } .side-nav { width: 250px; } }
     </style>
 </head>
 <body>
@@ -189,12 +167,12 @@ HTML_TEMPLATE = """
         <div style="height: 1px; background: #ddd; margin: 15px 0;"></div>
         <a href="#" onclick="switchTab('single'); toggleMenu()">🎬 Single Video DL</a>
         <a href="#" onclick="switchTab('playlist'); toggleMenu()">📂 Playlist DL</a>
-        <a href="#" onclick="switchTab('search'); toggleMenu()">🔍 Search & Download</a>
+        <a href="#" onclick="switchTab('search'); toggleMenu()">🔍 Search YouTube</a>
     </div>
 
     <div class="glass-card">
         <div class="header-area">
-            <div style="display:flex; align-items:center; gap:15px;"><button class="hamburger-btn" onclick="toggleMenu()">☰</button><h2>YT DOWNLOADER</h2></div>
+            <div class="header-left"><button class="hamburger-btn" onclick="toggleMenu()">☰</button><h2>YT DOWNLOADER</h2></div>
             <button class="settings-btn" onclick="document.getElementById('settingsModal').style.display='flex'">⚙️</button>
         </div>
         
@@ -211,6 +189,7 @@ HTML_TEMPLATE = """
             <button class="choice-btn btn-dash-single" onclick="switchTab('single')">🎬 Download YouTube Video</button>
             <button class="choice-btn btn-dash-playlist" onclick="switchTab('playlist')">📂 Download Playlist</button>
             <button class="choice-btn btn-dash-search" onclick="switchTab('search')">🔍 Search & Download</button>
+            
             <div class="dash-task-header">ACTIVE DOWNLOADS</div>
             <div id="dashboardTasksWrapper"><p style="color:#888; font-size:0.9rem;">No active downloads.</p></div>
         </div>
@@ -220,10 +199,11 @@ HTML_TEMPLATE = """
             <button class="paste-btn" id="pasteBtn" onclick="pasteLink()">PASTE</button>
             <button class="action-btn" id="goBtn" style="display:none; padding:15px 30px;" onclick="handleInput(null, true)">GO</button>
         </div>
+        
         <div class="status-badge" id="statusBadge">Awaiting Input...</div>
 
         <div id="single-ui">
-            <div class="image-wrapper" onclick="window.location.href='/player'"><img id="s-thumb" src=""></div>
+            <img id="s-thumb" src="" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:pointer;" onclick="openFullThumb(this.src)">
             <h3 id="s-title" class="scrolling-title" style="margin-bottom: 15px;"></h3>
             <div class="btn-scroll-container" id="s-btns" style="display:none; margin-bottom:15px;">
                 <button class="action-btn btn-mp4" onclick="openQuality(-1, 'mp4')">DOWNLOAD MP4</button>
@@ -250,13 +230,20 @@ HTML_TEMPLATE = """
 
     <div class="fab" id="fabBtn" onclick="document.getElementById('taskModal').style.display='flex'">📥 Queue <span class="badge" id="taskBadge">0</span></div>
 
+    <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
+        <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+            <button class="btn-close" style="position:absolute; top:-15px; right:-15px; z-index: 6001;">X</button>
+            <img id="fullThumbImg" src="" style="width:100%; height:auto; max-height:85vh; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.8); object-fit:contain;">
+        </div>
+    </div>
+
     <div class="modal-overlay" id="recoveryModal" style="z-index: 4000;">
         <div class="modal-box">
             <h2 style="font-size:1.5rem; color:#d32f2f; margin-bottom:15px;">⚠️ Unsaved Downloads</h2>
             <button class="btn-close" onclick="document.getElementById('recoveryModal').style.display='none'">X</button>
             <p style="margin-bottom:15px; font-size:0.9rem; color:#555;">These videos finished processing while the app was closed.</p>
             <div id="recoveryList" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px; max-height:200px; overflow-y:auto;"></div>
-            <button class="action-btn btn-mp4" style="width:100%; padding:15px; font-size:1.1rem; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
+            <button class="action-btn btn-mp4" style="width:100%; padding:15px;" onclick="downloadRecovered()">⬇ DOWNLOAD ALL</button>
         </div>
     </div>
 
@@ -279,7 +266,7 @@ HTML_TEMPLATE = """
         </div>
     </div>
 
-    <div class="modal-overlay" id="qualityModal" style="z-index: 3000;">
+    <div class="modal-overlay" id="qualityModal" style="z-index: 4000;">
         <div class="modal-box">
             <h3 id="modalTitle" style="margin-bottom:15px;">Select Quality</h3>
             <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
@@ -304,7 +291,6 @@ HTML_TEMPLATE = """
 
         function loadSettings() { document.getElementById('audioConvToggle').checked = (localStorage.getItem('audio_conversion_enabled') ?? 'true') === 'true'; }
         function saveSettings() { localStorage.setItem('audio_conversion_enabled', document.getElementById('audioConvToggle').checked); showToast("Settings Saved", "success"); }
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
         let currentMode = 'dashboard';
         let currentData = []; 
@@ -312,33 +298,25 @@ HTML_TEMPLATE = """
         let pendingDownloadTarget = null; 
         let taskDOMMap = {}; 
         let typingTimer; 
-        let isFetchingMore = false; // V30 Infinite scroll lock
-        
+        let isFetchingMore = false; 
         let initialLoad = true;
         let recoveredToDownload = [];
         let deliveryQueue = [];
         let isDelivering = false;
-        let notifiedSet = new Set(); // V30 strict duplicate prevention
+        let notifiedSet = new Set(); 
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
             const params = new URLSearchParams(window.location.search);
             const sharedData = params.get('url') || params.get('text') || params.get('title');
-            if (sharedData) {
-                const urlMatch = sharedData.match(/(https?:\/\/[^\s]+)/);
-                if (urlMatch) { switchTab('single'); document.getElementById('url').value = urlMatch[0]; handleInput(urlMatch[0], true); return; }
-            }
+            if (sharedData) { const urlMatch = sharedData.match(/(https?:\/\/[^\s]+)/); if (urlMatch) { switchTab('single'); document.getElementById('url').value = urlMatch[0]; handleInput(urlMatch[0], true); return; } }
             switchTab('dashboard');
         });
 
-        // V30: INFINITE SCROLL
         window.addEventListener('scroll', () => {
             if(currentMode === 'search' && document.getElementById('loadMoreBtn').style.display === 'block') {
                 if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
-                    if(!isFetchingMore) {
-                        isFetchingMore = true;
-                        loadMore();
-                    }
+                    if(!isFetchingMore) { isFetchingMore = true; loadMore(); }
                 }
             }
         });
@@ -358,92 +336,63 @@ HTML_TEMPLATE = """
         }
         function downloadRecovered() { document.getElementById('recoveryModal').style.display = 'none'; recoveredToDownload.forEach(f => { deliveryQueue.push('/api/serve?file=' + encodeURIComponent(f.file)); }); processDeliveryQueue(); recoveredToDownload = []; }
 
-        function toggleMenu() {
-            const nav = document.getElementById('sideNav');
-            nav.classList.toggle('open');
-            document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none';
-        }
+        function toggleMenu() { const nav = document.getElementById('sideNav'); nav.classList.toggle('open'); document.getElementById('navOverlay').style.display = nav.classList.contains('open') ? 'block' : 'none'; }
+
+        function openFullThumb(src) { document.getElementById('fullThumbImg').src = src; document.getElementById('thumbModal').style.display = 'flex'; }
 
         function switchTab(mode) {
-            if (currentMode !== mode && mode !== 'dashboard') showToast(`Switched to ${mode.toUpperCase()} mode`);
+            if (currentMode !== mode && mode !== 'dashboard') showToast(`Switched to ${mode.toUpperCase()}`);
             currentMode = mode;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             if(document.getElementById(`tab-${mode}`)) document.getElementById(`tab-${mode}`).classList.add('active');
             ['dashboard-ui', 'inputWrapper', 'statusBadge', 'list-container', 'single-ui'].forEach(id => document.getElementById(id).style.display = 'none');
             
-            if(mode === 'dashboard') {
-                document.getElementById('dashboard-ui').style.display = 'flex';
-            } else {
-                document.getElementById('inputWrapper').style.display = 'flex';
-                document.getElementById('statusBadge').style.display = 'inline-block';
-                const input = document.getElementById('url');
-                input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
-                document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block';
-                document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
-                input.style.paddingRight = mode === 'search' ? '20px' : '90px';
-                setStatus(mode === 'search' ? "Ready to search." : "Awaiting Link...");
+            if(mode === 'dashboard') { document.getElementById('dashboard-ui').style.display = 'flex'; } 
+            else {
+                document.getElementById('inputWrapper').style.display = 'flex'; document.getElementById('statusBadge').style.display = 'inline-block';
+                const input = document.getElementById('url'); input.placeholder = mode === 'search' ? "Type query..." : "Paste YouTube URL...";
+                document.getElementById('pasteBtn').style.display = mode === 'search' ? 'none' : 'block'; document.getElementById('goBtn').style.display = mode === 'search' ? 'block' : 'none';
+                input.style.paddingRight = mode === 'search' ? '20px' : '90px'; setStatus(mode === 'search' ? "Ready to search." : "Awaiting Link...");
             }
         }
 
-        function setStatus(msg, isErr=false) {
-            const b = document.getElementById('statusBadge');
-            b.innerText = msg; b.style.background = isErr ? '#ffebee' : '#eee'; b.style.color = isErr ? '#c62828' : '#333';
-        }
+        function setStatus(msg, isErr=false) { const b = document.getElementById('statusBadge'); b.innerText = msg; b.style.background = isErr ? '#ffebee' : '#eee'; b.style.color = isErr ? '#c62828' : '#333'; }
 
-        document.getElementById('url').addEventListener('input', (e) => {
-            clearTimeout(typingTimer);
-            if(!e.target.value.trim()) return setStatus("Awaiting Input...");
-            setStatus("Waiting 3 seconds...");
-            typingTimer = setTimeout(() => { handleInput(e.target.value.trim(), true); }, 3000); 
-        });
-
+        document.getElementById('url').addEventListener('input', (e) => { clearTimeout(typingTimer); if(!e.target.value.trim()) return setStatus("Awaiting Input..."); setStatus("Waiting 3 seconds..."); typingTimer = setTimeout(() => { handleInput(e.target.value.trim(), true); }, 3000); });
         async function pasteLink() { try { document.getElementById('url').value = await navigator.clipboard.readText(); clearTimeout(typingTimer); handleInput(null, true); } catch (err) {} }
-
         function loadMore() { currentSearchLimit += 20; handleInput(null, false); }
 
         async function handleInput(forcedValue = null, isNewSearch = true) {
             let val = forcedValue || document.getElementById('url').value.trim();
             if(!val) { isFetchingMore = false; return; }
             setStatus("Extracting Data...");
-            if(isNewSearch) {
-                currentSearchLimit = 10;
-                document.getElementById('single-ui').style.display = 'none';
-                document.getElementById('list-container').style.display = 'none';
-                document.getElementById('loadMoreBtn').style.display = 'none';
-            }
+            if(isNewSearch) { currentSearchLimit = 10; document.getElementById('single-ui').style.display = 'none'; document.getElementById('list-container').style.display = 'none'; document.getElementById('loadMoreBtn').style.display = 'none'; }
+
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: val, mode: currentMode, limit: currentSearchLimit}) });
                 const data = await res.json();
-                
-                // V30: Display FULL error message
                 if(data.error) { isFetchingMore = false; showToast(data.error, "error"); return setStatus("Error. See notification.", true); }
 
                 if(currentMode === 'single') {
-                    currentData = [data];
-                    currentVideoId = data.id || val.split('v=')[1];
-                    document.getElementById('s-thumb').src = data.thumbnail;
-                    document.getElementById('s-title').innerText = data.title;
-                    document.getElementById('s-btns').style.display = 'flex';
-                    document.getElementById('single-ui').style.display = 'block';
+                    currentData = [data]; currentVideoId = data.id || val.split('v=')[1];
+                    document.getElementById('s-thumb').src = data.thumbnail; document.getElementById('s-title').innerText = data.title;
+                    document.getElementById('s-btns').style.display = 'flex'; document.getElementById('single-ui').style.display = 'block';
                 } else {
-                    currentData = data.entries;
-                    renderItems();
-                    document.getElementById('list-container').style.display = 'flex';
+                    currentData = data.entries; renderItems(); document.getElementById('list-container').style.display = 'flex';
                     if (currentMode === 'search') document.getElementById('loadMoreBtn').style.display = 'block';
                 }
                 setStatus("Data Ready.");
-            } catch(e) { showToast("Network Error: " + e.message, "error"); setStatus("Error.", true); }
-            isFetchingMore = false; // Reset infinite scroll lock
+            } catch(e) { showToast("Network Error", "error"); setStatus("Error.", true); }
+            isFetchingMore = false; 
         }
 
         function renderItems() {
             const wrapper = document.getElementById('items-wrapper'); wrapper.innerHTML = '';
             currentData.forEach((item, i) => {
-                const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
                 wrapper.innerHTML += `
                     <div class="list-item">
                         <input type="checkbox" class="pl-checkbox" value="${i}" style="width:20px;height:20px;">
-                        <img src="${item.thumbnail}">
+                        <img src="${item.thumbnail}" onclick="openFullThumb('${item.thumbnail}')" style="width:150px; cursor:pointer;">
                         <div class="item-info">
                             <h4 class="scrolling-title">${item.title}</h4>
                             <p style="font-size:0.8rem; color:#666;">👤 ${item.uploader || 'Unknown'} | ⏱️ ${item.duration || '--'}</p>
@@ -451,10 +400,7 @@ HTML_TEMPLATE = """
                                 <button class="action-btn btn-mp4" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp4')">DL MP4</button>
                                 <button class="action-btn btn-mp3" style="padding:8px 15px;" onclick="openQuality(${i}, 'mp3')">DL MP3</button>
                             </div>
-                            <div class="progress-container" id="progBox-${i}" style="display:none;">
-                                <div class="progress-stats"><span id="progStatus-${i}">Wait...</span><span id="progPercent-${i}">0%</span></div>
-                                <div class="progress-bar-bg"><div class="progress-fill" id="progFill-${i}"></div></div>
-                            </div>
+                            <div class="progress-container" id="progBox-${i}" style="display:none;"><div class="progress-stats"><span id="progStatus-${i}">Wait...</span><span id="progPercent-${i}">0%</span></div><div class="progress-bar-bg"><div class="progress-fill" id="progFill-${i}"></div></div></div>
                         </div>
                     </div>`;
             });
@@ -462,33 +408,37 @@ HTML_TEMPLATE = """
 
         function toggleAll() { const c = document.getElementById('selectAll').checked; document.querySelectorAll('.pl-checkbox').forEach(cb => cb.checked = c); }
 
+        let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
+        
+        function triggerDownload(index, type) {
+            const item = currentResults[index]; pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = type;
+            const list = document.getElementById('qualityList'); list.innerHTML = '';
+            document.getElementById('modalTitle').innerText = type === 'mp4' ? "Select MP4 Quality" : "Select MP3 Quality";
+            
+            if(type === 'mp4') {
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('best')"><span>⭐ AUTO BEST</span></div><div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
+            } else {
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
+            }
+            document.getElementById('qualityModal').style.display = 'flex';
+        }
+        
         async function openQuality(index, type, isBulk=false) {
             pendingDownloadTarget = { index, type, isBulk };
             const list = document.getElementById('qualityList'); list.innerHTML = '';
             if (type === 'mp4') {
                 document.getElementById('modalTitle').innerText = "MP4 Quality";
-                document.getElementById('subToggle').style.display = 'flex'; 
-                document.getElementById('id3Notice').style.display = 'none'; 
                 list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('best')"><span>⭐ AUTO BEST</span></div>`;
-                if (isBulk) {
-                    list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`;
-                } else {
+                if (isBulk) { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="startBackgroundDownload('720p')"><span>📽️ 720p</span></div>`; } 
+                else {
                     let actualIndex = index === -1 ? 0 : index;
                     if (!currentData[actualIndex].formats) {
-                        try {
-                            const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url || currentData[actualIndex].id, mode: 'single'}) });
-                            const data = await res.json();
-                            if(data.formats) currentData[actualIndex].formats = data.formats;
-                        } catch(e) {}
+                        try { const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: currentData[actualIndex].url || currentData[actualIndex].id, mode: 'single'}) }); const data = await res.json(); if(data.formats) currentData[actualIndex].formats = data.formats; } catch(e) {}
                     }
-                    if(currentData[actualIndex].formats) {
-                        currentData[actualIndex].formats.forEach(f => { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`; });
-                    }
+                    if(currentData[actualIndex].formats) { currentData[actualIndex].formats.forEach(f => { list.innerHTML += `<div class="quality-item" onclick="startBackgroundDownload('${f.format_id}')"><span>📽️ ${f.resolution}</span></div>`; }); }
                 }
             } else {
                 document.getElementById('modalTitle').innerText = "MP3 Quality";
-                document.getElementById('subToggle').style.display = 'none'; 
-                document.getElementById('id3Notice').style.display = 'flex'; 
                 list.innerHTML += `<div class="quality-item best" onclick="startBackgroundDownload('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="startBackgroundDownload('192')"><span>🎵 192 kbps</span></div>`;
             }
             document.getElementById('qualityModal').style.display = 'flex';
@@ -497,23 +447,13 @@ HTML_TEMPLATE = """
         function downloadBulk(type) { openQuality(null, type, true); }
 
         async function startBackgroundDownload(quality) {
-            document.getElementById('qualityModal').style.display = 'none';
-            showToast("Download Started!", "info");
-            const burnSubs = document.getElementById('burnSubs') ? document.getElementById('burnSubs').checked : false;
+            document.getElementById('qualityModal').style.display = 'none'; showToast("Download Started!", "info");
             const useAudioConv = document.getElementById('audioConvToggle').checked;
-
             const dispatch = async (idx) => {
-                const res = await fetch('/api/download', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ client_id: clientId, url: currentData[idx].url || currentData[idx].id || document.getElementById('url').value, title: currentData[idx].title, type: pendingDownloadTarget.type, quality: quality, burn_subs: burnSubs, use_conversion: useAudioConv })
-                });
+                const res = await fetch('/api/download', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ client_id: clientId, url: currentData[idx].url || currentData[idx].id || document.getElementById('url').value, title: currentData[idx].title, type: pendingDownloadTarget.type, quality: quality, burn_subs: false, use_conversion: useAudioConv }) });
                 const data = await res.json();
-                if(data.task_id) {
-                    taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: idx };
-                    document.getElementById(pendingDownloadTarget.index === -1 ? 'progBox-single' : `progBox-${idx}`).style.display = 'block';
-                }
+                if(data.task_id) { taskDOMMap[data.task_id] = { isSingle: pendingDownloadTarget.index === -1, index: idx }; document.getElementById(pendingDownloadTarget.index === -1 ? 'progBox-single' : `progBox-${idx}`).style.display = 'block'; }
             };
-
             if (pendingDownloadTarget.isBulk) { document.querySelectorAll('.pl-checkbox:checked').forEach(cb => dispatch(parseInt(cb.value))); } 
             else { dispatch(pendingDownloadTarget.index === -1 ? 0 : pendingDownloadTarget.index); }
         }
@@ -557,21 +497,14 @@ HTML_TEMPLATE = """
                     }
 
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
-                        if (initialLoad && !isExpired) { 
-                            newlyRecovered.push({ id, title: t.title, file: t.file }); 
+                        if (initialLoad && !isExpired) { newlyRecovered.push({ id, title: t.title, file: t.file }); markHandled(id); } 
+                        else if (!initialLoad && !isExpired) { 
                             markHandled(id); 
-                        } else if (!initialLoad && !isExpired) { 
-                            markHandled(id); 
-                            // V30 Strict notification duplicate prevention
-                            if(!notifiedSet.has(id)) {
-                                notifiedSet.add(id);
-                                showToast(`Finished: ${t.title}`, "success");
-                            }
+                            if(!notifiedSet.has(id)) { notifiedSet.add(id); showToast(`Finished: ${t.title}`, "success"); }
                             deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); 
                             processDeliveryQueue(); 
-                        } else if (isExpired) { 
-                            markHandled(id); 
-                        }
+                        } 
+                        else if (isExpired) { markHandled(id); }
                     }
                 }
                 
@@ -614,7 +547,6 @@ PLAYER_HTML = """
         .side-nav a:hover { background: #4facfe; transform: translateX(10px); }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
 
-        /* V30 TOASTS */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
         .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #4facfe; animation: slideIn 0.4s forwards; }
         .toast.success { border-left-color: #1db954; }
@@ -629,7 +561,7 @@ PLAYER_HTML = """
         .search-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
 
         #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; gap: 20px; }
-        .choice-btn { width: 100%; padding: 25px; border-radius: 16px; border: none; font-size: 1.5rem; font-weight: 800; cursor: pointer; color: white; }
+        .choice-btn { width: 100%; padding: 25px; border-radius: 16px; border: none; font-size: 1.5rem; font-weight: 800; cursor: pointer; color: white; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .btn-music { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); }
         .btn-video { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
 
@@ -640,7 +572,7 @@ PLAYER_HTML = """
         .play-selected-btn { background: #1db954; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
 
         .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; }
-        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; }
+        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; cursor:pointer;}
         .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; overflow:hidden;}
         .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor:pointer;}
         .card.video-mode .info { padding: 15px; }
@@ -667,8 +599,7 @@ PLAYER_HTML = """
         .mini-close { display: none; }
         .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto;}
 
-        /* V30 THUMBNAIL CLICK -> MODAL */
-        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: 0.3s; cursor: pointer;}
+        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 16px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: 0.3s; cursor:pointer;}
         .playing-glow { animation: pulseGlow 2s infinite alternate; }
         @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #1db954; } 100% { box-shadow: 0 0 50px #4facfe, 0 0 80px #1db954; } }
         .mini #ap-cover { width: 60px; height: 60px; margin: 0; animation: none; border-radius:8px; box-shadow:none;}
@@ -709,9 +640,9 @@ PLAYER_HTML = """
         .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
         .open-yt-btn { color: #1db954; border: 2px solid #1db954; background: transparent; }
         .dl-mp3-btn { color: white; background: #4facfe; border: 2px solid #4facfe; transition: 0.2s;}
-        .dl-mp3-btn:disabled { background: #334155; border-color: #334155; cursor: not-allowed;}
+        .dl-mp3-btn:disabled { background: #334155; border-color: #334155; cursor: not-allowed; color:white;}
 
-        /* V30 VIDEO PIP & SANDBOX */
+        /* VIDEO PIP & SANDBOX */
         #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 2500; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
         #video-modal.mini-video { top: auto; left: auto; bottom: 20px; right: 20px; width: 320px; height: auto; padding: 0; background: transparent; box-shadow: 0 10px 30px rgba(0,0,0,0.8); border-radius: 12px; }
         .video-container { width: 100%; max-width: 100vw; aspect-ratio: 16/9; background: black; position: relative; border-radius: inherit; overflow:hidden;}
@@ -786,8 +717,8 @@ PLAYER_HTML = """
         <div id="ap-artist">Nexus Audio</div>
         
         <div class="advanced-controls">
-            <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()">1x</button>
-            <button class="adv-btn" id="loopBtn" onclick="toggleLoop()">🔁</button>
+            <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()" title="Playback Speed">1x</button>
+            <button class="adv-btn" id="loopBtn" onclick="toggleLoop()" title="Repeat Mode">🔁</button>
             <div class="sleep-wrapper">
                 <div class="sleep-ring" id="sleepRing"></div>
                 <button class="adv-btn" id="sleepBtn" onclick="openSleepModal()">🌙</button>
@@ -884,7 +815,7 @@ PLAYER_HTML = """
         let sleepTimeLeft = 0;
         let totalSleepTime = 0;
         let currentAudioDlTaskId = null;
-        let isFetchingMore = false; // V30 Infinite Scroll Lock
+        let isFetchingMore = false; 
 
         // V30: CROSSFADE VARIABLES
         let isFadingOut = false;
@@ -907,14 +838,10 @@ PLAYER_HTML = """
             showToast(`Switched to ${mode.toUpperCase()} mode`);
         }
 
-        // V30: Infinite Scroll Event Listener
         window.addEventListener('scroll', () => {
             if(currentMode === 'search' && document.getElementById('loadMoreBtn').style.display === 'block') {
                 if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
-                    if(!isFetchingMore) {
-                        isFetchingMore = true;
-                        loadMore();
-                    }
+                    if(!isFetchingMore) { isFetchingMore = true; loadMore(); }
                 }
             }
         });
@@ -991,9 +918,6 @@ PLAYER_HTML = """
             document.getElementById('thumbModal').style.display = 'flex';
         }
 
-        // ==========================================
-        // V30 DOWNLOADER
-        // ==========================================
         let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
         
         function triggerDownload(index, type) {
@@ -1003,12 +927,9 @@ PLAYER_HTML = """
             document.getElementById('modalTitle').innerText = type === 'mp4' ? "Select MP4 Quality" : "Select MP3 Quality";
             
             if(type === 'mp4') {
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('best')"><span>⭐ AUTO BEST</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('best')"><span>⭐ AUTO BEST</span></div><div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div><div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
             } else {
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
             }
             document.getElementById('qualityModal').style.display = 'flex';
         }
@@ -1022,8 +943,7 @@ PLAYER_HTML = """
                 pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = 'mp3';
                 const list = document.getElementById('qualityList'); list.innerHTML = '';
                 document.getElementById('modalTitle').innerText = "Select MP3 Quality";
-                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320', true)"><span>⭐ 320 kbps</span></div>`;
-                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192', true)"><span>🎵 192 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320', true)"><span>⭐ 320 kbps</span></div><div class="quality-item" onclick="fireBgTask('192', true)"><span>🎵 192 kbps</span></div>`;
                 document.getElementById('qualityModal').style.display = 'flex';
             }
         }
@@ -1031,8 +951,7 @@ PLAYER_HTML = """
         async function fireBgTask(quality, isFromPlayer = false) {
             document.getElementById('qualityModal').style.display = 'none';
             showToast("Download Sent to Server!", "info");
-            let useAudioConv = localStorage.getItem('audio_conversion_enabled') ?? 'true';
-            useAudioConv = (useAudioConv === 'true');
+            let useAudioConv = localStorage.getItem('audio_conversion_enabled') ?? 'true'; useAudioConv = (useAudioConv === 'true');
 
             try {
                 const res = await fetch('/api/download', {
@@ -1045,7 +964,7 @@ PLAYER_HTML = """
                     const btn = document.getElementById('mainPlayerDlBtn');
                     btn.disabled = true; btn.innerText = "⏳ Starting...";
                 }
-            } catch(e) { showToast("Download failed to start: " + e.message, "error");}
+            } catch(e) { showToast("Download failed to start.", "error");}
         }
 
         setInterval(async () => {
@@ -1072,15 +991,11 @@ PLAYER_HTML = """
             } catch(e) {}
         }, 1000);
 
-        // ==========================================
-        // V30 VIDEO LOGIC (PAUSE API INJECTED)
-        // ==========================================
         async function startVideo(id) {
             stopAudio(); 
             const modal = document.getElementById('video-modal');
             modal.classList.remove('mini-video');
             modal.style.display = 'flex';
-            // enablejsapi=1 allows us to pause it from the sleep timer
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1`;
             try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); } catch(e) {}
         }
@@ -1098,9 +1013,6 @@ PLAYER_HTML = """
             try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
         }
 
-        // ==========================================
-        // V30 AUDIO PLAYER ENGINE WITH CROSSFADE
-        // ==========================================
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); audioBar.classList.toggle('mini'); }
 
         function playSingleAudio(index) { audioQueue = currentResults; currentIndex = index; loadQueueItem(); }
@@ -1112,25 +1024,19 @@ PLAYER_HTML = """
         }
 
         function startFadeIn() {
-            clearInterval(fadeInterval);
-            isFadingOut = false;
-            audioEngine.volume = 0;
+            clearInterval(fadeInterval); isFadingOut = false; audioEngine.volume = 0;
             let targetVol = document.getElementById('volSlider').value / 100;
-            let step = targetVol / 30; // 3 seconds
-            fadeInterval = setInterval(() => {
-                if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
-                else { audioEngine.volume = targetVol; clearInterval(fadeInterval); }
-            }, 100);
+            let step = targetVol / 30; 
+            fadeInterval = setInterval(() => { if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } else { audioEngine.volume = targetVol; clearInterval(fadeInterval); } }, 100);
         }
 
         function startFadeOutAndNext() {
             if (isFadingOut) return;
             isFadingOut = true;
             let startVol = audioEngine.volume;
-            let step = startVol / 30; // 3 seconds
+            let step = startVol / 30; 
             fadeInterval = setInterval(() => {
-                if (audioEngine.volume > step) { audioEngine.volume -= step; } 
-                else { audioEngine.volume = 0; clearInterval(fadeInterval); nextSong(); }
+                if (audioEngine.volume > step) { audioEngine.volume -= step; } else { audioEngine.volume = 0; clearInterval(fadeInterval); nextSong(); }
             }, 100);
         }
 
@@ -1158,15 +1064,10 @@ PLAYER_HTML = """
                 if(data.error) { showToast(data.error, "error"); nextSong(); return; }
                 
                 if(data.stream_url) {
-                    audioEngine.src = data.stream_url;
-                    audioEngine.playbackRate = currentSpeed;
-                    titleEl.innerText = item.title;
-                    startFadeIn(); // V30 Smooth Fade In
+                    audioEngine.src = data.stream_url; audioEngine.playbackRate = currentSpeed; titleEl.innerText = item.title;
+                    startFadeIn(); 
                     
-                    setTimeout(() => {
-                        const wrapper = document.querySelector('.marquee-wrapper');
-                        if (titleEl.scrollWidth > wrapper.clientWidth + 10) titleEl.classList.add('scroll');
-                    }, 100);
+                    setTimeout(() => { const wrapper = document.querySelector('.marquee-wrapper'); if (titleEl.scrollWidth > wrapper.clientWidth + 10) titleEl.classList.add('scroll'); }, 100);
 
                     if ('mediaSession' in navigator) {
                         navigator.mediaSession.metadata = new MediaMetadata({ title: item.title, artist: item.uploader || "Nexus Audio", artwork: [ { src: item.thumbnail, sizes: '512x512', type: 'image/jpeg' } ] });
@@ -1180,7 +1081,7 @@ PLAYER_HTML = """
         function togglePlay(e) { if(e) e.stopPropagation(); if(audioEngine.paused) audioEngine.play(); else audioEngine.pause(); }
         function nextSong(e) { 
             if(e) e.stopPropagation(); 
-            clearInterval(fadeInterval); isFadingOut = false; // Reset fade states
+            clearInterval(fadeInterval); isFadingOut = false; 
             if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); startFadeIn(); return; }
             if (currentIndex < audioQueue.length - 1) { currentIndex++; loadQueueItem(); }
             else if (loopMode === 1) { currentIndex = 0; loadQueueItem(); }
@@ -1213,27 +1114,20 @@ PLAYER_HTML = """
 
         audioEngine.ontimeupdate = () => {
             let val = (audioEngine.currentTime / audioEngine.duration) * 100 || 0;
-            seekSlider.value = val;
-            seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`;
+            seekSlider.value = val; seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`;
             document.getElementById('currTime').innerText = formatTimeDetailed(audioEngine.currentTime);
             document.getElementById('durTime').innerText = formatTimeDetailed(audioEngine.duration);
             
-            // V30: CROSSFADE OUT LOGIC
             let timeLeft = audioEngine.duration - audioEngine.currentTime;
-            if (timeLeft <= 3.0 && timeLeft > 0 && !isFadingOut && loopMode !== 2 && (currentIndex < audioQueue.length - 1 || loopMode === 1)) {
-                startFadeOutAndNext();
-            }
+            if (timeLeft <= 3.0 && timeLeft > 0 && !isFadingOut && loopMode !== 2 && (currentIndex < audioQueue.length - 1 || loopMode === 1)) { startFadeOutAndNext(); }
         };
-        seekSlider.oninput = (e) => { 
-            let val = e.target.value; audioEngine.currentTime = (val / 100) * audioEngine.duration; 
-            seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`; 
-        };
+        seekSlider.oninput = (e) => { let val = e.target.value; audioEngine.currentTime = (val / 100) * audioEngine.duration; seekSlider.style.background = `linear-gradient(to right, #1db954 ${val}%, #334155 ${val}%)`; };
         volSlider.oninput = (e) => { audioEngine.volume = e.target.value / 100; clearInterval(fadeInterval); isFadingOut = false;};
 
         function toggleSpeed() {
             if(currentSpeed === 1.0) currentSpeed = 1.25; else if(currentSpeed === 1.25) currentSpeed = 1.5; else if(currentSpeed === 1.5) currentSpeed = 2.0; else currentSpeed = 1.0;
             audioEngine.playbackRate = currentSpeed; document.getElementById('speedBtn').innerText = currentSpeed + 'x'; document.getElementById('speedBtn').classList.toggle('active', currentSpeed !== 1.0);
-            showToast(`Playback Speed: ${currentSpeed}x`, "info");
+            showToast(`Speed: ${currentSpeed}x`, "info");
         }
 
         function toggleLoop() {
@@ -1241,17 +1135,15 @@ PLAYER_HTML = """
             const btn = document.getElementById('loopBtn');
             if (loopMode === 0) { btn.innerText = '🔁'; btn.classList.remove('active'); showToast("Loop Off", "info"); }
             if (loopMode === 1) { btn.innerText = '🔁'; btn.classList.add('active'); showToast("Looping Queue", "info");} 
-            if (loopMode === 2) { btn.innerText = '🔂'; btn.classList.add('active'); showToast("Looping Current Song", "info");} 
+            if (loopMode === 2) { btn.innerText = '🔂'; btn.classList.add('active'); showToast("Looping Song", "info");} 
         }
 
         function openSleepModal() {
             const btn = document.getElementById('sleepBtn');
             if(sleepTimer) {
                 clearInterval(sleepTimer); sleepTimer = null;
-                btn.classList.remove('active'); 
-                document.getElementById('sleepRing').style.background = 'transparent';
-                showToast("Sleep timer cancelled", "info");
-                return;
+                btn.classList.remove('active'); document.getElementById('sleepRing').style.background = 'transparent';
+                showToast("Sleep timer cancelled", "info"); return;
             }
             document.getElementById('sleepModal').style.display = 'flex';
         }
@@ -1263,7 +1155,7 @@ PLAYER_HTML = """
             document.getElementById('sleepModal').style.display = 'none';
             totalSleepTime = mins * 60; sleepTimeLeft = totalSleepTime;
             document.getElementById('sleepBtn').classList.add('active');
-            showToast(`Music will pause in ${mins} minutes`, "success");
+            showToast(`Pausing in ${mins} minutes`, "success");
             
             sleepTimer = setInterval(() => {
                 sleepTimeLeft--;
@@ -1275,10 +1167,9 @@ PLAYER_HTML = """
                     document.getElementById('sleepBtn').classList.remove('active');
                     document.getElementById('sleepRing').style.background = 'transparent';
                     
-                    // V30: Soft Pause instead of kill
                     audioEngine.pause();
                     try { document.getElementById('ytIframe').contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*'); } catch(e) {}
-                    showToast("Sleep Timer finished. Playback paused.", "info");
+                    showToast("Sleep Timer finished. Paused.", "info");
                 }
             }, 1000);
         }
@@ -1306,10 +1197,10 @@ def serve_manifest():
 def serve_sw(): return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
 @app.route('/')
-def index(): return render_template_string(DOWNLOADER_HTML)
+def index(): return DOWNLOADER_HTML
 
 @app.route('/player')
-def media_player(): return render_template_string(PLAYER_HTML)
+def media_player(): return PLAYER_HTML
 
 @app.route('/api/stream_audio', methods=['POST'])
 def stream_audio():
@@ -1421,5 +1312,5 @@ def serve_file():
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V30 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V31 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
