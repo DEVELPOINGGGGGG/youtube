@@ -1,8 +1,8 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V40 - INSTANT AUTOPLAY UNLOCKER & MAX VOL)
+# YOUTUBE MEDIA APP (V41 - BULLETPROOF AUDIO & STABILITY)
 # ==============================================================================
 
-from flask import Flask, request, jsonify, render_template_string, send_file, Response
+from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
 import yt_dlp
 import os
 import time
@@ -110,7 +110,7 @@ PLAYER_HTML = """
         .search-container { display: flex; gap: 10px; width: 100%; margin-bottom: 20px;}
         input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;}
         input[type="text"]:focus { border-color: #ff0844; }
-        .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0;}
+        .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0; white-space: nowrap;}
         .search-btn:hover { transform: translateY(-3px); }
 
         .mode-toggles { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -120,7 +120,7 @@ PLAYER_HTML = """
         #results { display: flex; flex-direction: column; gap: 15px; }
 
         .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px;}
-        .play-selected-btn { background: #1db954; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0;}
+        .play-selected-btn { background: #1db954; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap;}
 
         .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; border: 1px solid #334155; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
         .card:hover { border-color: #ff0844; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
@@ -136,7 +136,7 @@ PLAYER_HTML = """
         .info p { font-size: 0.8rem; color: #94a3b8; }
         
         .action-row { display: flex; gap: 10px; margin-top: 10px; width: 100%;}
-        .play-action-btn { flex: 1; background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
+        .play-action-btn { flex: 1; background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink: 0; white-space: nowrap;}
         .play-action-btn:hover { background: #1db954; }
         .card.video-mode .play-action-btn { background: #ff0844; padding: 15px; }
         .card.video-mode .play-action-btn:hover { background: #ffb199; color: black; }
@@ -144,7 +144,7 @@ PLAYER_HTML = """
         .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
         .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
 
-        /* FULLSCREEN AUDIO PLAYER */
+        /* AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 90px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 20px 20px 0 0; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); box-shadow: 0 -5px 20px rgba(0,0,0,0.5); border-top: 1px solid #334155;}
@@ -203,7 +203,7 @@ PLAYER_HTML = """
         .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; flex-shrink: 0;}
         .open-yt-btn:hover { background: #ff0844; color: white; }
         .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s; flex-shrink: 0; white-space: nowrap;}
-        .dl-mp3-btn:hover:not(:disabled) { background: #4facfe; border-color: #4facfe; transform: translateY(-3px);}
+        .dl-mp3-btn:hover:not(:disabled) { background: transparent; color: #4facfe; transform: translateY(-3px);}
         .dl-mp3-btn:disabled { opacity: 0.8; cursor: not-allowed; }
 
         /* VIDEO MODAL */
@@ -229,6 +229,8 @@ PLAYER_HTML = """
         .quality-item.best { border-color: #ff0844; background: rgba(255,8,68,0.1); }
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px; z-index:10; transition: 0.2s;}
         .btn-close:hover { transform: rotate(90deg); }
+        input[type="number"] { width: 100%; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; outline: none; font-size: 1.1rem; background: #0f172a; color: white; margin-bottom: 15px; transition: 0.3s;}
+        input[type="number"]:focus { border-color: #ff0844; }
         
         #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; justify-content: center; align-items:center;}
         #thumbModal img { width: 100%; height: auto; max-height: 70vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; margin-bottom:20px;}
@@ -239,7 +241,7 @@ PLAYER_HTML = """
 
         .task-item { background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px;}
-
+        
         /* SETTINGS RADIO */
         .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
         .radio-item { display: flex; align-items: center; gap: 15px; background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; cursor: pointer; transition: 0.2s;}
@@ -261,7 +263,7 @@ PLAYER_HTML = """
     </style>
 </head>
 <body>
-    <div id="global-loader"><div class="spinner"></div> <span>Finding Video...</span></div>
+    <div id="global-loader"><div class="spinner"></div> <span>Loading...</span></div>
     <div id="toast-container"></div>
 
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
@@ -300,7 +302,7 @@ PLAYER_HTML = """
         <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
     </div>
 
-    <!-- GOD-MODE AUDIO PLAYER -->
+    <!-- AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize" style="font-family: monospace;">—</button>
@@ -308,7 +310,10 @@ PLAYER_HTML = """
         </div>
         
         <img id="ap-cover" src="" onclick="openFullThumb(event)">
-        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)"><span class="marquee-text" id="ap-title">Loading...</span></div>
+        
+        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
+            <span class="marquee-text" id="ap-title">Loading...</span>
+        </div>
         <div id="ap-artist">Nexus Audio</div>
         
         <div class="advanced-controls">
@@ -334,19 +339,20 @@ PLAYER_HTML = """
             <button class="mini-close" onclick="stopAudio(event); event.stopPropagation();" style="font-family: monospace;">✖</button>
         </div>
         
-        <!-- V40: Max Volume set to default 100 -->
         <div class="volume-row">
-            <span>🔈</span><input type="range" id="volSlider" value="100" min="0" max="300"><span>🔊</span>
+            <span>🔈</span><input type="range" id="volSlider" value="100" min="0" max="100"><span>🔊</span>
         </div>
         
         <div class="bottom-action-row">
             <a id="ap-yt-link" class="open-yt-btn" href="#" target="_blank">↗ YouTube App</a>
             <button id="mainPlayerDlBtn" class="dl-mp3-btn" onclick="downloadCurrentSong(event)">📥 Download MP3</button>
         </div>
-        <audio id="audioEngine" crossorigin="anonymous" autoplay></audio>
+        
+        <!-- V41 Fix: Removed crossorigin="anonymous" to prevent CORS WebAudio blocks -->
+        <audio id="audioEngine" autoplay></audio>
     </div>
 
-    <!-- VIDEO MODAL -->
+    <!-- TRUE LANDSCAPE VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container" id="videoContainer">
             <div class="vid-controls">
@@ -406,15 +412,9 @@ PLAYER_HTML = """
                     <div><strong>Rename Only</strong><div class="radio-desc">Raw download, instantly renames to .mp3. (⚡ Instant)</div></div>
                 </label>
             </div>
-
-            <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">Audio Equalizer</h3>
-            <div class="radio-group">
-                <select id="bassSelect" onchange="applyBass()" style="padding:15px; border-radius:12px; border:2px solid #334155; background:#0f172a; color:white; font-size:1rem; outline:none;">
-                    <option value="0">Default Bass</option>
-                    <option value="5">Low (+5dB)</option>
-                    <option value="10">High (+10dB)</option>
-                    <option value="15">Very High (+15dB)</option>
-                </select>
+            
+            <div style="margin-top:20px; padding:15px; background:rgba(255,8,68,0.1); border:1px solid #ff0844; border-radius:12px;">
+                <p style="font-size:0.85rem; color:#ffb199; margin:0;"><strong>Note:</strong> The 300% Volume Booster and Bass EQ have been permanently removed. They required the Web Audio API, which caused browsers to forcefully mute YouTube streams due to Cross-Origin (CORS) security restrictions.</p>
             </div>
         </div>
     </div>
@@ -442,7 +442,7 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V40: GLOBAL STATE
+        // GLOBAL STATE
         let currentMode = 'audio';
         let currentResults = [];
         let currentSearchLimit = 10;
@@ -450,7 +450,6 @@ PLAYER_HTML = """
         let taskDOMMap = {}; 
         let typingTimer; 
         let isFetchingMore = false; 
-        let currentVideoId = "";
 
         let audioQueue = [];
         let currentIndex = -1;
@@ -459,15 +458,13 @@ PLAYER_HTML = """
         let loopMode = 0; 
         let currentSpeed = 1.0; 
         let currentAudioDlTaskId = null;
+        
         let isFadingOut = false;
         let fadeInterval = null;
         
         let sleepTimer = null;
         let sleepTimeLeft = 0;
         let totalSleepTime = 0;
-
-        let audioCtx, sourceNode, gainNode, bassFilter;
-        let isAudioAPIReady = false;
 
         const audioEngine = document.getElementById('audioEngine');
 
@@ -513,7 +510,6 @@ PLAYER_HTML = """
         }
 
         function playFromHistory(url, mode) {
-            audioEngine.play().catch(e=>{}); // V40 Autoplay Unlock
             document.getElementById('historyModal').style.display = 'none';
             if (mode === 'video') { startVideo(url); } 
             else { 
@@ -527,8 +523,6 @@ PLAYER_HTML = """
             let mode = localStorage.getItem('audio_conversion_mode') || 'fast';
             const radios = document.getElementsByName('convMode');
             for(let i=0; i<radios.length; i++) { if(radios[i].value === mode) radios[i].checked = true; }
-            let bass = localStorage.getItem('yt_bass_level') || '0';
-            document.getElementById('bassSelect').value = bass;
         }
 
         function saveSettings() {
@@ -539,44 +533,13 @@ PLAYER_HTML = """
             showToast(`Settings Saved!`, "success");
         }
 
-        function initAudioAPI() {
-            if (isAudioAPIReady) return;
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                sourceNode = audioCtx.createMediaElementSource(document.getElementById('audioEngine'));
-                
-                bassFilter = audioCtx.createBiquadFilter();
-                bassFilter.type = "lowshelf";
-                bassFilter.frequency.value = 150; 
-                bassFilter.gain.value = parseInt(document.getElementById('bassSelect').value);
-                
-                gainNode = audioCtx.createGain();
-                gainNode.gain.value = parseInt(document.getElementById('volSlider').value) / 100;
-                
-                sourceNode.connect(bassFilter);
-                bassFilter.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                isAudioAPIReady = true;
-            } catch(e) {}
-        }
-
-        function applyBass() {
-            let val = document.getElementById('bassSelect').value;
-            localStorage.setItem('yt_bass_level', val);
-            if(isAudioAPIReady) bassFilter.gain.value = parseInt(val);
-            saveSettings();
-        }
-
         document.getElementById('volSlider').oninput = (e) => {
-            let val = parseInt(e.target.value) / 100;
-            if(isAudioAPIReady) gainNode.gain.value = val;
-            else audioEngine.volume = Math.min(val, 1.0);
+            audioEngine.volume = parseInt(e.target.value) / 100;
         };
 
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
             loadHistory();
-            // V40: Guarantee default max volume across reloads
             audioEngine.volume = 1.0; 
             
             const params = new URLSearchParams(window.location.search);
@@ -792,7 +755,6 @@ PLAYER_HTML = """
                         btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
                         showToast(`Finished: ${t.title}`, "success");
                         
-                        // V40 AUTO DELIVERY INSTANT
                         triggerFileDownload('/api/serve?file=' + encodeURIComponent(t.file));
                         
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; currentAudioDlTaskId = null; }, 4000);
@@ -805,8 +767,17 @@ PLAYER_HTML = """
             } catch(e) {}
         }, 1000);
 
+        function triggerFileDownload(fileUrl) {
+            const link = document.createElement('a');
+            link.href = fileUrl;
+            link.download = ''; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         // ==========================================
-        // V40 VIDEO LOGIC
+        // VIDEO LOGIC
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
@@ -839,14 +810,10 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // AUDIO PLAYER ENGINE
+        // V41 AUDIO PLAYER ENGINE (BULLETPROOF)
         // ==========================================
-        function playSingleAudio(index) { 
-            audioEngine.play().catch(e=>{}); // V40 Autoplay Unlocker Hack
-            audioQueue = currentResults; currentIndex = index; loadQueueItem(); 
-        }
+        function playSingleAudio(index) { audioQueue = currentResults; currentIndex = index; loadQueueItem(); }
         function playSelected() {
-            audioEngine.play().catch(e=>{}); // V40 Autoplay Unlocker Hack
             const checked = document.querySelectorAll('.song-checkbox:checked');
             if(checked.length === 0) return alert("Select songs first!");
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
@@ -854,53 +821,32 @@ PLAYER_HTML = """
         }
 
         function startFadeIn() {
-            initAudioAPI();
             clearInterval(fadeInterval);
             isFadingOut = false;
             
+            audioEngine.volume = 0;
             let targetVol = parseInt(document.getElementById('volSlider').value) / 100;
-            if(isAudioAPIReady) {
-                gainNode.gain.value = 0;
-                let step = targetVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (gainNode.gain.value + step < targetVol) { gainNode.gain.value += step; } 
-                    else { gainNode.gain.value = targetVol; clearInterval(fadeInterval); }
-                }, 100);
-            } else {
-                audioEngine.volume = 0;
-                let step = targetVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
-                    else { audioEngine.volume = targetVol; clearInterval(fadeInterval); }
-                }, 100);
-            }
+            let step = targetVol / 30; 
+            fadeInterval = setInterval(() => {
+                if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
+                else { audioEngine.volume = targetVol; clearInterval(fadeInterval); }
+            }, 100);
         }
 
         function startFadeOutAndNext() {
             if (isFadingOut) return;
             isFadingOut = true;
             
-            if(isAudioAPIReady) {
-                let startVol = gainNode.gain.value;
-                let step = startVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (gainNode.gain.value > step) { gainNode.gain.value -= step; } 
-                    else { gainNode.gain.value = 0; clearInterval(fadeInterval); nextSong(); }
-                }, 100);
-            } else {
-                let startVol = audioEngine.volume;
-                let step = startVol / 30; 
-                fadeInterval = setInterval(() => {
-                    if (audioEngine.volume > step) { audioEngine.volume -= step; } 
-                    else { audioEngine.volume = 0; clearInterval(fadeInterval); nextSong(); }
-                }, 100);
-            }
+            let startVol = audioEngine.volume;
+            let step = startVol / 30; 
+            fadeInterval = setInterval(() => {
+                if (audioEngine.volume > step) { audioEngine.volume -= step; } 
+                else { audioEngine.volume = 0; clearInterval(fadeInterval); nextSong(); }
+            }, 100);
         }
 
         async function loadQueueItem() {
-            initAudioAPI();
             if(currentIndex < 0 || currentIndex >= audioQueue.length) {
-                // V40 GRACEFUL QUEUE PAUSE (Does not kill player)
                 audioEngine.pause();
                 document.getElementById('playPauseBtn').innerText = '▶';
                 document.getElementById('ap-cover').classList.remove('playing-glow');
@@ -908,6 +854,7 @@ PLAYER_HTML = """
             }
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
+            currentPlayingVideoId = item.id || item.url.split('v=')[1];
             
             saveToHistory(item, 'audio'); 
 
@@ -917,7 +864,6 @@ PLAYER_HTML = """
             document.getElementById('ap-artist').innerText = item.uploader || "Nexus Audio";
             document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
-            // V40 INSTANT TITLE VISIBILITY
             titleEl.innerText = item.title; 
             titleEl.classList.remove('scroll');
             document.getElementById('seekSlider').value = 0; document.getElementById('seekSlider').style.background = `#334155`;
@@ -937,12 +883,18 @@ PLAYER_HTML = """
                     audioEngine.src = data.stream_url;
                     audioEngine.playbackRate = currentSpeed;
                     
-                    // Force the unlocked player to actually play the stream
-                    let playPromise = audioEngine.play();
-                    if(playPromise !== undefined) {
-                        playPromise.catch(err => { showToast("Browser blocked Autoplay. Tap Play.", "info"); });
-                    }
-                    startFadeIn(); 
+                    // V41 Failsafe Audio Load logic
+                    audioEngine.oncanplay = () => {
+                        let playPromise = audioEngine.play();
+                        if(playPromise !== undefined) {
+                            playPromise.then(() => {
+                                startFadeIn();
+                            }).catch(err => {
+                                audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
+                                showToast("Autoplay Blocked. Tap Play.", "error");
+                            });
+                        }
+                    };
                     
                     setTimeout(() => {
                         const wrapper = document.querySelector('.marquee-wrapper');
@@ -961,16 +913,23 @@ PLAYER_HTML = """
 
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); document.getElementById('audio-player-bar').classList.toggle('mini'); }
 
-        function togglePlay(e) { if(e) e.stopPropagation(); initAudioAPI(); if(audioEngine.paused) audioEngine.play(); else audioEngine.pause(); }
+        function togglePlay(e) { 
+            if(e) e.stopPropagation(); 
+            if(audioEngine.paused) {
+                audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
+                audioEngine.play().catch(e => showToast("Playback error.", "error"));
+            } else {
+                audioEngine.pause(); 
+            }
+        }
         
         function nextSong(e) { 
             if(e) e.stopPropagation(); 
             clearInterval(fadeInterval); isFadingOut = false; 
-            if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); startFadeIn(); return; }
+            if (loopMode === 2) { audioEngine.currentTime = 0; startFadeIn(); audioEngine.play(); return; }
             if (currentIndex < audioQueue.length - 1) { currentIndex++; loadQueueItem(); }
             else if (loopMode === 1) { currentIndex = 0; loadQueueItem(); }
             else {
-                // V40 GRACEFUL END PAUSE
                 audioEngine.pause();
                 document.getElementById('playPauseBtn').innerText = '▶';
                 document.getElementById('ap-cover').classList.remove('playing-glow');
@@ -980,7 +939,7 @@ PLAYER_HTML = """
         function prevSong(e) { 
             if(e) e.stopPropagation();
             clearInterval(fadeInterval); isFadingOut = false;
-            if(audioEngine.currentTime > 3 || loopMode === 2) { audioEngine.currentTime = 0; startFadeIn(); } 
+            if(audioEngine.currentTime > 3 || loopMode === 2) { audioEngine.currentTime = 0; startFadeIn(); audioEngine.play();} 
             else if (currentIndex > 0) { currentIndex--; loadQueueItem(); } 
             else if (loopMode === 1) { currentIndex = audioQueue.length - 1; loadQueueItem(); }
         }
@@ -1021,7 +980,6 @@ PLAYER_HTML = """
             document.getElementById('seekSlider').style.background = `linear-gradient(to right, #ff0844 ${val}%, #334155 ${val}%)`; 
         };
 
-        // V40 SPEED FIX: Variable properly handled
         function toggleSpeed() {
             if(currentSpeed === 1.0) currentSpeed = 1.25; 
             else if(currentSpeed === 1.25) currentSpeed = 1.5; 
@@ -1238,5 +1196,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V40 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V41 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
