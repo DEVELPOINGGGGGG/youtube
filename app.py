@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V38 - SOLO PLAYER & GUARANTEED STREAMING)
+# YOUTUBE MEDIA APP (V39 - SPEED FIX & INSTANT AUTO-DELIVERY)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -28,6 +28,7 @@ def cleanup_worker():
         try:
             for filename in os.listdir(DOWNLOAD_DIR):
                 filepath = os.path.join(DOWNLOAD_DIR, filename)
+                # Auto-delete files older than 10 minutes
                 if os.path.isfile(filepath) and os.stat(filepath).st_mtime < now - 600:
                     try: os.remove(filepath)
                     except: pass
@@ -65,9 +66,8 @@ def get_progress_hook(task_id):
         except: pass
     return progress_hook
 
-
 # ==============================================================================
-# FRONTEND: THE UNIFIED PLAYER & DOWNLOADER UI
+# FRONTEND: THE UNIFIED SOLO PLAYER
 # ==============================================================================
 PLAYER_HTML = """
 <!DOCTYPE html>
@@ -204,10 +204,10 @@ PLAYER_HTML = """
         .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; flex-shrink: 0;}
         .open-yt-btn:hover { background: #ff0844; color: white; }
         .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s; flex-shrink: 0; white-space: nowrap;}
-        .dl-mp3-btn:hover:not(:disabled) { background: #4facfe; border-color: #4facfe; transform: translateY(-3px);}
+        .dl-mp3-btn:hover:not(:disabled) { background: transparent; color: #4facfe; transform: translateY(-3px);}
         .dl-mp3-btn:disabled { opacity: 0.8; cursor: not-allowed; }
 
-        /* V38 VIDEO MODAL (NO SANDBOX SHIELD, CUSTOM REFERRER) */
+        /* VIDEO MODAL (NO SANDBOX, CUSTOM REFERRER) */
         #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 5000; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
         .video-container { width: 100%; height: 100%; max-width: 100vw; background: black; position: relative; display: flex; justify-content: center; align-items: center;}
         .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
@@ -242,6 +242,13 @@ PLAYER_HTML = """
 
         .task-item { background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px;}
+        
+        /* SETTINGS RADIO BUTTONS */
+        .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
+        .radio-item { display: flex; align-items: center; gap: 15px; background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; cursor: pointer; transition: 0.2s;}
+        .radio-item:hover { border-color: #ff0844; }
+        .radio-item input { width: 20px; height: 20px; accent-color: #ff0844; flex-shrink:0;}
+        .radio-desc { font-size: 0.8rem; color: #94a3b8; font-weight: normal; margin-top: 5px; }
 
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
@@ -393,7 +400,7 @@ PLAYER_HTML = """
                     <input type="radio" name="convMode" value="fast" onchange="saveSettings()">
                     <div><strong>Fast Metadata</strong><div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div></div>
                 </label>
-                <label class="radio-item" style="border-color:#ff0844; background:#fff0f2; color:black;">
+                <label class="radio-item" style="border-color:#ff0844; background:rgba(255,8,68,0.1);">
                     <input type="radio" name="convMode" value="rename" onchange="saveSettings()">
                     <div><strong>Rename Only</strong><div class="radio-desc">Raw download, instantly renames to .mp3. (⚡ Instant)</div></div>
                 </label>
@@ -401,7 +408,7 @@ PLAYER_HTML = """
 
             <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">Audio Equalizer</h3>
             <div class="radio-group">
-                <select id="bassSelect" onchange="applyBass()" style="padding:15px; border-radius:12px; border:2px solid #334155; background:#0f172a; color:white; font-size:1rem;">
+                <select id="bassSelect" onchange="applyBass()" style="padding:15px; border-radius:12px; border:2px solid #334155; background:#0f172a; color:white; font-size:1rem; outline:none;">
                     <option value="0">Default Bass</option>
                     <option value="5">Low (+5dB)</option>
                     <option value="10">High (+10dB)</option>
@@ -432,7 +439,36 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V38: THE SOLO PLAYER JS
+        // V39: GLOBAL VARIABLE DECLARATIONS
+        let currentMode = 'audio';
+        let currentResults = [];
+        let currentSearchLimit = 10;
+        let pendingDownloadTarget = null; 
+        let taskDOMMap = {}; 
+        let typingTimer; 
+        let isFetchingMore = false; 
+        let currentVideoId = "";
+
+        let audioQueue = [];
+        let currentIndex = -1;
+        let currentPlayingVideoId = ""; 
+
+        let loopMode = 0; 
+        let currentSpeed = 1.0; 
+        let currentAudioDlTaskId = null;
+        let isFadingOut = false;
+        let fadeInterval = null;
+        
+        let sleepTimer = null;
+        let sleepTimeLeft = 0;
+        let totalSleepTime = 0;
+
+        let audioCtx, sourceNode, gainNode, bassFilter;
+        let isAudioAPIReady = false;
+
+        const audioEngine = document.getElementById('audioEngine');
+
+        // V39: UTILS
         function showToast(msg, type='info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -488,7 +524,6 @@ PLAYER_HTML = """
             let mode = localStorage.getItem('audio_conversion_mode') || 'fast';
             const radios = document.getElementsByName('convMode');
             for(let i=0; i<radios.length; i++) { if(radios[i].value === mode) radios[i].checked = true; }
-            
             let bass = localStorage.getItem('yt_bass_level') || '0';
             document.getElementById('bassSelect').value = bass;
         }
@@ -500,25 +535,12 @@ PLAYER_HTML = """
             }
             showToast(`Settings Saved!`, "success");
         }
-        
-        let currentMode = 'audio';
-        let currentResults = [];
-        let currentSearchLimit = 10;
-        let pendingDownloadTarget = null; 
-        let taskDOMMap = {}; 
-        let typingTimer; 
-        let isFetchingMore = false; 
-        let currentVideoId = "";
-
-        // WEB AUDIO API
-        let audioCtx, sourceNode, gainNode, bassFilter;
-        let isAudioAPIReady = false;
 
         function initAudioAPI() {
             if (isAudioAPIReady) return;
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                sourceNode = audioCtx.createMediaElementSource(document.getElementById('audioEngine'));
+                sourceNode = audioCtx.createMediaElementSource(audioEngine);
                 
                 bassFilter = audioCtx.createBiquadFilter();
                 bassFilter.type = "lowshelf";
@@ -545,7 +567,7 @@ PLAYER_HTML = """
         document.getElementById('volSlider').oninput = (e) => {
             let val = parseInt(e.target.value) / 100;
             if(isAudioAPIReady) gainNode.gain.value = val;
-            else document.getElementById('audioEngine').volume = Math.min(val, 1.0);
+            else audioEngine.volume = Math.min(val, 1.0);
         };
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -666,7 +688,7 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // DOWNLOADER
+        // V39 DOWNLOADER
         // ==========================================
         let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
         
@@ -726,14 +748,14 @@ PLAYER_HTML = """
             } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
-        let deliveryQueue = [];
-        let isDelivering = false;
-        function processDeliveryQueue() {
-            if(isDelivering || deliveryQueue.length === 0) return;
-            isDelivering = true;
-            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
+        // V39 INSTANT AUTO DELIVERY ENGINE
+        function triggerFileDownload(fileUrl) {
+            const link = document.createElement('a');
+            link.href = fileUrl;
+            link.download = ''; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         setInterval(async () => {
@@ -741,12 +763,10 @@ PLAYER_HTML = """
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
                 const tasks = await res.json();
                 
-                let html = ''; let activeCount = 0; 
+                let html = ''; 
 
                 for (const [id, t] of Object.entries(tasks)) {
-                    activeCount++;
                     let sCol = t.status==='completed' ? '#1db954' : (t.status==='error' ? '#ff0844' : '#4facfe');
-                    
                     let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#1db954;" onclick="window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
 
                     html += `<div class="task-item" style="background: #1e293b; border-color: ${sCol};"><div class="task-header" style="color: white;"><span>${t.type.toUpperCase()}: ${t.title}</span><span style="color:${sCol}">${t.status.toUpperCase()}</span></div>
@@ -754,10 +774,9 @@ PLAYER_HTML = """
                             ${t.status === 'error' ? `<div style="font-size:0.85rem; color:#ff0844;">${t.error_msg}</div>` : ''}
                             ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
                 }
-                
                 document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#94a3b8;">No active downloads.</p>';
                 
-                // Track current player download if exists
+                // Track in-player active download
                 if (currentAudioDlTaskId && tasks[currentAudioDlTaskId]) {
                     const t = tasks[currentAudioDlTaskId];
                     const btn = document.getElementById('mainPlayerDlBtn');
@@ -767,8 +786,10 @@ PLAYER_HTML = """
                     } else if (t.status === 'completed') {
                         btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
                         showToast(`Finished: ${t.title}`, "success");
-                        deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file));
-                        processDeliveryQueue();
+                        
+                        // V39 AUTO DELIVERY INSTANT
+                        triggerFileDownload('/api/serve?file=' + encodeURIComponent(t.file));
+                        
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; currentAudioDlTaskId = null; }, 4000);
                     } else if (t.status === 'error') {
                         btn.innerText = '❌ Error'; btn.style.background = '#ff0844';
@@ -780,7 +801,7 @@ PLAYER_HTML = """
         }, 1000);
 
         // ==========================================
-        // V38 TRUE LANDSCAPE VIDEO
+        // V39 VIDEO LOGIC
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
@@ -794,7 +815,6 @@ PLAYER_HTML = """
             ytLink.href = `https://youtube.com/watch?v=${id}`;
             ytLink.style.display = 'block';
 
-            // V38: Inject strict-origin-when-cross-origin to bypass playback blocks
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
             
             try {
@@ -816,10 +836,6 @@ PLAYER_HTML = """
         // ==========================================
         // AUDIO PLAYER ENGINE
         // ==========================================
-        let audioQueue = [];
-        let currentIndex = -1;
-        const audioEngine = document.getElementById('audioEngine');
-
         function playSingleAudio(index) { audioQueue = currentResults; currentIndex = index; loadQueueItem(); }
         function playSelected() {
             const checked = document.querySelectorAll('.song-checkbox:checked');
@@ -827,9 +843,6 @@ PLAYER_HTML = """
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
             currentIndex = 0; loadQueueItem();
         }
-
-        let isFadingOut = false;
-        let fadeInterval = null;
 
         function startFadeIn() {
             initAudioAPI();
@@ -930,6 +943,7 @@ PLAYER_HTML = """
         function toggleMiniPlayer(e) { if(e) e.stopPropagation(); document.getElementById('audio-player-bar').classList.toggle('mini'); }
 
         function togglePlay(e) { if(e) e.stopPropagation(); initAudioAPI(); if(audioEngine.paused) audioEngine.play(); else audioEngine.pause(); }
+        
         function nextSong(e) { 
             if(e) e.stopPropagation(); 
             clearInterval(fadeInterval); isFadingOut = false; 
@@ -938,6 +952,7 @@ PLAYER_HTML = """
             else if (loopMode === 1) { currentIndex = 0; loadQueueItem(); }
             else stopAudio();
         }
+        
         function prevSong(e) { 
             if(e) e.stopPropagation();
             clearInterval(fadeInterval); isFadingOut = false;
@@ -945,6 +960,7 @@ PLAYER_HTML = """
             else if (currentIndex > 0) { currentIndex--; loadQueueItem(); } 
             else if (loopMode === 1) { currentIndex = audioQueue.length - 1; loadQueueItem(); }
         }
+        
         function stopAudio(e) { 
             if(e) e.stopPropagation();
             clearInterval(fadeInterval); isFadingOut = false;
@@ -975,14 +991,22 @@ PLAYER_HTML = """
                 startFadeOutAndNext();
             }
         };
+        
         document.getElementById('seekSlider').oninput = (e) => { 
             let val = e.target.value; audioEngine.currentTime = (val / 100) * audioEngine.duration; 
             document.getElementById('seekSlider').style.background = `linear-gradient(to right, #ff0844 ${val}%, #334155 ${val}%)`; 
         };
 
+        // V39 SPEED FIX: Global variable properly accessed
         function toggleSpeed() {
-            if(currentSpeed === 1.0) currentSpeed = 1.25; else if(currentSpeed === 1.25) currentSpeed = 1.5; else if(currentSpeed === 1.5) currentSpeed = 2.0; else currentSpeed = 1.0;
-            audioEngine.playbackRate = currentSpeed; document.getElementById('speedBtn').innerText = currentSpeed + 'x'; document.getElementById('speedBtn').classList.toggle('active', currentSpeed !== 1.0);
+            if(currentSpeed === 1.0) currentSpeed = 1.25; 
+            else if(currentSpeed === 1.25) currentSpeed = 1.5; 
+            else if(currentSpeed === 1.5) currentSpeed = 2.0; 
+            else currentSpeed = 1.0;
+            
+            audioEngine.playbackRate = currentSpeed; 
+            document.getElementById('speedBtn').innerText = currentSpeed + 'x'; 
+            document.getElementById('speedBtn').classList.toggle('active', currentSpeed !== 1.0);
             showToast(`Playback Speed: ${currentSpeed}x`, "info");
         }
 
@@ -1049,11 +1073,12 @@ PLAYER_HTML = """
 # ==============================================================================
 @app.route('/manifest.json')
 def serve_manifest():
-    return jsonify({"name": "YouTube Downloader", "short_name": "YT Downloader", "start_url": "/", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a", "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230f172a'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}], "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }})
+    return jsonify({"name": "Nexus Player", "short_name": "Nexus", "start_url": "/", "display": "standalone", "background_color": "#0f172a", "theme_color": "#0f172a", "icons": [{"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230f172a'/%3E%3Ctext y='70' x='25' font-size='60'%3E⚡%3C/text%3E%3C/svg%3E", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable"}], "share_target": { "action": "/", "method": "GET", "enctype": "application/x-www-form-urlencoded", "params": { "title": "title", "text": "text", "url": "url" } }})
 
 @app.route('/sw.js')
 def serve_sw(): return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
+# V39: The Player IS the app now. 
 @app.route('/', strict_slashes=False)
 @app.route('/player', strict_slashes=False)
 def media_player(): return render_template_string(PLAYER_HTML)
@@ -1061,7 +1086,6 @@ def media_player(): return render_template_string(PLAYER_HTML)
 @app.route('/api/stream_audio', methods=['POST'], strict_slashes=False)
 def stream_audio():
     url = request.json.get('url')
-    # V38 FIX: Robust audio extraction. Removed abr<=64 restriction to ensure playback always works.
     ydl_opts = { 
         'quiet': True, 
         'format': 'bestaudio/best', 
@@ -1186,10 +1210,6 @@ def serve_file():
     if not file_path or not os.path.exists(file_path): return "File not found", 404
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
-@app.errorhandler(404)
-def page_not_found(e):
-    return redirect('/')
-
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 YOUTUBE DOWNLOADER V38 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V39 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
