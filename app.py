@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V39 - SPEED FIX & INSTANT AUTO-DELIVERY)
+# YOUTUBE MEDIA APP (V40 - INSTANT AUTOPLAY UNLOCKER & MAX VOL)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response
@@ -28,7 +28,6 @@ def cleanup_worker():
         try:
             for filename in os.listdir(DOWNLOAD_DIR):
                 filepath = os.path.join(DOWNLOAD_DIR, filename)
-                # Auto-delete files older than 10 minutes
                 if os.path.isfile(filepath) and os.stat(filepath).st_mtime < now - 600:
                     try: os.remove(filepath)
                     except: pass
@@ -204,10 +203,10 @@ PLAYER_HTML = """
         .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; flex-shrink: 0;}
         .open-yt-btn:hover { background: #ff0844; color: white; }
         .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s; flex-shrink: 0; white-space: nowrap;}
-        .dl-mp3-btn:hover:not(:disabled) { background: transparent; color: #4facfe; transform: translateY(-3px);}
+        .dl-mp3-btn:hover:not(:disabled) { background: #4facfe; border-color: #4facfe; transform: translateY(-3px);}
         .dl-mp3-btn:disabled { opacity: 0.8; cursor: not-allowed; }
 
-        /* VIDEO MODAL (NO SANDBOX, CUSTOM REFERRER) */
+        /* VIDEO MODAL */
         #video-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 5000; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s;}
         .video-container { width: 100%; height: 100%; max-width: 100vw; background: black; position: relative; display: flex; justify-content: center; align-items: center;}
         .video-container iframe { width: 100%; height: 100%; border: none; pointer-events: auto; }
@@ -230,8 +229,6 @@ PLAYER_HTML = """
         .quality-item.best { border-color: #ff0844; background: rgba(255,8,68,0.1); }
         .btn-close { background: #ff0844; color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; position:absolute; top: 15px; right: 15px; z-index:10; transition: 0.2s;}
         .btn-close:hover { transform: rotate(90deg); }
-        input[type="number"] { width: 100%; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; outline: none; font-size: 1.1rem; background: #0f172a; color: white; margin-bottom: 15px; transition: 0.3s;}
-        input[type="number"]:focus { border-color: #ff0844; }
         
         #thumbModal .modal-box { background: transparent; border: none; box-shadow: none; padding: 0; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; justify-content: center; align-items:center;}
         #thumbModal img { width: 100%; height: auto; max-height: 70vh; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); object-fit: contain; margin-bottom:20px;}
@@ -242,8 +239,8 @@ PLAYER_HTML = """
 
         .task-item { background: #0f172a; border: 1px solid #334155; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .task-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px;}
-        
-        /* SETTINGS RADIO BUTTONS */
+
+        /* SETTINGS RADIO */
         .radio-group { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
         .radio-item { display: flex; align-items: center; gap: 15px; background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid #334155; cursor: pointer; transition: 0.2s;}
         .radio-item:hover { border-color: #ff0844; }
@@ -264,7 +261,7 @@ PLAYER_HTML = """
     </style>
 </head>
 <body>
-    <div id="global-loader"><div class="spinner"></div> <span>Loading...</span></div>
+    <div id="global-loader"><div class="spinner"></div> <span>Finding Video...</span></div>
     <div id="toast-container"></div>
 
     <div class="nav-overlay" id="navOverlay" onclick="toggleMenu()"></div>
@@ -293,7 +290,7 @@ PLAYER_HTML = """
             <button class="search-btn" onclick="search(true)">Search</button>
         </div>
 
-        <div id="queue-actions" class="queue-actions" style="display:flex;">
+        <div id="queue-actions" class="queue-actions" style="display:none;">
             <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px;vertical-align:middle;accent-color:#ff0844;"> <strong style="vertical-align:middle;">Select All</strong></div>
             <button class="play-selected-btn" onclick="playSelected()">▶ PLAY SELECTED</button>
         </div>
@@ -303,6 +300,7 @@ PLAYER_HTML = """
         <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
     </div>
 
+    <!-- GOD-MODE AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize" style="font-family: monospace;">—</button>
@@ -310,10 +308,7 @@ PLAYER_HTML = """
         </div>
         
         <img id="ap-cover" src="" onclick="openFullThumb(event)">
-        
-        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
-            <span class="marquee-text" id="ap-title">Loading...</span>
-        </div>
+        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)"><span class="marquee-text" id="ap-title">Loading...</span></div>
         <div id="ap-artist">Nexus Audio</div>
         
         <div class="advanced-controls">
@@ -339,6 +334,7 @@ PLAYER_HTML = """
             <button class="mini-close" onclick="stopAudio(event); event.stopPropagation();" style="font-family: monospace;">✖</button>
         </div>
         
+        <!-- V40: Max Volume set to default 100 -->
         <div class="volume-row">
             <span>🔈</span><input type="range" id="volSlider" value="100" min="0" max="300"><span>🔊</span>
         </div>
@@ -350,6 +346,7 @@ PLAYER_HTML = """
         <audio id="audioEngine" crossorigin="anonymous" autoplay></audio>
     </div>
 
+    <!-- VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container" id="videoContainer">
             <div class="vid-controls">
@@ -360,14 +357,16 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
             <img id="fullThumbImg" src="">
-            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844;" onclick="playFromLightbox()">▶ PLAY VIDEO</button>
+            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844;" onclick="playFromLightbox()">▶ PLAY VIDEO IN LANDSCAPE</button>
         </div>
     </div>
 
+    <!-- QUALITY MODAL -->
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
@@ -376,6 +375,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- SLEEP MODAL -->
     <div class="modal-overlay" id="sleepModal" style="z-index: 5000;">
         <div class="modal-box" style="text-align: center;">
             <button class="btn-close" onclick="document.getElementById('sleepModal').style.display='none'">X</button>
@@ -385,6 +385,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
@@ -418,6 +419,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- HISTORY MODAL -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -428,6 +430,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- TASKS MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -439,7 +442,7 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V39: GLOBAL VARIABLE DECLARATIONS
+        // V40: GLOBAL STATE
         let currentMode = 'audio';
         let currentResults = [];
         let currentSearchLimit = 10;
@@ -468,7 +471,6 @@ PLAYER_HTML = """
 
         const audioEngine = document.getElementById('audioEngine');
 
-        // V39: UTILS
         function showToast(msg, type='info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -511,6 +513,7 @@ PLAYER_HTML = """
         }
 
         function playFromHistory(url, mode) {
+            audioEngine.play().catch(e=>{}); // V40 Autoplay Unlock
             document.getElementById('historyModal').style.display = 'none';
             if (mode === 'video') { startVideo(url); } 
             else { 
@@ -540,7 +543,7 @@ PLAYER_HTML = """
             if (isAudioAPIReady) return;
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                sourceNode = audioCtx.createMediaElementSource(audioEngine);
+                sourceNode = audioCtx.createMediaElementSource(document.getElementById('audioEngine'));
                 
                 bassFilter = audioCtx.createBiquadFilter();
                 bassFilter.type = "lowshelf";
@@ -573,6 +576,9 @@ PLAYER_HTML = """
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
             loadHistory();
+            // V40: Guarantee default max volume across reloads
+            audioEngine.volume = 1.0; 
+            
             const params = new URLSearchParams(window.location.search);
             if (params.get('url')) { 
                 document.getElementById('searchInput').value = params.get('url'); 
@@ -688,7 +694,7 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // V39 DOWNLOADER
+        // DOWNLOADER
         // ==========================================
         let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
         
@@ -748,14 +754,14 @@ PLAYER_HTML = """
             } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
-        // V39 INSTANT AUTO DELIVERY ENGINE
-        function triggerFileDownload(fileUrl) {
-            const link = document.createElement('a');
-            link.href = fileUrl;
-            link.download = ''; 
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        let deliveryQueue = [];
+        let isDelivering = false;
+        function processDeliveryQueue() {
+            if(isDelivering || deliveryQueue.length === 0) return;
+            isDelivering = true;
+            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
         }
 
         setInterval(async () => {
@@ -776,7 +782,6 @@ PLAYER_HTML = """
                 }
                 document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#94a3b8;">No active downloads.</p>';
                 
-                // Track in-player active download
                 if (currentAudioDlTaskId && tasks[currentAudioDlTaskId]) {
                     const t = tasks[currentAudioDlTaskId];
                     const btn = document.getElementById('mainPlayerDlBtn');
@@ -787,7 +792,7 @@ PLAYER_HTML = """
                         btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
                         showToast(`Finished: ${t.title}`, "success");
                         
-                        // V39 AUTO DELIVERY INSTANT
+                        // V40 AUTO DELIVERY INSTANT
                         triggerFileDownload('/api/serve?file=' + encodeURIComponent(t.file));
                         
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; currentAudioDlTaskId = null; }, 4000);
@@ -801,7 +806,7 @@ PLAYER_HTML = """
         }, 1000);
 
         // ==========================================
-        // V39 VIDEO LOGIC
+        // V40 VIDEO LOGIC
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
@@ -836,8 +841,12 @@ PLAYER_HTML = """
         // ==========================================
         // AUDIO PLAYER ENGINE
         // ==========================================
-        function playSingleAudio(index) { audioQueue = currentResults; currentIndex = index; loadQueueItem(); }
+        function playSingleAudio(index) { 
+            audioEngine.play().catch(e=>{}); // V40 Autoplay Unlocker Hack
+            audioQueue = currentResults; currentIndex = index; loadQueueItem(); 
+        }
         function playSelected() {
+            audioEngine.play().catch(e=>{}); // V40 Autoplay Unlocker Hack
             const checked = document.querySelectorAll('.song-checkbox:checked');
             if(checked.length === 0) return alert("Select songs first!");
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
@@ -890,10 +899,15 @@ PLAYER_HTML = """
 
         async function loadQueueItem() {
             initAudioAPI();
-            if(currentIndex < 0 || currentIndex >= audioQueue.length) return stopAudio();
+            if(currentIndex < 0 || currentIndex >= audioQueue.length) {
+                // V40 GRACEFUL QUEUE PAUSE (Does not kill player)
+                audioEngine.pause();
+                document.getElementById('playPauseBtn').innerText = '▶';
+                document.getElementById('ap-cover').classList.remove('playing-glow');
+                return;
+            }
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
-            currentPlayingVideoId = item.id || item.url.split('v=')[1];
             
             saveToHistory(item, 'audio'); 
 
@@ -903,7 +917,9 @@ PLAYER_HTML = """
             document.getElementById('ap-artist').innerText = item.uploader || "Nexus Audio";
             document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
-            titleEl.innerText = "Loading stream... "; titleEl.classList.remove('scroll');
+            // V40 INSTANT TITLE VISIBILITY
+            titleEl.innerText = item.title; 
+            titleEl.classList.remove('scroll');
             document.getElementById('seekSlider').value = 0; document.getElementById('seekSlider').style.background = `#334155`;
             
             currentAudioDlTaskId = null;
@@ -920,9 +936,12 @@ PLAYER_HTML = """
                 if(data.stream_url) {
                     audioEngine.src = data.stream_url;
                     audioEngine.playbackRate = currentSpeed;
-                    titleEl.innerText = item.title;
                     
-                    audioEngine.play().catch(e => showToast("Tap Play to start.", "info"));
+                    // Force the unlocked player to actually play the stream
+                    let playPromise = audioEngine.play();
+                    if(playPromise !== undefined) {
+                        playPromise.catch(err => { showToast("Browser blocked Autoplay. Tap Play.", "info"); });
+                    }
                     startFadeIn(); 
                     
                     setTimeout(() => {
@@ -950,7 +969,12 @@ PLAYER_HTML = """
             if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); startFadeIn(); return; }
             if (currentIndex < audioQueue.length - 1) { currentIndex++; loadQueueItem(); }
             else if (loopMode === 1) { currentIndex = 0; loadQueueItem(); }
-            else stopAudio();
+            else {
+                // V40 GRACEFUL END PAUSE
+                audioEngine.pause();
+                document.getElementById('playPauseBtn').innerText = '▶';
+                document.getElementById('ap-cover').classList.remove('playing-glow');
+            }
         }
         
         function prevSong(e) { 
@@ -997,7 +1021,7 @@ PLAYER_HTML = """
             document.getElementById('seekSlider').style.background = `linear-gradient(to right, #ff0844 ${val}%, #334155 ${val}%)`; 
         };
 
-        // V39 SPEED FIX: Global variable properly accessed
+        // V40 SPEED FIX: Variable properly handled
         function toggleSpeed() {
             if(currentSpeed === 1.0) currentSpeed = 1.25; 
             else if(currentSpeed === 1.25) currentSpeed = 1.5; 
@@ -1078,7 +1102,6 @@ def serve_manifest():
 @app.route('/sw.js')
 def serve_sw(): return Response("self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request)); });", mimetype='application/javascript')
 
-# V39: The Player IS the app now. 
 @app.route('/', strict_slashes=False)
 @app.route('/player', strict_slashes=False)
 def media_player(): return render_template_string(PLAYER_HTML)
@@ -1210,6 +1233,10 @@ def serve_file():
     if not file_path or not os.path.exists(file_path): return "File not found", 404
     return send_file(os.path.abspath(file_path), as_attachment=True)
 
+@app.errorhandler(404)
+def page_not_found(e):
+    return redirect('/')
+
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V39 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V40 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
