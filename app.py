@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V42 - NOTIFICATION LOOP FIX & INSTANT TITLES)
+# YOUTUBE MEDIA APP (V43 - ULTIMATE UI REDESIGN & MISSING TITLE FIX)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -103,44 +103,59 @@ PLAYER_HTML = """
         .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items:center; flex-wrap: wrap;}
         .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition:0.2s; flex-shrink: 0;}
         .menu-btn:hover { transform: scale(1.1); }
+        h2.brand { font-weight: 800; font-size: 1.5rem; margin: 0; background: linear-gradient(45deg, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-right:auto;}
+
+        .search-container { display: flex; gap: 10px; width: 100%; margin-bottom: 20px;}
         input[type="text"] { flex: 1; min-width: 150px; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;}
         input[type="text"]:focus { border-color: #ff0844; }
         .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0; white-space: nowrap;}
         .search-btn:hover { transform: translateY(-3px); }
 
-        #choice-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; gap: 20px; }
-        .choice-btn { width: 100%; padding: 25px; border-radius: 16px; border: none; font-size: 1.5rem; font-weight: 800; cursor: pointer; color: white; transition: 0.3s;}
-        .choice-btn:hover { transform: scale(1.05); }
-        .btn-music { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); box-shadow: 0 10px 25px rgba(29,185,84, 0.4); }
-        .btn-video { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); box-shadow: 0 10px 25px rgba(79,172,254, 0.4); }
+        .mode-toggles { display: flex; gap: 10px; margin-bottom: 20px; }
+        .mode-btn { flex:1; padding: 12px; border-radius: 12px; font-weight: 800; border:none; background:#1e293b; color:#94a3b8; cursor:pointer; transition:0.3s;}
+        .mode-btn.active { background: #ff0844; color: white; box-shadow: 0 5px 15px rgba(255,8,68,0.4);}
 
-        #search-screen { display: none; }
         #results { display: flex; flex-direction: column; gap: 15px; }
 
         .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px;}
         .play-selected-btn { background: #1db954; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap;}
 
-        .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; border: 1px solid #334155; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
-        .card:hover { border-color: #ff0844; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        /* V43 NEW CARD STYLING - ANTI SQUISH */
+        .card { background: rgba(30, 41, 59, 0.7); border-radius: 16px; display: flex; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; animation: popIn 0.4s ease-out; position: relative; overflow: hidden; backdrop-filter: blur(10px);}
+        .card:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0,0,0,0.6); }
         @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
-        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; cursor:pointer; flex-shrink: 0;}
-        .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; overflow:hidden;}
-        .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor:pointer;}
-        .card.video-mode .info { padding: 15px; }
+        /* AUDIO CARD LAYOUT */
+        .card.audio-mode { flex-direction: row; padding: 12px; gap: 15px; align-items: center; }
+        .card.audio-mode img { width: 70px; height: 70px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 5px 15px rgba(0,0,0,0.5);}
+        .card.audio-mode .info { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+        .card.audio-mode h4 { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 4px 0; color: white; }
+        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card.audio-mode .action-row-audio { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+        .card.audio-mode .play-btn { background: #ff0844; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); }
+        .card.audio-mode .play-btn:hover { transform: scale(1.1); }
+        .card.audio-mode .dl-btn { background: #334155; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; }
+        .card.audio-mode .dl-btn:hover { background: #4facfe; transform: scale(1.1); }
+
+        /* VIDEO CARD LAYOUT */
+        .card.video-mode { flex-direction: column; padding: 0; }
+        .thumb-container { width: 100%; position: relative; }
+        .thumb-container img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor: pointer; display: block; transition: 0.3s; }
+        .thumb-container img:hover { filter: brightness(1.1); }
+        .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none;}
+        .video-cb { position: absolute; top: 10px; left: 10px; width: 22px; height: 22px; accent-color: #ff0844; z-index: 5; cursor: pointer; }
         
-        .info { flex: 1; min-width: 0; width: 100%;}
-        .info h4 { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; color: white;}
-        .info p { font-size: 0.75rem; color: #94a3b8; }
+        .card.video-mode .info-container { padding: 15px; width: 100%; box-sizing: border-box; }
+        .card.video-mode h4 { font-size: 1.1rem; line-height: 1.4; margin: 0 0 5px 0; color: white; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+        .card.video-mode p { font-size: 0.85rem; color: #94a3b8; margin: 0; }
         
-        .action-row { display: flex; gap: 10px; margin-top: 10px; width: 100%;}
-        .play-action-btn { flex: 1; background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink: 0; white-space: nowrap;}
-        .play-action-btn:hover { background: #1db954; }
-        .card.video-mode .play-action-btn { background: #ff0844; padding: 15px; }
-        .card.video-mode .play-action-btn:hover { background: #ffb199; color: black; }
-        
-        .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
-        .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
+        .action-row-video { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
+        .play-btn-full { flex: 1; background: #ff0844; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.3); font-size: 0.95rem; }
+        .play-btn-full:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,8,68,0.5); }
+        .dl-btn-full { background: #334155; color: white; border: none; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95rem; flex-shrink:0; white-space:nowrap;}
+        .dl-btn-full:hover { background: #4facfe; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79,172,254,0.4); }
+
+        .song-checkbox.audio-cb { margin: 0; width: 22px; height: 22px; accent-color: #ff0844; flex-shrink: 0;}
 
         /* FULLSCREEN AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
@@ -165,9 +180,9 @@ PLAYER_HTML = """
         .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
         .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; }
         .mini .marquee-text { font-size: 1rem; }
-        .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
         
-        #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; }
+        /* V43 Title Visibility Fix */
+        #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; display: block;}
         .mini #ap-artist { display: none; }
 
         .progress-row { width: 100%; max-width: 400px; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #94a3b8; }
@@ -197,7 +212,7 @@ PLAYER_HTML = """
         .bottom-action-row { display: flex; align-items: center; justify-content: center; gap: 15px; width: 100%; margin-top: auto; padding-bottom: 20px;}
         .mini .bottom-action-row { display: none; }
         
-        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; transition: 0.2s; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
+        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 12px 20px; border-radius: 20px; transition: 0.2s; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
         .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; flex-shrink: 0;}
         .open-yt-btn:hover { background: #ff0844; color: white; }
         .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s; flex-shrink: 0; white-space: nowrap;}
@@ -249,14 +264,14 @@ PLAYER_HTML = """
 
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
-            #ap-cover { width: 85%; } 
-            .card.audio-mode { flex-direction: column; align-items: center; text-align: center; }
-            .card.audio-mode img { width: 100%; max-width: 250px; height: auto; aspect-ratio: 1; margin: 0 auto;}
-            .card.audio-mode .action-row { width: 100%; display: flex; flex-wrap: wrap; justify-content: center;}
-            .search-container { flex-wrap: wrap; }
-            .search-btn { width: 100%; }
+            .top-bar { display: flex; flex-wrap: wrap; }
+            .search-btn { width: 100%; margin-top: 5px; }
             .queue-actions { flex-direction: column; align-items: flex-start; gap: 10px;}
             .play-selected-btn { width: 100%; margin-top: 5px;}
+            
+            /* PLAYER overrides */
+            #ap-cover { width: 85%; } 
+            #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; } 
         }
     </style>
 </head>
@@ -361,7 +376,7 @@ PLAYER_HTML = """
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
             <img id="fullThumbImg" src="">
-            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844;" onclick="playFromLightbox()">▶ PLAY VIDEO</button>
+            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844; border-radius:12px;" onclick="playFromLightbox()">▶ PLAY VIDEO IN LANDSCAPE</button>
         </div>
     </div>
 
@@ -402,10 +417,6 @@ PLAYER_HTML = """
                     <div><strong>Rename Only</strong><div class="radio-desc">Raw download, instantly renames to .mp3. (⚡ Instant)</div></div>
                 </label>
             </div>
-            
-            <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid #334155; border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Note:</strong> Volume Booster and Bass EQ modules were removed. Cross-Origin Resource Sharing (CORS) security policies across mobile browsers block native YouTube audio from playing through Web Audio API filters.</p>
-            </div>
         </div>
     </div>
 
@@ -430,7 +441,7 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V42 GLOBAL STATE (All variables properly hoisted)
+        // GLOBAL STATE
         let currentMode = 'audio';
         let currentResults = [];
         let currentSearchLimit = 10;
@@ -499,12 +510,13 @@ PLAYER_HTML = """
                             <strong style="color:white; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${h.title}</strong>
                             <p style="font-size:0.75rem; color:#94a3b8; margin-top:5px;">👤 ${h.uploader} • ⏱️ ${h.duration} • 📅 ${h.date}</p>
                         </div>
-                        <button class="play-action-btn" style="flex-shrink:0;" onclick="playFromHistory('${h.url}', '${h.mode}')">▶ Play</button>
+                        <button class="history-btn" style="flex-shrink:0;" onclick="playFromHistory('${h.url}', '${h.mode}')">▶ Play</button>
                     </div>`;
             });
         }
 
         function playFromHistory(url, mode) {
+            audioEngine.play().catch(e=>{}); // V43 Autoplay Unlock
             document.getElementById('historyModal').style.display = 'none';
             if (mode === 'video') { startVideo(url); } 
             else { 
@@ -599,6 +611,7 @@ PLAYER_HTML = """
             finally { hideLoader(); isFetchingMore = false; } 
         }
 
+        // V43: REDESIGNED AUDIO/VIDEO CARDS HTML
         function renderResults() {
             const container = document.getElementById('results'); container.innerHTML = '';
             currentResults.forEach((item, index) => {
@@ -608,27 +621,31 @@ PLAYER_HTML = """
                 if(currentMode === 'audio') {
                     container.innerHTML += `
                         <div class="card audio-mode">
-                            <input type="checkbox" class="song-checkbox" value="${index}" style="width:20px;height:20px; accent-color:#ff0844; flex-shrink:0;">
-                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" style="cursor:pointer;">
+                            <input type="checkbox" class="song-checkbox audio-cb" value="${index}">
+                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" title="View Art">
                             <div class="info">
                                 <h4 title="${item.title}">${item.title}</h4>
-                                <p>👤 ${uploader} | ⏱️ ${item.duration}</p>
-                                <div class="action-row">
-                                    <button class="play-action-btn" onclick="playSingleAudio(${index})">▶ HEAR</button>
-                                    <button class="dl-icon-btn" onclick="triggerDownload(${index}, 'mp3')" title="Download MP3">📥</button>
-                                </div>
+                                <p>${uploader} • ${item.duration}</p>
+                            </div>
+                            <div class="action-row-audio">
+                                <button class="play-btn" onclick="playSingleAudio(${index})" title="Play">▶</button>
+                                <button class="dl-btn" onclick="triggerDownload(${index}, 'mp3')" title="Download MP3">📥</button>
                             </div>
                         </div>`;
                 } else {
                     container.innerHTML += `
                         <div class="card video-mode">
-                            <img src="${item.thumbnail}" onclick="startVideo('${videoId}')" style="cursor:pointer;">
-                            <div class="info">
-                                <h4>${item.title}</h4>
-                                <p>👤 ${uploader} • ⏱️ ${item.duration}</p>
-                                <div class="action-row">
-                                    <button class="play-action-btn" style="background:#ff0844;" onclick="startVideo('${videoId}')">▶ PLAY VIDEO</button>
-                                    <button class="dl-icon-btn" onclick="triggerDownload(${index}, 'mp4')" title="Download MP4">📥</button>
+                            <div class="thumb-container">
+                                <input type="checkbox" class="song-checkbox video-cb" value="${index}">
+                                <img src="${item.thumbnail}" onclick="startVideo('${videoId}')" title="Play Video">
+                                <span class="duration-badge">${item.duration}</span>
+                            </div>
+                            <div class="info-container">
+                                <h4 title="${item.title}">${item.title}</h4>
+                                <p>${uploader}</p>
+                                <div class="action-row-video">
+                                    <button class="play-btn-full" onclick="startVideo('${item.url || item.id}')">▶ PLAY VIDEO</button>
+                                    <button class="dl-btn-full" onclick="triggerDownload(${index}, 'mp4')">📥 DL</button>
                                 </div>
                             </div>
                         </div>`;
@@ -652,6 +669,8 @@ PLAYER_HTML = """
         // ==========================================
         // DOWNLOADER
         // ==========================================
+        let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
+        
         function triggerDownload(index, type) {
             const item = currentResults[index];
             pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = type;
@@ -708,21 +727,22 @@ PLAYER_HTML = """
             } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
-        function processDeliveryQueue() {
-            if(isDelivering || deliveryQueue.length === 0) return;
-            isDelivering = true;
-            const link = document.createElement('a'); link.href = deliveryQueue.shift(); link.download = ''; 
-            document.body.appendChild(link); link.click(); document.body.removeChild(link);
-            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
+        function triggerFileDownload(fileUrl) {
+            const link = document.createElement('a');
+            link.href = fileUrl;
+            link.download = ''; 
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
-        // V42 TASK POLLING LOOP
         setInterval(async () => {
             try {
                 const res = await fetch(`/api/tasks?client_id=${clientId}`);
                 const tasks = await res.json();
                 
                 let html = ''; 
+
                 for (const [id, t] of Object.entries(tasks)) {
                     let sCol = t.status==='completed' ? '#1db954' : (t.status==='error' ? '#ff0844' : '#4facfe');
                     let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#1db954;" onclick="window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
@@ -736,13 +756,11 @@ PLAYER_HTML = """
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
                         markHandled(id); 
                         showToast(`Download Complete: ${t.title}`, "success");
-                        deliveryQueue.push('/api/serve?file=' + encodeURIComponent(t.file)); 
-                        processDeliveryQueue(); 
+                        triggerFileDownload('/api/serve?file=' + encodeURIComponent(t.file)); 
                     }
                 }
                 document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#94a3b8;">No active downloads.</p>';
                 
-                // V42: Player UI Task Tracker (Instantly releases track on finish)
                 if (currentAudioDlTaskId && tasks[currentAudioDlTaskId]) {
                     const t = tasks[currentAudioDlTaskId];
                     const btn = document.getElementById('mainPlayerDlBtn');
@@ -752,11 +770,11 @@ PLAYER_HTML = """
                         btn.style.background = `linear-gradient(90deg, #ff0844 ${t.percent}%, #334155 ${t.percent}%)`;
                     } else if (t.status === 'completed') {
                         btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
-                        currentAudioDlTaskId = null; // V42 FIX: Instantly release
+                        currentAudioDlTaskId = null; 
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; }, 4000);
                     } else if (t.status === 'error') {
                         btn.innerText = '❌ Error'; btn.style.background = '#ff0844';
-                        currentAudioDlTaskId = null; // V42 FIX: Instantly release
+                        currentAudioDlTaskId = null; 
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; }, 3000);
                     }
                 }
@@ -764,7 +782,7 @@ PLAYER_HTML = """
         }, 1000);
 
         // ==========================================
-        // V42 VIDEO LOGIC
+        // V43 VIDEO LOGIC
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
@@ -797,12 +815,14 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // V42 AUDIO PLAYER ENGINE (INSTANT TITLES)
+        // V43 AUDIO PLAYER ENGINE
         // ==========================================
         function playSingleAudio(index) { 
+            audioEngine.play().catch(e=>{}); // Autoplay Unlocker
             audioQueue = currentResults; currentIndex = index; loadQueueItem(); 
         }
         function playSelected() {
+            audioEngine.play().catch(e=>{}); 
             const checked = document.querySelectorAll('.song-checkbox:checked');
             if(checked.length === 0) return alert("Select songs first!");
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
@@ -813,7 +833,7 @@ PLAYER_HTML = """
             clearInterval(fadeInterval);
             isFadingOut = false;
             audioEngine.volume = 0;
-            let targetVol = parseInt(document.getElementById('volSlider').value) / 100;
+            let targetVol = document.getElementById('volSlider').value / 100;
             let step = targetVol / 30; 
             fadeInterval = setInterval(() => {
                 if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
@@ -841,6 +861,7 @@ PLAYER_HTML = """
             }
             const item = audioQueue[currentIndex];
             const titleEl = document.getElementById('ap-title');
+            const artistEl = document.getElementById('ap-artist');
             currentPlayingVideoId = item.id || (item.url ? item.url.split('v=')[1] : '');
             
             saveToHistory(item, 'audio'); 
@@ -848,11 +869,12 @@ PLAYER_HTML = """
             document.getElementById('audio-player-bar').classList.add('active'); 
             document.getElementById('audio-player-bar').classList.remove('mini');
             document.getElementById('ap-cover').src = item.thumbnail;
-            document.getElementById('ap-artist').innerText = item.uploader || "Nexus Audio";
             document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
-            // V42 INSTANT TITLE VISIBILITY
+            // V43: TITLES ARE FORCED VISIBLE IMMEDIATELY
             titleEl.innerText = item.title || "Loading stream..."; 
+            artistEl.innerText = item.uploader || "Nexus Audio";
+            
             titleEl.classList.remove('scroll');
             document.getElementById('seekSlider').value = 0; document.getElementById('seekSlider').style.background = `#334155`;
             
@@ -871,11 +893,10 @@ PLAYER_HTML = """
                     audioEngine.src = data.stream_url;
                     audioEngine.playbackRate = currentSpeed;
                     
-                    // V42 Reliable Play Trigger
                     audioEngine.play().then(() => {
                         startFadeIn();
                     }).catch(e => {
-                        showToast("Browser blocked Autoplay. Tap Play.", "error");
+                        showToast("Autoplay Blocked. Tap Play.", "error");
                         audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
                     });
                     
@@ -922,7 +943,7 @@ PLAYER_HTML = """
         function prevSong(e) { 
             if(e) e.stopPropagation();
             clearInterval(fadeInterval); isFadingOut = false;
-            if(audioEngine.currentTime > 3 || loopMode === 2) { audioEngine.currentTime = 0; } 
+            if(audioEngine.currentTime > 3 || loopMode === 2) { audioEngine.currentTime = 0; startFadeIn(); audioEngine.play();} 
             else if (currentIndex > 0) { currentIndex--; loadQueueItem(); } 
             else if (loopMode === 1) { currentIndex = audioQueue.length - 1; loadQueueItem(); }
         }
@@ -1179,5 +1200,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V42 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V43 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
