@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V43 - ULTIMATE UI REDESIGN & MISSING TITLE FIX)
+# YOUTUBE MEDIA APP (V44 - PERFECT FILENAMES & HISTORY TITLE FIX)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -9,6 +9,7 @@ import time
 import threading
 import uuid
 import logging
+import urllib.parse
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
@@ -104,9 +105,11 @@ PLAYER_HTML = """
         .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition:0.2s; flex-shrink: 0;}
         .menu-btn:hover { transform: scale(1.1); }
         h2.brand { font-weight: 800; font-size: 1.5rem; margin: 0; background: linear-gradient(45deg, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-right:auto;}
+        .settings-btn { font-size: 1.5rem; cursor: pointer; color: white; background: #334155; border: none; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.3s; flex-shrink:0;}
+        .settings-btn:hover { transform: rotate(90deg); background: #ff0844; }
 
         .search-container { display: flex; gap: 10px; width: 100%; margin-bottom: 20px;}
-        input[type="text"] { flex: 1; min-width: 150px; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;}
+        input[type="text"] { flex: 1; padding: 15px 20px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;}
         input[type="text"]:focus { border-color: #ff0844; }
         .search-btn { background: #ff0844; color: white; border: none; padding: 15px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0; white-space: nowrap;}
         .search-btn:hover { transform: translateY(-3px); }
@@ -120,42 +123,27 @@ PLAYER_HTML = """
         .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: #1e293b; padding: 10px 15px; border-radius: 12px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px;}
         .play-selected-btn { background: #1db954; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap;}
 
-        /* V43 NEW CARD STYLING - ANTI SQUISH */
-        .card { background: rgba(30, 41, 59, 0.7); border-radius: 16px; display: flex; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; animation: popIn 0.4s ease-out; position: relative; overflow: hidden; backdrop-filter: blur(10px);}
-        .card:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0,0,0,0.6); }
+        .card { background: #1e293b; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: center; border: 1px solid #334155; transition: 0.3s; animation: popIn 0.4s ease-out; flex-wrap: wrap;}
+        .card:hover { border-color: #ff0844; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.95); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
-        /* AUDIO CARD LAYOUT */
-        .card.audio-mode { flex-direction: row; padding: 12px; gap: 15px; align-items: center; }
-        .card.audio-mode img { width: 70px; height: 70px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 5px 15px rgba(0,0,0,0.5);}
-        .card.audio-mode .info { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-        .card.audio-mode h4 { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 4px 0; color: white; }
-        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .card.audio-mode .action-row-audio { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
-        .card.audio-mode .play-btn { background: #ff0844; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); }
-        .card.audio-mode .play-btn:hover { transform: scale(1.1); }
-        .card.audio-mode .dl-btn { background: #334155; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; }
-        .card.audio-mode .dl-btn:hover { background: #4facfe; transform: scale(1.1); }
-
-        /* VIDEO CARD LAYOUT */
-        .card.video-mode { flex-direction: column; padding: 0; }
-        .thumb-container { width: 100%; position: relative; }
-        .thumb-container img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor: pointer; display: block; transition: 0.3s; }
-        .thumb-container img:hover { filter: brightness(1.1); }
-        .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none;}
-        .video-cb { position: absolute; top: 10px; left: 10px; width: 22px; height: 22px; accent-color: #ff0844; z-index: 5; cursor: pointer; }
+        .card.audio-mode img { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; cursor:pointer; flex-shrink: 0;}
+        .card.video-mode { flex-direction: column; align-items: stretch; padding: 0; overflow:hidden;}
+        .card.video-mode img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor:pointer;}
+        .card.video-mode .info { padding: 15px; }
         
-        .card.video-mode .info-container { padding: 15px; width: 100%; box-sizing: border-box; }
-        .card.video-mode h4 { font-size: 1.1rem; line-height: 1.4; margin: 0 0 5px 0; color: white; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
-        .card.video-mode p { font-size: 0.85rem; color: #94a3b8; margin: 0; }
+        .info { flex: 1; min-width: 0; width: 100%;}
+        .info h4 { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; color: white;}
+        .info p { font-size: 0.75rem; color: #94a3b8; }
         
-        .action-row-video { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
-        .play-btn-full { flex: 1; background: #ff0844; color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.3); font-size: 0.95rem; }
-        .play-btn-full:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255,8,68,0.5); }
-        .dl-btn-full { background: #334155; color: white; border: none; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95rem; flex-shrink:0; white-space:nowrap;}
-        .dl-btn-full:hover { background: #4facfe; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79,172,254,0.4); }
-
-        .song-checkbox.audio-cb { margin: 0; width: 22px; height: 22px; accent-color: #ff0844; flex-shrink: 0;}
+        .action-row { display: flex; gap: 10px; margin-top: 10px; width: 100%;}
+        .play-action-btn { flex: 1; background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; flex-shrink: 0; white-space: nowrap;}
+        .play-action-btn:hover { background: #1db954; }
+        .card.video-mode .play-action-btn { background: #ff0844; padding: 15px; }
+        .card.video-mode .play-action-btn:hover { background: #ffb199; color: black; }
+        
+        .dl-icon-btn { background: #334155; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
+        .dl-icon-btn:hover { background: #ff0844; transform: scale(1.1); }
 
         /* FULLSCREEN AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
@@ -178,10 +166,10 @@ PLAYER_HTML = """
         
         .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white; cursor:pointer;}
         .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
-        .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; }
+        .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; color: white;}
         .mini .marquee-text { font-size: 1rem; }
+        .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
         
-        /* V43 Title Visibility Fix */
         #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; display: block;}
         .mini #ap-artist { display: none; }
 
@@ -212,7 +200,7 @@ PLAYER_HTML = """
         .bottom-action-row { display: flex; align-items: center; justify-content: center; gap: 15px; width: 100%; margin-top: auto; padding-bottom: 20px;}
         .mini .bottom-action-row { display: none; }
         
-        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 12px 20px; border-radius: 20px; transition: 0.2s; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
+        .open-yt-btn, .dl-mp3-btn { text-decoration: none; font-size: 0.9rem; font-weight: bold; padding: 10px 20px; border-radius: 20px; transition: 0.2s; cursor: pointer; border: none; display:flex; align-items:center; gap:5px; justify-content:center;}
         .open-yt-btn { color: #ff0844; border: 2px solid #ff0844; background: transparent; flex-shrink: 0;}
         .open-yt-btn:hover { background: #ff0844; color: white; }
         .dl-mp3-btn { color: white; background: #334155; border: 2px solid #334155; transition: 0.3s; flex-shrink: 0; white-space: nowrap;}
@@ -264,14 +252,14 @@ PLAYER_HTML = """
 
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
-            .top-bar { display: flex; flex-wrap: wrap; }
-            .search-btn { width: 100%; margin-top: 5px; }
+            #ap-cover { width: 85%; } 
+            .card.audio-mode { flex-direction: column; align-items: center; text-align: center; }
+            .card.audio-mode img { width: 100%; max-width: 250px; height: auto; aspect-ratio: 1; margin: 0 auto;}
+            .card.audio-mode .action-row { width: 100%; display: flex; flex-wrap: wrap; justify-content: center;}
+            .search-container { flex-wrap: wrap; }
+            .search-btn { width: 100%; }
             .queue-actions { flex-direction: column; align-items: flex-start; gap: 10px;}
             .play-selected-btn { width: 100%; margin-top: 5px;}
-            
-            /* PLAYER overrides */
-            #ap-cover { width: 85%; } 
-            #video-modal.mini-video { width: 90%; right: 5%; bottom: 20px; } 
         }
     </style>
 </head>
@@ -315,6 +303,7 @@ PLAYER_HTML = """
         <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
     </div>
 
+    <!-- GOD-MODE AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize" style="font-family: monospace;">—</button>
@@ -326,7 +315,8 @@ PLAYER_HTML = """
         <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
             <span class="marquee-text" id="ap-title">Loading...</span>
         </div>
-        <div id="ap-artist">Nexus Audio</div>
+        <!-- V44 Fix: Always Visible Artist Title -->
+        <div id="ap-artist" style="display:block;">Nexus Audio</div>
         
         <div class="advanced-controls">
             <button class="adv-btn" id="speedBtn" onclick="toggleSpeed()" title="Playback Speed">1x</button>
@@ -362,6 +352,7 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
+    <!-- TRUE LANDSCAPE VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container" id="videoContainer">
             <div class="vid-controls">
@@ -372,6 +363,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
@@ -397,6 +389,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
@@ -420,6 +413,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- HISTORY MODAL -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -430,6 +424,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- TASKS MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -487,11 +482,11 @@ PLAYER_HTML = """
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
         function markHandled(id) { if (!handledDownloads.includes(id)) { handledDownloads.push(id); localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50))); } }
 
-        // HISTORY
+        // V44: HISTORY ENGINE FIX (Grabs full objects safely)
         function saveToHistory(item, mode='audio') {
             let hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
             const date = new Date().toLocaleDateString();
-            hist.unshift({ title: item.title, uploader: item.uploader || 'Unknown', duration: item.duration || '--', url: item.url || item.id, date: date, mode: mode });
+            hist.unshift({ title: item.title, uploader: item.uploader || 'Unknown', duration: item.duration || '--', url: item.url || item.id, date: date, mode: mode, thumbnail: item.thumbnail || 'https://via.placeholder.com/150' });
             if (hist.length > 50) hist = hist.slice(0, 50);
             localStorage.setItem('yt_dl_history', JSON.stringify(hist));
             loadHistory(); 
@@ -503,24 +498,30 @@ PLAYER_HTML = """
             if(hist.length === 0) { container.innerHTML = '<p style="color:#888; text-align:center;">No history yet. Go search something!</p>'; return; }
             
             container.innerHTML = '';
-            hist.forEach(h => {
+            hist.forEach((h, idx) => {
                 container.innerHTML += `
                     <div class="history-card">
                         <div style="flex:1; min-width:0; margin-right:10px;">
                             <strong style="color:white; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">${h.title}</strong>
                             <p style="font-size:0.75rem; color:#94a3b8; margin-top:5px;">👤 ${h.uploader} • ⏱️ ${h.duration} • 📅 ${h.date}</p>
                         </div>
-                        <button class="history-btn" style="flex-shrink:0;" onclick="playFromHistory('${h.url}', '${h.mode}')">▶ Play</button>
+                        <button class="play-action-btn" style="flex-shrink:0;" onclick="playFromHistory(${idx})">▶ Play</button>
                     </div>`;
             });
         }
 
-        function playFromHistory(url, mode) {
-            audioEngine.play().catch(e=>{}); // V43 Autoplay Unlock
+        // V44: Proper Object pass to avoid "History Audio" bug
+        function playFromHistory(index) {
+            const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
+            const item = hist[index];
+            if(!item) return;
+
+            audioEngine.play().catch(e=>{}); // V44 Autoplay Unlock
             document.getElementById('historyModal').style.display = 'none';
-            if (mode === 'video') { startVideo(url); } 
+            
+            if (item.mode === 'video') { startVideo(item.url); } 
             else { 
-                audioQueue = [{title: "History Audio", uploader: "Nexus", url: url, thumbnail: "https://via.placeholder.com/150"}];
+                audioQueue = [item];
                 currentIndex = 0;
                 loadQueueItem();
             }
@@ -540,7 +541,10 @@ PLAYER_HTML = """
             showToast(`Settings Saved!`, "success");
         }
 
-        // INITIALIZATION
+        document.getElementById('volSlider').oninput = (e) => {
+            audioEngine.volume = parseInt(e.target.value) / 100;
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
             loadSettings(); 
             loadHistory();
@@ -553,7 +557,6 @@ PLAYER_HTML = """
             }
         });
 
-        // SCROLL
         window.addEventListener('scroll', () => {
             if(document.getElementById('loadMoreBtn').style.display === 'block') {
                 if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
@@ -611,7 +614,6 @@ PLAYER_HTML = """
             finally { hideLoader(); isFetchingMore = false; } 
         }
 
-        // V43: REDESIGNED AUDIO/VIDEO CARDS HTML
         function renderResults() {
             const container = document.getElementById('results'); container.innerHTML = '';
             currentResults.forEach((item, index) => {
@@ -621,31 +623,27 @@ PLAYER_HTML = """
                 if(currentMode === 'audio') {
                     container.innerHTML += `
                         <div class="card audio-mode">
-                            <input type="checkbox" class="song-checkbox audio-cb" value="${index}">
-                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" title="View Art">
+                            <input type="checkbox" class="song-checkbox" value="${index}" style="width:20px;height:20px; accent-color:#ff0844; flex-shrink:0;">
+                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" style="cursor:pointer;">
                             <div class="info">
                                 <h4 title="${item.title}">${item.title}</h4>
-                                <p>${uploader} • ${item.duration}</p>
-                            </div>
-                            <div class="action-row-audio">
-                                <button class="play-btn" onclick="playSingleAudio(${index})" title="Play">▶</button>
-                                <button class="dl-btn" onclick="triggerDownload(${index}, 'mp3')" title="Download MP3">📥</button>
+                                <p>👤 ${uploader} | ⏱️ ${item.duration}</p>
+                                <div class="action-row">
+                                    <button class="play-action-btn" onclick="playSingleAudio(${index})">▶ HEAR</button>
+                                    <button class="dl-icon-btn" onclick="triggerDownload(${index}, 'mp3')" title="Download MP3">📥</button>
+                                </div>
                             </div>
                         </div>`;
                 } else {
                     container.innerHTML += `
                         <div class="card video-mode">
-                            <div class="thumb-container">
-                                <input type="checkbox" class="song-checkbox video-cb" value="${index}">
-                                <img src="${item.thumbnail}" onclick="startVideo('${videoId}')" title="Play Video">
-                                <span class="duration-badge">${item.duration}</span>
-                            </div>
-                            <div class="info-container">
-                                <h4 title="${item.title}">${item.title}</h4>
-                                <p>${uploader}</p>
-                                <div class="action-row-video">
-                                    <button class="play-btn-full" onclick="startVideo('${item.url || item.id}')">▶ PLAY VIDEO</button>
-                                    <button class="dl-btn-full" onclick="triggerDownload(${index}, 'mp4')">📥 DL</button>
+                            <img src="${item.thumbnail}" onclick="startVideo('${videoId}')" style="cursor:pointer;">
+                            <div class="info">
+                                <h4>${item.title}</h4>
+                                <p>👤 ${uploader} • ⏱️ ${item.duration}</p>
+                                <div class="action-row">
+                                    <button class="play-action-btn" style="background:#ff0844;" onclick="startVideo('${videoId}')">▶ PLAY VIDEO</button>
+                                    <button class="dl-icon-btn" onclick="triggerDownload(${index}, 'mp4')" title="Download MP4">📥</button>
                                 </div>
                             </div>
                         </div>`;
@@ -727,13 +725,24 @@ PLAYER_HTML = """
             } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
-        function triggerFileDownload(fileUrl) {
+        // V44: PERFECT FILENAME DOWNLOAD SCRIPT
+        function triggerFileDownload(fileUrl, title, ext) {
             const link = document.createElement('a');
             link.href = fileUrl;
-            link.download = ''; 
+            // Strict naming fallback if headers fail
+            let cleanTitle = title.replace(/[^a-zA-Z0-9 ]/g, "");
+            link.download = `${cleanTitle}.${ext}`; 
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        function processDeliveryQueue() {
+            if(isDelivering || deliveryQueue.length === 0) return;
+            isDelivering = true;
+            const item = deliveryQueue.shift();
+            triggerFileDownload(item.url, item.title, item.ext);
+            setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
         }
 
         setInterval(async () => {
@@ -745,18 +754,23 @@ PLAYER_HTML = """
 
                 for (const [id, t] of Object.entries(tasks)) {
                     let sCol = t.status==='completed' ? '#1db954' : (t.status==='error' ? '#ff0844' : '#4facfe');
-                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#1db954;" onclick="window.location.href='/api/serve?file=${encodeURIComponent(t.file)}'">💾 SAVE</button>`;
+                    
+                    // Frontend button fallback
+                    let safeTitle = t.title.replace(/'/g, "\\'");
+                    let dlUrl = `/api/serve?file=${encodeURIComponent(t.file)}`;
+                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#1db954;" onclick="triggerFileDownload('${dlUrl}', '${safeTitle}', '${t.type}')">💾 SAVE</button>`;
 
                     html += `<div class="task-item" style="background: #1e293b; border-color: ${sCol};"><div class="task-header" style="color: white;"><span>${t.type.toUpperCase()}: ${t.title}</span><span style="color:${sCol}">${t.status.toUpperCase()}</span></div>
                             ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats" style="color:${sCol};"><span>${t.percent}%</span></div>` : ''}
                             ${t.status === 'error' ? `<div style="font-size:0.85rem; color:#ff0844;">${t.error_msg}</div>` : ''}
                             ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
                             
-                    // Main Background Task Delivery
                     if (t.status === 'completed' && !handledDownloads.includes(id)) {
                         markHandled(id); 
                         showToast(`Download Complete: ${t.title}`, "success");
-                        triggerFileDownload('/api/serve?file=' + encodeURIComponent(t.file)); 
+                        // V44 ADD TO DELIVERY QUEUE WITH TITLE
+                        deliveryQueue.push({ url: dlUrl, title: t.title, ext: t.type }); 
+                        processDeliveryQueue(); 
                     }
                 }
                 document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#94a3b8;">No active downloads.</p>';
@@ -764,13 +778,12 @@ PLAYER_HTML = """
                 if (currentAudioDlTaskId && tasks[currentAudioDlTaskId]) {
                     const t = tasks[currentAudioDlTaskId];
                     const btn = document.getElementById('mainPlayerDlBtn');
-                    
                     if (t.status === 'downloading' || t.status === 'processing') {
                         btn.innerText = t.status === 'processing' ? '⏳ Merging...' : `⏳ ${t.percent}%`;
                         btn.style.background = `linear-gradient(90deg, #ff0844 ${t.percent}%, #334155 ${t.percent}%)`;
                     } else if (t.status === 'completed') {
                         btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
-                        currentAudioDlTaskId = null; 
+                        currentAudioDlTaskId = null; // Instantly release
                         setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; }, 4000);
                     } else if (t.status === 'error') {
                         btn.innerText = '❌ Error'; btn.style.background = '#ff0844';
@@ -782,7 +795,7 @@ PLAYER_HTML = """
         }, 1000);
 
         // ==========================================
-        // V43 VIDEO LOGIC
+        // V44 VIDEO LOGIC
         // ==========================================
         async function startVideo(id) {
             stopAudio(); 
@@ -815,7 +828,7 @@ PLAYER_HTML = """
         }
 
         // ==========================================
-        // V43 AUDIO PLAYER ENGINE
+        // AUDIO PLAYER ENGINE
         // ==========================================
         function playSingleAudio(index) { 
             audioEngine.play().catch(e=>{}); // Autoplay Unlocker
@@ -833,7 +846,7 @@ PLAYER_HTML = """
             clearInterval(fadeInterval);
             isFadingOut = false;
             audioEngine.volume = 0;
-            let targetVol = document.getElementById('volSlider').value / 100;
+            let targetVol = parseInt(document.getElementById('volSlider').value) / 100;
             let step = targetVol / 30; 
             fadeInterval = setInterval(() => {
                 if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
@@ -871,7 +884,6 @@ PLAYER_HTML = """
             document.getElementById('ap-cover').src = item.thumbnail;
             document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
-            // V43: TITLES ARE FORCED VISIBLE IMMEDIATELY
             titleEl.innerText = item.title || "Loading stream..."; 
             artistEl.innerText = item.uploader || "Nexus Audio";
             
@@ -1130,9 +1142,10 @@ def get_info():
     except Exception as e: return jsonify({'error': str(e).replace('\x1b[0;31m', '').replace('\x1b[0m', '')})
 
 def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
+    # V44 FIX: Restrict filenames to clean, browser-safe characters to stop URL encoding/Urdu text issues
     ydl_opts = {
         'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s', 'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
-        'geo_bypass': True, 'geo_bypass_country': 'US', 'nocheckcertificate': True,
+        'geo_bypass': True, 'geo_bypass_country': 'US', 'nocheckcertificate': True, 'restrictfilenames': True,
         'progress_hooks': [get_progress_hook(task_id)], 'noplaylist': True, 'ffmpeg_location': '/usr/bin/ffmpeg', 
         'external_downloader': 'aria2c', 'external_downloader_args': ['-j', '16', '-x', '16', '-s', '16', '-k', '1M'],
         'postprocessor_args': ['-threads', '0', '-preset', 'ultrafast', '-strict', 'experimental'],
@@ -1193,12 +1206,15 @@ def trigger_download():
 def serve_file():
     file_path = request.args.get('file')
     if not file_path or not os.path.exists(file_path): return "File not found", 404
-    return send_file(os.path.abspath(file_path), as_attachment=True)
+    
+    # V44 FIX: Force proper Content-Disposition naming so browsers don't URL encode into weird characters
+    filename = os.path.basename(file_path)
+    return send_file(os.path.abspath(file_path), as_attachment=True, download_name=filename)
 
 @app.errorhandler(404)
 def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V43 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 NEXUS SOLO PLAYER V44 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
