@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V61 - IRONCLAD MOBILE: UI & LAG FIXES)
+# YOUTUBE MEDIA APP (V62 - TITANIUM LAYOUT: UI & CSS LOCKDOWN)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -21,9 +21,9 @@ if pytube_tokens_env:
     try:
         with open('tokens.json', 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info("✅ V61: Tokens injected successfully.")
+        logger.info("✅ V62: Tokens injected successfully.")
     except Exception as e:
-        logger.error(f"❌ V61: Token injection failed: {e}")
+        logger.error(f"❌ V62: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -77,7 +77,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# V61: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
+# V62: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
     try:
@@ -190,50 +190,51 @@ PLAYER_HTML = """
         .mode-btn { flex:1; padding: 12px; border-radius: 12px; font-weight: 800; border:none; background:rgba(0,0,0,0.3); color:#94a3b8; cursor:pointer; transition:0.3s; border: 1px solid rgba(255,255,255,0.05);}
         .mode-btn.active { background: #ff0844; color: white; box-shadow: 0 5px 15px rgba(255,8,68,0.4); border-color: #ff0844;}
 
-        #results { display: flex; flex-direction: column; gap: 12px; }
+        /* V62 UI OVERHAUL: Absolute Titanium Constraints */
+        #results { display: flex; flex-direction: column; gap: 15px; width: 100%; }
 
         .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: rgba(30, 41, 59, 0.9); padding: 10px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; gap: 10px;}
         .play-selected-btn { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); color: black; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: 0.3s;}
 
-        /* V61 UI FIX: Ironclad container restrictions */
-        .card { background: rgba(30, 41, 59, 0.8); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; animation: cardStagger 0.3s ease backwards; position: relative; overflow: hidden;}
+        .card { background: rgba(30, 41, 59, 0.8); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; animation: cardStagger 0.3s ease backwards; position: relative; overflow: hidden; width: 100%; box-sizing: border-box; }
         .card:hover { border-color: #4facfe; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         @keyframes cardStagger { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
-        
-        /* AUDIO CARD LAYOSUT LOCK */
-        .card.audio-mode { display: flex; flex-direction: row; padding: 10px; gap: 12px; align-items: center; flex-wrap: nowrap !important; }
-        .card.audio-mode img { min-width: 60px; min-height: 60px; width: 60px; height: 60px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0 !important; box-shadow: 0 3px 10px rgba(0,0,0,0.5);}
+
+        /* AUDIO CARD LAYOUT LOCK */
+        .card.audio-mode { display: flex; flex-direction: row; padding: 12px; gap: 12px; align-items: center; }
+        .card.audio-mode img { width: 60px; height: 60px; min-width: 60px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.5); }
         .card.audio-mode .info { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; min-width: 0; overflow: hidden; }
-        .card.audio-mode h4 { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 3px 0; color: white; }
-        .card.audio-mode p { font-size: 0.75rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card.audio-mode h4 { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 4px 0; color: white; }
+        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card.audio-mode .action-row-audio { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
         
-        .play-btn { background: #ff0844; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
-        .dl-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); width: 40px; height: 40px; border-radius: 50%; font-size: 1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
+        .play-btn { background: #ff0844; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex-shrink: 0;}
+        .dl-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); width: 45px; height: 45px; border-radius: 50%; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
         .dl-btn:hover { background: #4facfe; border-color: #4facfe; }
 
-        .card.video-mode { flex-direction: column; padding: 0; }
-        .thumb-container { width: 100%; position: relative; overflow: hidden;}
-        .thumb-container img { width: 100%; aspect-ratio: 16/9; object-fit: cover; cursor: pointer; display: block; transition: transform 0.3s ease; }
+        /* VIDEO CARD LAYOUT LOCK */
+        .card.video-mode { display: flex; flex-direction: column; padding: 0; align-items: center; justify-content: flex-start; width: 100%; }
+        .thumb-container { width: 100%; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #000; }
+        .thumb-container img { width: 100%; max-width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover; object-position: center; cursor: pointer; display: block; transition: transform 0.3s ease; }
         .thumb-container:hover img { transform: scale(1.03); }
-        .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none; }
+        .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none; z-index: 10; }
         
         .video-cb, .audio-cb { accent-color: #ff0844; cursor: pointer; transition: 0.2s;}
-        .video-cb { position: absolute; top: 10px; left: 10px; width: 25px; height: 25px; z-index: 5; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .video-cb { position: absolute; top: 10px; left: 10px; width: 25px; height: 25px; z-index: 10; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
         .audio-cb { margin: 0; width: 22px; height: 22px; flex-shrink: 0;}
 
-        .card.video-mode .info-container { padding: 15px; width: 100%; box-sizing: border-box; }
+        .card.video-mode .info-container { padding: 15px; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; }
         .card.video-mode h4 { font-size: 1.1rem; line-height: 1.4; margin: 0 0 5px 0; color: white; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
         .card.video-mode p { font-size: 0.85rem; color: #94a3b8; margin: 0; }
         
-        .action-row-video { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
-        .play-btn-full { flex: 1; background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.3); font-size: 0.95rem; position: relative; overflow: hidden;}
-        .dl-btn-full { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95rem; flex-shrink:0; white-space:nowrap; position: relative; overflow: hidden;}
+        .action-row-video { display: flex; flex-direction: row; gap: 10px; margin-top: 15px; width: 100%; align-items: center; justify-content: space-between; }
+        .play-btn-full { flex: 1; background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.3); font-size: 0.95rem; text-align: center; }
+        .dl-btn-full { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95rem; flex-shrink: 0; white-space: nowrap; text-align: center; }
 
         .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 0.6s linear; background: rgba(255, 255, 255, 0.4); pointer-events: none;}
         @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 
-        /* FULLSCREEN AUDIO PLAYER - PERFORMANCE OPTIMIZED */
+        /* FULLSCREEN AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s ease; z-index: 2000; overflow-y: auto; }
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 95px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 24px 24px 0 0; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -10px 30px rgba(0,0,0,0.8); cursor: pointer;}
@@ -332,7 +333,6 @@ PLAYER_HTML = """
 
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
-            #ap-cover { width: 85%; max-width: 300px; } 
             .search-container { flex-wrap: wrap; }
             .search-btn { width: 100%; }
             .queue-actions { flex-direction: column; align-items: flex-start; gap: 10px;}
@@ -490,7 +490,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V61 Ironclad Mobile. Routing: Pytube -> yt-dlp -> Cobalt.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V62 Titanium Layout. Routing: Pytube -> yt-dlp -> Cobalt.</p>
             </div>
         </div>
     </div>
@@ -741,7 +741,6 @@ PLAYER_HTML = """
             if(currentResults.length > 0) renderResults();
         }
 
-        // V61 KEYBOARD FIX: Listen for "Enter" key on keyboard
         document.getElementById('searchInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -750,7 +749,7 @@ PLAYER_HTML = """
         });
 
         function triggerSearch() {
-            document.getElementById('searchInput').blur(); // V61 FIX: Closes the mobile keyboard instantly
+            document.getElementById('searchInput').blur(); 
             search(true);
         }
 
@@ -1417,4 +1416,24 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
 def trigger_download():
     task_id = str(uuid.uuid4())
     conv_mode = request.json.get('conv_mode', 'fast')
-    active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at
+    active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at': time.time()}
+    threading.Thread(target=background_downloader, args=(task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), request.json.get('burn_subs', False), conv_mode), daemon=True).start()
+    return jsonify({'task_id': task_id})
+
+@app.route('/api/serve', methods=['GET'], strict_slashes=False)
+def serve_file():
+    file_path = request.args.get('file')
+    if not file_path or not os.path.exists(file_path): return "File not found", 404
+    
+    filename = urllib.parse.unquote(os.path.basename(file_path))
+    return send_file(os.path.abspath(file_path), as_attachment=True, download_name=filename)
+
+@app.errorhandler(404)
+def page_not_found(e):
+    if request.path.startswith('/api/'):
+        return jsonify(error="Not found"), 404
+    return redirect('/')
+
+if __name__ == '__main__':
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V62 ONLINE 🔥\n" + "="*50 + "\n")
+    app.run(host="0.0.0.0", port=5000)
