@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V57 - TRINITY TOKEN ENGINE: OAUTH INJECTION)
+# YOUTUBE MEDIA APP (V58 - DATA-SAVER PHANTOM: YTDLP -> PYTUBE -> COBALT)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -17,18 +17,16 @@ logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(
 logger = logging.getLogger("YouTubeDownloader")
 
 # ==============================================================================
-# V57: DYNAMIC ENVIRONMENT VARIABLE OAUTH INJECTION
+# V58: OAUTH INJECTION
 # ==============================================================================
 pytube_tokens_env = os.environ.get('PYTUBE_TOKENS')
 if pytube_tokens_env:
     try:
         with open('tokens.json', 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info("✅ V57: Successfully injected Render Environment Variable 'PYTUBE_TOKENS' into local memory.")
+        logger.info("✅ V58: Tokens injected successfully.")
     except Exception as e:
-        logger.error(f"❌ V57: Failed to write PYTUBE_TOKENS environment variable: {e}")
-else:
-    logger.warning("⚠️ V57: 'PYTUBE_TOKENS' environment variable not found in Render. Pytube fallback may fail Bot Checks.")
+        logger.error(f"❌ V58: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -49,7 +47,6 @@ def cleanup_worker():
                     try: os.remove(filepath)
                     except: pass
         except: pass
-
         try:
             for tid in list(active_tasks.keys()):
                 task = active_tasks.get(tid)
@@ -83,18 +80,22 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# V57: THE TRINITY FALLBACK ENGINE (STREAMING)
+# V58: THE TRINITY FALLBACK ENGINE (FASTEST FIRST, DATA SAVER MODE)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: YT-DLP ---
+    # --- TIER 1: YT-DLP (MAXIMUM DATA SAVER) ---
     try:
         logger.info(f"Tier 1: Attempting yt-dlp extraction for {url}")
         ydl_opts = {
             'quiet': True,
-            'format': 'bestaudio/best' if is_audio else 'best',
+            # V58: Forces lowest possible bitrate audio to save massive data
+            'format': 'bestaudio[abr<=64]/worstaudio/best' if is_audio else 'best',
             'noplaylist': True,
             'extractor_args': {'youtube': ['player_client:ios,tv', 'player_skip:web', 'comment_client:none']}
         }
+        if os.path.exists('cookies.txt'):
+            ydl_opts['cookiefile'] = 'cookies.txt'
+            
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if 'url' in info:
@@ -103,9 +104,25 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"yt-dlp failed: {e}")
 
-    # --- TIER 2: COBALT API ---
+    # --- TIER 2: PYTUBE (MAXIMUM DATA SAVER) ---
     try:
-        logger.info("Tier 2: Attempting Cobalt API fallback...")
+        logger.info("Tier 2: Attempting Pytube fallback...")
+        yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, token_file='tokens.json')
+        if is_audio:
+            # V58: Grabs the absolute smallest file size stream
+            stream = yt.streams.filter(only_audio=True).order_by('abr').first()
+        else:
+            stream = yt.streams.get_lowest_resolution()
+            
+        if stream and stream.url:
+            logger.info("Pytube SUCCESS.")
+            return stream.url
+    except Exception as e:
+        logger.error(f"Pytube failed: {e}")
+
+    # --- TIER 3: COBALT API (SLOWEST, LAST RESORT) ---
+    try:
+        logger.info("Tier 3: Attempting Cobalt API fallback...")
         res = requests.post(
             "https://api.cobalt.tools/api/json",
             headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
@@ -120,23 +137,6 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"Cobalt failed: {e}")
 
-    # --- TIER 3: PYTUBE (WITH INJECTED OAUTH TOKENS) ---
-    try:
-        logger.info("Tier 3: Attempting Pytube fallback with injected tokens...")
-        # V57: Explicitly points pytubefix to our injected tokens.json file
-        yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, token_file='tokens.json')
-        if is_audio:
-            stream = yt.streams.get_audio_only()
-        else:
-            stream = yt.streams.get_highest_resolution()
-            
-        if stream and stream.url:
-            logger.info("Pytube SUCCESS.")
-            return stream.url
-    except Exception as e:
-        logger.error(f"Pytube failed: {e}")
-
-    # TIER 4: ALL FAILED (Will trigger user toast notification)
     return None
 
 # ==============================================================================
@@ -154,25 +154,26 @@ PLAYER_HTML = """
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
         
+        /* V58: Lag-Free Hardware Acceleration applied to heavy elements */
         body { background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #020617); background-size: 400% 400%; animation: ambientDrift 15s ease infinite; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; position: relative; }
         @keyframes ambientDrift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
         body.theme-cyberpunk { background: linear-gradient(-45deg, #2a0845, #6441A5, #ff0844, #1a0b2e); background-size: 400% 400%; }
         body.theme-sunset { background: linear-gradient(-45deg, #ff7eb3, #ff758c, #ff9a44, #fc6076); background-size: 400% 400%; }
 
-        .bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: -1; animation: floatOrb 10s ease-in-out infinite alternate; pointer-events: none;}
+        .bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: -1; animation: floatOrb 10s ease-in-out infinite alternate; pointer-events: none; transform: translateZ(0); will-change: transform;}
         .orb-1 { width: 300px; height: 300px; top: -100px; left: -100px; background: #4facfe; }
         .orb-2 { width: 400px; height: 400px; bottom: 10vh; right: -150px; background: #ff0844; animation-delay: -5s; }
         @keyframes floatOrb { 0% { transform: translateY(0) scale(1); } 100% { transform: translateY(50px) scale(1.1); } }
 
-        .container { width: 100%; max-width: 800px; padding-bottom: 150px; position: relative; z-index: 10; }
+        .container { width: 100%; max-width: 800px; padding-bottom: 150px; position: relative; z-index: 10; transform: translateZ(0);}
         
-        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; }
+        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%) translateZ(0); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; will-change: top;}
         #global-loader.active { top: 20px; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s ease-in-out infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(20px); box-shadow: 5px 0 25px rgba(0,0,0,0.8); z-index: 9999; transition: left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; border-right: 1px solid rgba(255,255,255,0.1); }
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(20px); box-shadow: 5px 0 25px rgba(0,0,0,0.8); z-index: 9999; transition: left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; flex-direction: column; padding: 30px 20px; border-right: 1px solid rgba(255,255,255,0.1); transform: translateZ(0); will-change: left;}
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
         .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; transition: 0.2s;}
@@ -181,9 +182,9 @@ PLAYER_HTML = """
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; backdrop-filter: blur(5px);}
 
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
-        .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .toast { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; transform: translateZ(0);}
         .toast.success { border-left-color: #1db954; }
-        .toast.error { border-left-color: #ff0844; }
+        .toast.error { border-left-color: #ff0844; background: rgba(40,10,10,0.95);}
         @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
@@ -212,7 +213,7 @@ PLAYER_HTML = """
         .play-selected-btn { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); color: black; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: 0.3s;}
         .play-selected-btn:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(29,185,84,0.4); }
 
-        .card { background: rgba(30, 41, 59, 0.6); border-radius: 16px; display: flex; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; animation: cardStagger 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards; position: relative; overflow: hidden; backdrop-filter: blur(10px); flex-wrap: wrap;}
+        .card { background: rgba(30, 41, 59, 0.6); border-radius: 16px; display: flex; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; animation: cardStagger 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards; position: relative; overflow: hidden; backdrop-filter: blur(10px); flex-wrap: wrap; transform: translateZ(0); will-change: transform, border-color;}
         .card:hover { border-color: #4facfe; transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.5); }
         @keyframes cardStagger { 0% { opacity: 0; transform: translateY(40px) scale(0.9); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
         
@@ -254,10 +255,10 @@ PLAYER_HTML = """
         .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 0.6s linear; background: rgba(255, 255, 255, 0.4); pointer-events: none;}
         @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 
-        /* FULLSCREEN AUDIO PLAYER */
-        #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(30px); padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
+        /* V58: MINIBAR CLICK EXPANSION */
+        #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(30px); padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto; will-change: top; transform: translateZ(0);}
         #audio-player-bar.active { top: 0; }
-        #audio-player-bar.mini { top: auto; bottom: 0; height: 95px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 24px 24px 0 0; background: rgba(15, 23, 42, 0.95); border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -10px 40px rgba(0,0,0,0.8);}
+        #audio-player-bar.mini { top: auto; bottom: 0; height: 95px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 24px 24px 0 0; background: rgba(15, 23, 42, 0.95); border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -10px 40px rgba(0,0,0,0.8); cursor: pointer;}
         
         .full-only { display: flex; width: 100%; justify-content: space-between; position: absolute; top: 20px; padding: 0 25px; z-index: 3000; pointer-events: auto;}
         .mini .full-only { display: none !important; }
@@ -268,7 +269,7 @@ PLAYER_HTML = """
         .mini-close { display: none; }
         .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto; font-family: monospace; font-weight:bold;}
 
-        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 20px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; box-shadow: 0 20px 50px rgba(0,0,0,0.6);}
+        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 20px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 20px 50px rgba(0,0,0,0.6); transform: translateZ(0);}
         .vinyl-mode { border-radius: 50% !important; animation: recordSpin 10s linear infinite; box-shadow: 0 0 0 10px rgba(0,0,0,0.8), 0 0 30px #1db954 !important;}
         @keyframes recordSpin { 100% { transform: rotate(360deg); } }
         
@@ -276,7 +277,7 @@ PLAYER_HTML = """
         @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #1db954; } 100% { box-shadow: 0 0 50px #4facfe, 0 0 80px #1db954; } }
         .mini #ap-cover { width: 65px; height: 65px; margin: 0; animation: none; border-radius:12px !important; box-shadow:none !important;}
         
-        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white; cursor:pointer;}
+        .marquee-wrapper { width: 100%; overflow: hidden; text-align: center; margin-bottom: 5px; color: white;}
         .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
         .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; color: white;}
         .mini .marquee-text { font-size: 1.1rem; }
@@ -427,7 +428,8 @@ PLAYER_HTML = """
         <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
     </div>
 
-    <div id="audio-player-bar">
+    <!-- V58: GOD-MODE AUDIO PLAYER (Hardware Accelerated & Expandable Minibar) -->
+    <div id="audio-player-bar" onclick="expandPlayer(event)">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">—</button>
             <button class="top-ctrl-btn" onclick="stopAudio(event)" title="Close">✖</button>
@@ -435,7 +437,7 @@ PLAYER_HTML = """
         
         <img id="ap-cover" src="" onclick="toggleVinylMode()">
         
-        <div class="marquee-wrapper" onclick="toggleMiniPlayer(event)">
+        <div class="marquee-wrapper">
             <span class="marquee-text" id="ap-title">Loading...</span>
         </div>
         <div id="ap-artist" style="display:block;">Unknown Artist</div>
@@ -474,24 +476,28 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
+    <!-- TRUE LANDSCAPE VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container" id="videoContainer">
             <div class="vid-controls">
                 <button class="close-video" onclick="closeVideo()">✖</button>
             </div>
-            <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+            <!-- V58: Bypass "Playback ID" errors using youtube-nocookie -->
+            <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             <a id="ytFallbackLink" class="yt-fallback-btn" href="#" target="_blank" style="display:none;">Watch in YouTube App</a>
         </div>
     </div>
 
+    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
             <img id="fullThumbImg" src="">
-            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844; border-radius:12px;" onclick="playFromLightbox()">▶ PLAY VIDEO IN LANDSCAPE</button>
+            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844; border-radius:12px;" onclick="playFromLightbox()">▶ PLAY VIDEO</button>
         </div>
     </div>
 
+    <!-- MODALS -->
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
@@ -509,6 +515,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
@@ -529,12 +536,13 @@ PLAYER_HTML = """
                     <div><strong>Rename Only</strong><div class="radio-desc">Raw download, instantly renames to .mp3. (⚡ Instant)</div></div>
                 </label>
             </div>
-            <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid #334155; border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Auth Status:</strong> Pytube OAuth Token Injected via Render Environment.</p>
+            <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> Data-Saver Phantom V58. Routing: yt-dlp -> Pytube -> Cobalt.</p>
             </div>
         </div>
     </div>
 
+    <!-- HISTORY MODAL -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -545,6 +553,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- TASKS MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -654,6 +663,13 @@ PLAYER_HTML = """
 
         const audioEngine = document.getElementById('audioEngine');
 
+        // V58: SILENT AUDIO ERROR LISTENER
+        audioEngine.onerror = (e) => {
+            showToast("⚠️ Stream Blocked/Expired. Please try another song or refresh.", "error");
+            stopAudio();
+            isErrorStopped = true;
+        };
+
         function showToast(msg, type='info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -702,6 +718,13 @@ PLAYER_HTML = """
             const hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
             const item = hist[index];
             if(!item) return;
+
+            // V58: Don't restart if already playing this exact history item
+            const vidId = item.id || (item.url ? item.url.split('v=')[1] : '');
+            if (currentPlayingVideoId === vidId && !audioEngine.paused && !isErrorStopped) {
+                document.getElementById('audio-player-bar').classList.remove('mini');
+                return;
+            }
 
             audioEngine.play().catch(e=>{}); 
             document.getElementById('historyModal').style.display = 'none';
@@ -981,6 +1004,7 @@ PLAYER_HTML = """
             } catch(e) {}
         }, 1000);
 
+        // V58: VIDEO IFRAME ERROR FIX (Using youtube-nocookie to bypass tracking embeds blocks)
         async function startVideo(id) {
             stopAudio(); 
             let itemToSave = currentResults.find(i => (i.id === id || i.url.includes(id))) || {title: "Video Stream", uploader: "Unknown", url: id};
@@ -989,7 +1013,8 @@ PLAYER_HTML = """
             const modal = document.getElementById('video-modal');
             modal.style.display = 'flex';
             
-            document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+            // Replaced youtube.com with youtube-nocookie.com
+            document.getElementById('ytIframe').src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
             
             try {
                 const container = document.getElementById('videoContainer');
@@ -1007,7 +1032,27 @@ PLAYER_HTML = """
             } catch(e) {}
         }
 
+        // V58: MINIBAR EXPANSION & SAME SONG LOGIC
+        function expandPlayer(e) {
+            const bar = document.getElementById('audio-player-bar');
+            if (bar.classList.contains('mini')) {
+                // Ensure we don't accidentally expand when clicking buttons/sliders
+                if (!e.target.closest('.controls') && !e.target.closest('.bottom-action-row') && !e.target.closest('.top-ctrl-btn')) {
+                    bar.classList.remove('mini');
+                }
+            }
+        }
+
         function playSingleAudio(index) { 
+            const item = currentResults[index];
+            const vidId = item.id || (item.url ? item.url.split('v=')[1] : '');
+            
+            // V58 FIX: If song is already playing, just expand player!
+            if (currentPlayingVideoId === vidId && !audioEngine.paused && !isErrorStopped) {
+                document.getElementById('audio-player-bar').classList.remove('mini');
+                return;
+            }
+
             audioEngine.play().catch(e=>{}); 
             isErrorStopped = false;
             audioQueue = currentResults.slice(index); 
@@ -1096,6 +1141,8 @@ PLAYER_HTML = """
                     audioEngine.play().then(() => {
                         startFadeIn();
                         if(isVinylMode) document.getElementById('ap-cover').classList.add('vinyl-mode');
+                        // Display Audio Name verification
+                        titleEl.innerText = item.title;
                     }).catch(e => {
                         showToast("Autoplay Blocked. Tap Play.", "error");
                         audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
@@ -1175,7 +1222,13 @@ PLAYER_HTML = """
             return `${m}:${s < 10 ? '0' : ''}${s}`;
         }
 
+        // V58: LAG FREE THROTTLING FOR PROGRESS BAR (Hardware Acceleration)
+        let lastTimeUpdate = 0;
         audioEngine.ontimeupdate = () => {
+            const now = Date.now();
+            if (now - lastTimeUpdate < 250) return; // Only updates UI 4 times a second
+            lastTimeUpdate = now;
+            
             let val = (audioEngine.currentTime / audioEngine.duration) * 100 || 0;
             document.getElementById('seekSlider').value = val;
             document.getElementById('seekSlider').style.background = `linear-gradient(to right, #ff0844 ${val}%, #334155 ${val}%)`;
@@ -1352,11 +1405,11 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
     try:
         active_tasks[task_id]['status'] = 'processing'
         active_tasks[task_id]['percent'] = 50
-        active_tasks[task_id]['speed'] = 'Trinity Core...'
+        active_tasks[task_id]['speed'] = 'Data Saver Core...'
         
         stream_url = fetch_stream_url(url, is_audio=(dl_type == 'mp3'))
         if not stream_url:
-            raise Exception("Failed to extract download URL via Trinity Fallback (yt-dlp -> Cobalt -> Pytube).")
+            raise Exception("Failed to extract download URL via Trinity Fallback (yt-dlp -> Pytube -> Cobalt).")
 
         raw_file = os.path.join(DOWNLOAD_DIR, f"{task_id}_raw.{dl_type}")
         r = requests.get(stream_url, stream=True, timeout=15)
@@ -1402,5 +1455,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V57 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V58 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
