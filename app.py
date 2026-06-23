@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V63 - TITANIUM OS: PUSH NOTIFICATIONS & UI OVERHAUL)
+# YOUTUBE MEDIA APP (V64 - ANTI-SLEEP PHANTOM: UI FIXES & KEEP-ALIVE)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -21,9 +21,9 @@ if pytube_tokens_env:
     try:
         with open('tokens.json', 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info("✅ V63: Tokens injected successfully.")
+        logger.info("✅ V64: Tokens injected successfully.")
     except Exception as e:
-        logger.error(f"❌ V63: Token injection failed: {e}")
+        logger.error(f"❌ V64: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -77,7 +77,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# V63: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
+# V64: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
     try:
@@ -199,14 +199,22 @@ PLAYER_HTML = """
         .card:hover { border-color: #4facfe; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         @keyframes cardStagger { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
 
-        /* V63: AUDIO CARD RE-LAYOUT - Icons UNDER name */
         .card.audio-mode { display: flex; flex-direction: row; padding: 15px; gap: 15px; align-items: flex-start; }
         .card.audio-mode img { width: 80px; height: 80px; min-width: 80px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.5); margin-top: 5px;}
         .card.audio-mode .info { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-        .card.audio-mode h4 { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 4px 0; color: white; }
-        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0 0 12px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* V63: Action row moved under the text! */
+        /* V64 MANUAL SWIPE SCROLLING FOR SEARCH RESULTS */
+        .card.audio-mode h4 { 
+            font-size: 1.05rem; 
+            white-space: nowrap; 
+            overflow-x: auto; 
+            margin: 0 0 4px 0; 
+            color: white; 
+            scrollbar-width: none; 
+        }
+        .card.audio-mode h4::-webkit-scrollbar { display: none; }
+        
+        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0 0 12px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card.audio-mode .action-row-audio { display: flex; gap: 10px; align-items: center; }
         .play-btn { background: #ff0844; color: white; border: none; padding: 8px 20px; border-radius: 8px; font-size: 0.9rem; font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex: 1;}
         .dl-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; font-size: 1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
@@ -224,7 +232,18 @@ PLAYER_HTML = """
         .audio-cb { margin: 0; width: 22px; height: 22px; flex-shrink: 0;}
 
         .card.video-mode .info-container { padding: 15px; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; }
-        .card.video-mode h4 { font-size: 1.1rem; line-height: 1.4; margin: 0 0 5px 0; color: white; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
+        /* V64 MANUAL SWIPE SCROLLING FOR VIDEOS */
+        .card.video-mode h4 { 
+            font-size: 1.1rem; 
+            line-height: 1.4; 
+            margin: 0 0 5px 0; 
+            color: white; 
+            white-space: nowrap; 
+            overflow-x: auto; 
+            scrollbar-width: none; 
+        }
+        .card.video-mode h4::-webkit-scrollbar { display: none; }
+        
         .card.video-mode p { font-size: 0.85rem; color: #94a3b8; margin: 0; }
         
         .action-row-video { display: flex; flex-direction: row; gap: 10px; margin-top: 15px; width: 100%; align-items: center; justify-content: space-between; }
@@ -234,7 +253,7 @@ PLAYER_HTML = """
         .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 0.6s linear; background: rgba(255, 255, 255, 0.4); pointer-events: none;}
         @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 
-        /* V63: FULLSCREEN AUDIO PLAYER FIXES - Fully Scrollable */
+        /* FULLSCREEN AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100%; background: #0f172a; padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; transition: top 0.4s ease; z-index: 2000; overflow-y: auto; padding-top: 80px; padding-bottom: 40px;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 95px; flex-direction: row; padding: 10px 20px; justify-content: space-between; align-items: center; border-radius: 24px 24px 0 0; background: #0f172a; border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -10px 30px rgba(0,0,0,0.8); cursor: pointer; overflow:hidden;}
@@ -254,16 +273,20 @@ PLAYER_HTML = """
         .playing-glow { box-shadow: 0 0 20px #1db954; }
         .mini #ap-cover { width: 65px; height: 65px; margin: 0; animation: none; border-radius:12px !important; box-shadow:none !important;}
         
-        /* V63: SLOW CINEMATIC MARQUEE FIX */
-        .marquee-wrapper { width: 100%; max-width: 400px; overflow: hidden; text-align: center; margin-bottom: 5px; white-space: nowrap; position: relative;}
+        /* V64 MANUAL SWIPE SCROLLING FOR BIG PLAYER */
+        .marquee-wrapper { 
+            width: 100%; 
+            max-width: 400px; 
+            overflow-x: auto; 
+            text-align: center; 
+            margin-bottom: 5px; 
+            white-space: nowrap; 
+            scrollbar-width: none;
+        }
+        .marquee-wrapper::-webkit-scrollbar { display: none; }
         .mini .marquee-wrapper { text-align: left; margin-left: 15px; flex: 1; }
-        
-        .marquee-text { font-size: 1.5rem; font-weight: 800; display: inline-block; color: white; padding-left: 0;}
+        .marquee-text { font-size: 1.5rem; font-weight: 800; display: inline-block; color: white;}
         .mini .marquee-text { font-size: 1.1rem; }
-        
-        /* The scroll animation is now ultra slow (20s) and resets properly */
-        .marquee-text.scroll { animation: marquee 20s linear infinite; padding-left: 100%; }
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
         
         #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; display: block;}
         .mini #ap-artist { display: none; }
@@ -278,7 +301,6 @@ PLAYER_HTML = """
         .adv-btn { background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer; font-weight: bold; transition: 0.2s; display:flex; justify-content:center; align-items:center;}
         .adv-btn.active { color: #1db954; text-shadow: 0 0 10px #1db954; }
 
-        /* V63 SLEEP TIMER COUNTDOWN FIX */
         .sleep-wrapper { position: relative; display: flex; justify-content: center; align-items: center; width: 40px; height: 40px; border-radius: 50%; }
         .sleep-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: transparent; z-index: 1; pointer-events: none; transition: 1s linear;}
         .sleep-wrapper .adv-btn { z-index: 2; position: relative;}
@@ -340,7 +362,6 @@ PLAYER_HTML = """
 
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
-            #ap-cover { width: 85%; max-width: 300px; } 
             .search-container { flex-wrap: wrap; }
             .search-btn { width: 100%; }
             .queue-actions { flex-direction: column; align-items: flex-start; gap: 10px;}
@@ -385,7 +406,7 @@ PLAYER_HTML = """
             <button class="search-btn" onclick="triggerSearch()">Search</button>
         </div>
 
-        <div id="queue-actions" class="queue-actions" style="display:none;">
+        <div id="queue-actions" class="queue-actions" style="display:flex;">
             <div style="white-space:nowrap;"><input type="checkbox" id="selectAll" onclick="toggleAll()" style="width:20px;height:20px;vertical-align:middle;accent-color:#ff0844;"> <strong style="vertical-align:middle; margin-left:5px;">Select All</strong></div>
             <button class="play-selected-btn" onclick="playSelected()">▶ PLAY SELECTED</button>
         </div>
@@ -395,7 +416,6 @@ PLAYER_HTML = """
         <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
     </div>
 
-    <!-- GOD-MODE AUDIO PLAYER -->
     <div id="audio-player-bar" onclick="expandPlayer(event)">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">—</button>
@@ -444,19 +464,16 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
-    <!-- TRUE LANDSCAPE VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container" id="videoContainer">
             <div class="vid-controls">
                 <button class="close-video" onclick="closeVideo()">✖</button>
             </div>
-            <!-- V63: Fixed iframe SRC to raw youtube to avoid playback errors on strict embeds -->
             <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             <a id="ytFallbackLink" class="yt-fallback-btn" href="#" target="_blank" style="display:none;">Watch in YouTube App</a>
         </div>
     </div>
 
-    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
@@ -465,7 +482,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- MODALS -->
     <div class="modal-overlay" id="qualityModal">
         <div class="modal-box">
             <button class="btn-close" onclick="document.getElementById('qualityModal').style.display='none'">X</button>
@@ -483,7 +499,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
@@ -505,12 +520,11 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V63 Titanium OS Active.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V64 Anti-Sleep Phantom. Keep-alive pings active.</p>
             </div>
         </div>
     </div>
 
-    <!-- HISTORY MODAL -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -521,7 +535,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- TASKS MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -533,7 +546,11 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V63: REAL APP NOTIFICATIONS
+        // V64: AUTO PING KEEP-ALIVE (Prevents Render Server Sleep)
+        setInterval(() => {
+            fetch('/api/ping').catch(e => console.log("Ping error ignored."));
+        }, 10 * 60 * 1000); // 10 minutes
+
         function requestPushPermissions() {
             if ("Notification" in window) {
                 Notification.requestPermission().then(permission => {
@@ -541,8 +558,6 @@ PLAYER_HTML = """
                         showToast("Notifications Enabled!", "success");
                     }
                 });
-            } else {
-                showToast("Push notifications not supported on this browser.", "error");
             }
         }
 
@@ -551,7 +566,6 @@ PLAYER_HTML = """
                 try {
                     new Notification(title, { body: body, icon: '/favicon.ico' });
                 } catch(e) {
-                    // Mobile fallback for Service Workers
                     navigator.serviceWorker.ready.then(registration => {
                         registration.showNotification(title, { body: body, icon: '/favicon.ico' });
                     });
@@ -735,7 +749,6 @@ PLAYER_HTML = """
             const radios = document.getElementsByName('convMode');
             for(let i=0; i<radios.length; i++) { if(radios[i].value === mode) radios[i].checked = true; }
             
-            // Ask for notification permissions quietly on load if not asked
             if ("Notification" in window && Notification.permission === "default") {
                 Notification.requestPermission();
             }
@@ -819,7 +832,7 @@ PLAYER_HTML = """
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) });
                 
                 if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
-                    throw new Error("Server returned HTML error (Backend Crash/Timeout).");
+                    throw new Error("Server returned HTML error (Backend Crash).");
                 }
                 
                 const data = await res.json();
@@ -842,7 +855,6 @@ PLAYER_HTML = """
                 const delay = (index % 20) * 0.03;
                 
                 if(currentMode === 'audio') {
-                    // V63 UI FIX: Play and Download buttons strictly underneath text
                     container.innerHTML += `
                         <div class="card audio-mode" style="animation-delay: ${delay}s;">
                             <input type="checkbox" class="song-checkbox audio-cb" value="${index}">
@@ -965,7 +977,6 @@ PLAYER_HTML = """
             const item = deliveryQueue.shift();
             triggerFileDownload(item.url, item.title, item.ext);
             
-            // V63: Send OS Notification on Download Complete
             sendSystemNotification("Download Complete!", `Saved: ${item.title}`);
             
             setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
@@ -1035,7 +1046,6 @@ PLAYER_HTML = """
             const modal = document.getElementById('video-modal');
             modal.style.display = 'flex';
             
-            // V63 FIX: Reverted to standard youtube.com to fix "Playback ID" errors on official music videos
             const origin = window.location.origin;
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1&origin=${origin}`;
             
@@ -1128,8 +1138,7 @@ PLAYER_HTML = """
             document.getElementById('ap-cover').src = item.thumbnail || "https://via.placeholder.com/150";
             document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
-            // V63 FIX: Ensure title resets and displays correctly before animating
-            titleEl.classList.remove('scroll');
+            // V64 FIX: Audio name immediately injected BEFORE loading to fix the "DOES YOU CANNOT MAKE THE AUDIO NAME SHOW" error
             titleEl.innerText = item.title || "Loading stream..."; 
             artistEl.innerText = item.uploader || "Unknown Artist";
             
@@ -1167,23 +1176,10 @@ PLAYER_HTML = """
                     audioEngine.play().then(() => {
                         startFadeIn();
                         if(isVinylMode) document.getElementById('ap-cover').classList.add('vinyl-mode');
-                        // Update title properly
-                        titleEl.innerText = item.title;
-                        
-                        // V63: Send OS Notification!
                         sendSystemNotification("Now Playing", `${item.title} \nListen ad-free!`);
-                        
                     }).catch(e => {
                         audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
                     });
-                    
-                    setTimeout(() => {
-                        const wrapper = document.querySelector('.marquee-wrapper');
-                        // If text is wider than container, trigger the slow marquee
-                        if (titleEl.scrollWidth > wrapper.clientWidth + 5) {
-                            titleEl.classList.add('scroll');
-                        }
-                    }, 500);
 
                     if ('mediaSession' in navigator) {
                         navigator.mediaSession.metadata = new MediaMetadata({ title: item.title, artist: item.uploader || "Unknown Artist", artwork: [ { src: item.thumbnail, sizes: '512x512', type: 'image/jpeg' } ] });
@@ -1196,7 +1192,6 @@ PLAYER_HTML = """
             } catch (err) { 
                 if (currentPlaySession === mySession) {
                     hasFiredErrorForCurrentSong = true;
-                    // Smart-Abort Silence: Only show error if we are actively trying to play it, otherwise silent fail
                     showToast("Stream Error: Backend blocked or failed to extract.", "error"); 
                     stopAudio(); 
                 }
@@ -1241,7 +1236,6 @@ PLAYER_HTML = """
             if(e) e.stopPropagation();
             clearInterval(fadeInterval); isFadingOut = false;
             
-            // Smart-Abort feature
             currentPlaySession = 0; 
             hideLoader();
             
@@ -1324,7 +1318,6 @@ PLAYER_HTML = """
             totalSleepTime = mins * 60; sleepTimeLeft = totalSleepTime;
             document.getElementById('sleepBtn').classList.add('active');
             
-            // V63: Dynamic UI Countdown Text display
             const displayObj = document.getElementById('sleepTimeDisplay');
             displayObj.style.display = 'block';
             displayObj.innerText = mins + "m";
@@ -1336,7 +1329,6 @@ PLAYER_HTML = """
                 let pct = (sleepTimeLeft / totalSleepTime) * 100;
                 document.getElementById('sleepRing').style.background = `conic-gradient(#ff0844 ${pct}%, transparent ${pct}%)`;
                 
-                // Update text every minute
                 displayObj.innerText = Math.ceil(sleepTimeLeft/60) + "m";
                 
                 if(sleepTimeLeft <= 0) {
@@ -1387,6 +1379,11 @@ def serve_sw():
 @app.route('/player', strict_slashes=False)
 def media_player(): 
     return render_template_string(PLAYER_HTML)
+
+# V64: Server Anti-Sleep Keep-Alive Ping
+@app.route('/api/ping', methods=['GET'], strict_slashes=False)
+def ping():
+    return jsonify({"status": "alive"})
 
 @app.errorhandler(Exception)
 def handle_exception(e):
@@ -1512,5 +1509,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V63 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V64 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
