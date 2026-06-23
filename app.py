@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V60 - PYTUBE VANGUARD: PYTUBE -> YTDLP -> COBALT)
+# YOUTUBE MEDIA APP (V61 - IRONCLAD MOBILE: UI & LAG FIXES)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -21,9 +21,9 @@ if pytube_tokens_env:
     try:
         with open('tokens.json', 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info("✅ V60: Tokens injected successfully.")
+        logger.info("✅ V61: Tokens injected successfully.")
     except Exception as e:
-        logger.error(f"❌ V60: Token injection failed: {e}")
+        logger.error(f"❌ V61: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -77,15 +77,13 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# V60: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
+# V61: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBE (FASTEST, OAUTH TOKEN SHIELD) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, token_file='tokens.json')
         if is_audio:
-            # Grabs the absolute smallest file size stream for zero-lag loading
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
         else:
             stream = yt.streams.get_lowest_resolution()
@@ -94,7 +92,6 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.error(f"Pytube failed: {e}")
 
-    # --- TIER 2: YT-DLP (MAXIMUM DATA SAVER) ---
     try:
         logger.info(f"Tier 2: Attempting yt-dlp fallback for {url}")
         ydl_opts = {
@@ -112,7 +109,6 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"yt-dlp failed: {e}")
 
-    # --- TIER 3: COBALT API (SLOWEST, LAST RESORT) ---
     try:
         logger.info("Tier 3: Attempting Cobalt API fallback...")
         res = requests.post(
@@ -150,7 +146,6 @@ PLAYER_HTML = """
         body.theme-cyberpunk { background: linear-gradient(-45deg, #2a0845, #6441A5, #ff0844, #1a0b2e); background-size: 400% 400%; }
         body.theme-sunset { background: linear-gradient(-45deg, #ff7eb3, #ff758c, #ff9a44, #fc6076); background-size: 400% 400%; }
 
-        /* V60 PERFORMANCE FIX: Radial-gradients instead of blur() */
         .bg-orb { position: absolute; border-radius: 50%; z-index: -1; animation: floatOrb 10s ease-in-out infinite alternate; pointer-events: none; transform: translateZ(0); will-change: transform;}
         .orb-1 { width: 300px; height: 300px; top: -100px; left: -100px; background: radial-gradient(circle, rgba(79,172,254,0.4) 0%, rgba(79,172,254,0) 70%); }
         .orb-2 { width: 400px; height: 400px; bottom: 10vh; right: -150px; background: radial-gradient(circle, rgba(255,8,68,0.4) 0%, rgba(255,8,68,0) 70%); animation-delay: -5s; }
@@ -195,25 +190,26 @@ PLAYER_HTML = """
         .mode-btn { flex:1; padding: 12px; border-radius: 12px; font-weight: 800; border:none; background:rgba(0,0,0,0.3); color:#94a3b8; cursor:pointer; transition:0.3s; border: 1px solid rgba(255,255,255,0.05);}
         .mode-btn.active { background: #ff0844; color: white; box-shadow: 0 5px 15px rgba(255,8,68,0.4); border-color: #ff0844;}
 
-        #results { display: flex; flex-direction: column; gap: 15px; }
+        #results { display: flex; flex-direction: column; gap: 12px; }
 
         .queue-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; background: rgba(30, 41, 59, 0.9); padding: 10px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; gap: 10px;}
         .play-selected-btn { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); color: black; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: 0.3s;}
 
-        .card { background: rgba(30, 41, 59, 0.8); border-radius: 16px; display: flex; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; animation: cardStagger 0.4s ease backwards; position: relative; overflow: hidden; flex-wrap: wrap;}
-        .card:hover { border-color: #4facfe; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
-        @keyframes cardStagger { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+        /* V61 UI FIX: Ironclad container restrictions */
+        .card { background: rgba(30, 41, 59, 0.8); border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; animation: cardStagger 0.3s ease backwards; position: relative; overflow: hidden;}
+        .card:hover { border-color: #4facfe; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        @keyframes cardStagger { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
         
-        .card.audio-mode { flex-direction: row; padding: 12px; gap: 15px; align-items: center; }
-        .card.audio-mode img { width: 70px; height: 70px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s;}
-        .card.audio-mode img:hover { transform: scale(1.05) rotate(3deg); }
-        .card.audio-mode .info { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-        .card.audio-mode h4 { font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 4px 0; color: white; }
-        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* AUDIO CARD LAYOSUT LOCK */
+        .card.audio-mode { display: flex; flex-direction: row; padding: 10px; gap: 12px; align-items: center; flex-wrap: nowrap !important; }
+        .card.audio-mode img { min-width: 60px; min-height: 60px; width: 60px; height: 60px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0 !important; box-shadow: 0 3px 10px rgba(0,0,0,0.5);}
+        .card.audio-mode .info { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; min-width: 0; overflow: hidden; }
+        .card.audio-mode h4 { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 0 3px 0; color: white; }
+        .card.audio-mode p { font-size: 0.75rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card.audio-mode .action-row-audio { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
         
-        .play-btn { background: #ff0844; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); position: relative; overflow: hidden;}
-        .dl-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); width: 45px; height: 45px; border-radius: 50%; font-size: 1.1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;}
+        .play-btn { background: #ff0844; color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
+        .dl-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); width: 40px; height: 40px; border-radius: 50%; font-size: 1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
         .dl-btn:hover { background: #4facfe; border-color: #4facfe; }
 
         .card.video-mode { flex-direction: column; padding: 0; }
@@ -223,7 +219,6 @@ PLAYER_HTML = """
         .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none; }
         
         .video-cb, .audio-cb { accent-color: #ff0844; cursor: pointer; transition: 0.2s;}
-        
         .video-cb { position: absolute; top: 10px; left: 10px; width: 25px; height: 25px; z-index: 5; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
         .audio-cb { margin: 0; width: 22px; height: 22px; flex-shrink: 0;}
 
@@ -285,7 +280,7 @@ PLAYER_HTML = """
         .mini .controls { width: auto; gap: 15px; margin-bottom: 0;}
         .ctrl-btn { background: none; border: none; color: white; font-size: 2rem; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;}
         .ctrl-play { background: white; color: black; width: 75px; height: 75px; border-radius: 50%; font-size: 2.5rem; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(255,255,255,0.3);}
-        .mini .ctrl-play { width: 50px; height: 50px; font-size: 1.8rem; background: transparent; color: white; box-shadow: none;}
+        .mini .ctrl-play { width: 45px; height: 45px; font-size: 1.6rem; background: transparent; color: white; box-shadow: none;}
         
         .volume-row { display: flex; align-items: center; gap: 10px; width: 80%; max-width: 300px; color: #94a3b8; margin-bottom: 20px;}
         .mini .volume-row { display: none; }
@@ -338,9 +333,6 @@ PLAYER_HTML = """
         @media (max-width: 600px) { 
             .side-nav { width: 250px; } 
             #ap-cover { width: 85%; max-width: 300px; } 
-            .card.audio-mode { flex-direction: column; align-items: center; text-align: center; }
-            .card.audio-mode img { width: 100%; max-width: 250px; height: auto; aspect-ratio: 1; margin: 0 auto;}
-            .card.audio-mode .action-row { width: 100%; display: flex; flex-wrap: wrap; justify-content: center;}
             .search-container { flex-wrap: wrap; }
             .search-btn { width: 100%; }
             .queue-actions { flex-direction: column; align-items: flex-start; gap: 10px;}
@@ -382,7 +374,7 @@ PLAYER_HTML = """
 
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="Search for songs or artists..." autocomplete="off">
-            <button class="search-btn" onclick="search(true)">Search</button>
+            <button class="search-btn" onclick="triggerSearch()">Search</button>
         </div>
 
         <div id="queue-actions" class="queue-actions" style="display:none;">
@@ -498,7 +490,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V60 Vanguard active. Routing: Pytube -> yt-dlp -> Cobalt.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V61 Ironclad Mobile. Routing: Pytube -> yt-dlp -> Cobalt.</p>
             </div>
         </div>
     </div>
@@ -597,8 +589,6 @@ PLAYER_HTML = """
         let currentResults = [];
         let currentSearchLimit = 10;
         let pendingDownloadTarget = null; 
-        let taskDOMMap = {}; 
-        let typingTimer; 
         let isFetchingMore = false; 
 
         let audioQueue = [];
@@ -724,7 +714,7 @@ PLAYER_HTML = """
             const params = new URLSearchParams(window.location.search);
             if (params.get('url')) { 
                 document.getElementById('searchInput').value = params.get('url'); 
-                search(true); 
+                triggerSearch(); 
             }
         });
 
@@ -751,11 +741,18 @@ PLAYER_HTML = """
             if(currentResults.length > 0) renderResults();
         }
 
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            clearTimeout(typingTimer);
-            if(!e.target.value.trim()) return;
-            typingTimer = setTimeout(() => { search(true); }, 2000); 
+        // V61 KEYBOARD FIX: Listen for "Enter" key on keyboard
+        document.getElementById('searchInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                triggerSearch();
+            }
         });
+
+        function triggerSearch() {
+            document.getElementById('searchInput').blur(); // V61 FIX: Closes the mobile keyboard instantly
+            search(true);
+        }
 
         function loadMore() { currentSearchLimit += 20; search(false); }
 
@@ -795,7 +792,7 @@ PLAYER_HTML = """
             currentResults.forEach((item, index) => {
                 const uploader = item.uploader || 'Unknown';
                 const videoId = item.id || (item.url ? item.url.split('v=')[1] : '');
-                const delay = (index % 20) * 0.05;
+                const delay = (index % 20) * 0.03;
                 
                 if(currentMode === 'audio') {
                     container.innerHTML += `
@@ -1420,24 +1417,4 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
 def trigger_download():
     task_id = str(uuid.uuid4())
     conv_mode = request.json.get('conv_mode', 'fast')
-    active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at': time.time()}
-    threading.Thread(target=background_downloader, args=(task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), request.json.get('burn_subs', False), conv_mode), daemon=True).start()
-    return jsonify({'task_id': task_id})
-
-@app.route('/api/serve', methods=['GET'], strict_slashes=False)
-def serve_file():
-    file_path = request.args.get('file')
-    if not file_path or not os.path.exists(file_path): return "File not found", 404
-    
-    filename = urllib.parse.unquote(os.path.basename(file_path))
-    return send_file(os.path.abspath(file_path), as_attachment=True, download_name=filename)
-
-@app.errorhandler(404)
-def page_not_found(e):
-    if request.path.startswith('/api/'):
-        return jsonify(error="Not found"), 404
-    return redirect('/')
-
-if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V60 ONLINE 🔥\n" + "="*50 + "\n")
-    app.run(host="0.0.0.0", port=5000)
+    active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at
