@@ -1,9 +1,10 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V54 - CORS ASSASSIN: SERVER-SIDE COBALT CORE)
+# YOUTUBE MEDIA APP (V57 - TRINITY TOKEN ENGINE: OAUTH INJECTION)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
 import yt_dlp
+from pytubefix import YouTube
 import os
 import time
 import threading
@@ -14,6 +15,20 @@ import requests
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
+
+# ==============================================================================
+# V57: DYNAMIC ENVIRONMENT VARIABLE OAUTH INJECTION
+# ==============================================================================
+pytube_tokens_env = os.environ.get('PYTUBE_TOKENS')
+if pytube_tokens_env:
+    try:
+        with open('tokens.json', 'w', encoding='utf-8') as f:
+            f.write(pytube_tokens_env)
+        logger.info("✅ V57: Successfully injected Render Environment Variable 'PYTUBE_TOKENS' into local memory.")
+    except Exception as e:
+        logger.error(f"❌ V57: Failed to write PYTUBE_TOKENS environment variable: {e}")
+else:
+    logger.warning("⚠️ V57: 'PYTUBE_TOKENS' environment variable not found in Render. Pytube fallback may fail Bot Checks.")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -67,36 +82,13 @@ def get_progress_hook(task_id):
         except: pass
     return progress_hook
 
-# V54: Server-Side API Routing (Bypasses Browser CORS Blocks)
+# ==============================================================================
+# V57: THE TRINITY FALLBACK ENGINE (STREAMING)
+# ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # Method 1: Cobalt API Backend Request
+    # --- TIER 1: YT-DLP ---
     try:
-        logger.info(f"Attempting Cobalt API Extraction for: {url}")
-        res = requests.post(
-            "https://api.cobalt.tools/api/json",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            },
-            json={
-                "url": url,
-                "isAudioOnly": is_audio,
-                "aFormat": "mp3"
-            },
-            timeout=10
-        )
-        if res.status_code == 200:
-            data = res.json()
-            if 'url' in data:
-                logger.info("Cobalt Extraction SUCCESS.")
-                return data['url']
-    except Exception as e:
-        logger.error(f"Cobalt Server-Side failed: {e}")
-
-    # Method 2: Internal yt-dlp Fallback with Mobile Spoofing
-    try:
-        logger.info("Cobalt failed. Falling back to internal yt-dlp extraction...")
+        logger.info(f"Tier 1: Attempting yt-dlp extraction for {url}")
         ydl_opts = {
             'quiet': True,
             'format': 'bestaudio/best' if is_audio else 'best',
@@ -106,11 +98,45 @@ def fetch_stream_url(url, is_audio=True):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if 'url' in info:
-                logger.info("yt-dlp Extraction SUCCESS.")
+                logger.info("yt-dlp SUCCESS.")
                 return info['url']
     except Exception as e:
-        logger.error(f"yt-dlp fallback failed: {e}")
+        logger.warning(f"yt-dlp failed: {e}")
 
+    # --- TIER 2: COBALT API ---
+    try:
+        logger.info("Tier 2: Attempting Cobalt API fallback...")
+        res = requests.post(
+            "https://api.cobalt.tools/api/json",
+            headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"},
+            timeout=10
+        )
+        if res.status_code == 200:
+            data = res.json()
+            if 'url' in data:
+                logger.info("Cobalt SUCCESS.")
+                return data['url']
+    except Exception as e:
+        logger.warning(f"Cobalt failed: {e}")
+
+    # --- TIER 3: PYTUBE (WITH INJECTED OAUTH TOKENS) ---
+    try:
+        logger.info("Tier 3: Attempting Pytube fallback with injected tokens...")
+        # V57: Explicitly points pytubefix to our injected tokens.json file
+        yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, token_file='tokens.json')
+        if is_audio:
+            stream = yt.streams.get_audio_only()
+        else:
+            stream = yt.streams.get_highest_resolution()
+            
+        if stream and stream.url:
+            logger.info("Pytube SUCCESS.")
+            return stream.url
+    except Exception as e:
+        logger.error(f"Pytube failed: {e}")
+
+    # TIER 4: ALL FAILED (Will trigger user toast notification)
     return None
 
 # ==============================================================================
@@ -503,6 +529,9 @@ PLAYER_HTML = """
                     <div><strong>Rename Only</strong><div class="radio-desc">Raw download, instantly renames to .mp3. (⚡ Instant)</div></div>
                 </label>
             </div>
+            <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid #334155; border-radius:12px;">
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Auth Status:</strong> Pytube OAuth Token Injected via Render Environment.</p>
+            </div>
         </div>
     </div>
 
@@ -568,7 +597,6 @@ PLAYER_HTML = """
             }
         }
 
-        // PWA LOGIC
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(err => {});
@@ -875,7 +903,6 @@ PLAYER_HTML = """
             let convMode = localStorage.getItem('audio_conversion_mode') || 'fast';
 
             try {
-                // V54: Secure Python Backend Request
                 const res = await fetch('/api/download', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ client_id: clientId, url: pendingDlUrl, title: pendingDlTitle, type: pendingDlType, quality: quality, burn_subs: false, conv_mode: convMode }) 
@@ -980,7 +1007,6 @@ PLAYER_HTML = """
             } catch(e) {}
         }
 
-        // STRICT QUEUE AUDIO ENGINE
         function playSingleAudio(index) { 
             audioEngine.play().catch(e=>{}); 
             isErrorStopped = false;
@@ -1054,7 +1080,6 @@ PLAYER_HTML = """
             
             showLoader();
             try {
-                // V54: Secure Python Backend Request to Bypass Browser CORS
                 const res = await fetch('/api/stream_audio', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1091,7 +1116,7 @@ PLAYER_HTML = """
                 }
             } catch (err) { 
                 isErrorStopped = true;
-                showToast("Stream Error. Playback stopped.", "error"); 
+                showToast("Stream Error: All methods failed. YouTube blocked request.", "error"); 
                 stopAudio(); 
             }
             finally { hideLoader(); }
@@ -1271,7 +1296,7 @@ def stream_audio():
     if stream_url:
         return jsonify({'stream_url': stream_url})
     else:
-        return jsonify({'error': 'Stream extraction completely failed. IP may be blocked.'}), 500
+        return jsonify({'error': 'Stream extraction completely failed. All 3 methods blocked.'}), 500
 
 @app.route('/api/tasks', methods=['GET'], strict_slashes=False)
 def get_tasks():
@@ -1327,13 +1352,12 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
     try:
         active_tasks[task_id]['status'] = 'processing'
         active_tasks[task_id]['percent'] = 50
-        active_tasks[task_id]['speed'] = 'Cobalt API...'
+        active_tasks[task_id]['speed'] = 'Trinity Core...'
         
         stream_url = fetch_stream_url(url, is_audio=(dl_type == 'mp3'))
         if not stream_url:
-            raise Exception("Failed to extract download URL via Cobalt & internal fallback.")
+            raise Exception("Failed to extract download URL via Trinity Fallback (yt-dlp -> Cobalt -> Pytube).")
 
-        # V54 Download Engine
         raw_file = os.path.join(DOWNLOAD_DIR, f"{task_id}_raw.{dl_type}")
         r = requests.get(stream_url, stream=True, timeout=15)
         r.raise_for_status()
@@ -1378,5 +1402,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V54 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V57 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
