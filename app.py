@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V64 - ANTI-SLEEP PHANTOM: UI FIXES & KEEP-ALIVE)
+# YOUTUBE MEDIA APP (V65 - INDIA GEO-CORE: HINDI REGION & UI SCALING)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -21,9 +21,9 @@ if pytube_tokens_env:
     try:
         with open('tokens.json', 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info("✅ V64: Tokens injected successfully.")
+        logger.info("✅ V65: Tokens injected successfully.")
     except Exception as e:
-        logger.error(f"❌ V64: Token injection failed: {e}")
+        logger.error(f"❌ V65: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -77,7 +77,7 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# V64: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
+# V65: THE TRINITY FALLBACK ENGINE (INDIA GEO-SPOOFED)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
     try:
@@ -94,11 +94,17 @@ def fetch_stream_url(url, is_audio=True):
 
     try:
         logger.info(f"Tier 2: Attempting yt-dlp fallback for {url}")
+        # V65 FIX: Injected India Geo-Bypass & Hindi Language priority headers
         ydl_opts = {
             'quiet': True,
             'format': 'bestaudio[abr<=64]/worstaudio/best' if is_audio else 'best',
             'noplaylist': True,
-            'extractor_args': {'youtube': ['player_client:ios,tv', 'player_skip:web', 'comment_client:none']}
+            'geo_bypass': True,
+            'geo_bypass_country': 'IN',
+            'http_headers': {
+                'Accept-Language': 'hi-IN,hi;q=0.9,en-US;q=0.8,en;q=0.7'
+            },
+            'extractor_args': {'youtube': ['player_client:ios,tv', 'player_skip:web', 'comment_client:none', 'lang:hi']}
         }
         if os.path.exists('cookies.txt'):
             ydl_opts['cookiefile'] = 'cookies.txt'
@@ -113,7 +119,12 @@ def fetch_stream_url(url, is_audio=True):
         logger.info("Tier 3: Attempting Cobalt API fallback...")
         res = requests.post(
             "https://api.cobalt.tools/api/json",
-            headers={"Accept": "application/json", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            headers={
+                "Accept": "application/json", 
+                "Content-Type": "application/json", 
+                "User-Agent": "Mozilla/5.0",
+                "Accept-Language": "hi-IN,hi;q=0.9"
+            },
             json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"},
             timeout=10
         )
@@ -203,7 +214,6 @@ PLAYER_HTML = """
         .card.audio-mode img { width: 80px; height: 80px; min-width: 80px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.5); margin-top: 5px;}
         .card.audio-mode .info { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
         
-        /* V64 MANUAL SWIPE SCROLLING FOR SEARCH RESULTS */
         .card.audio-mode h4 { 
             font-size: 1.05rem; 
             white-space: nowrap; 
@@ -221,9 +231,11 @@ PLAYER_HTML = """
         .play-btn:hover { transform: scale(1.05); }
         .dl-btn:hover { background: #4facfe; border-color: #4facfe; }
 
+        /* V65 VIDEO CARD OVERHAUL - Strict Contain & Scrollable Title */
         .card.video-mode { display: flex; flex-direction: column; padding: 0; align-items: center; justify-content: flex-start; width: 100%; }
-        .thumb-container { width: 100%; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #000; }
-        .thumb-container img { width: 100%; max-width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover; object-position: center; cursor: pointer; display: block; transition: transform 0.3s ease; }
+        .thumb-container { width: 100%; aspect-ratio: 16/9; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #0b1120; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        /* V65: object-fit contain guarantees full uncropped thumbnail display */
+        .thumb-container img { width: 100%; height: 100%; object-fit: contain; object-position: center; cursor: pointer; transition: transform 0.3s ease; }
         .thumb-container:hover img { transform: scale(1.03); }
         .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none; z-index: 10; }
         
@@ -232,9 +244,10 @@ PLAYER_HTML = """
         .audio-cb { margin: 0; width: 22px; height: 22px; flex-shrink: 0;}
 
         .card.video-mode .info-container { padding: 15px; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; }
-        /* V64 MANUAL SWIPE SCROLLING FOR VIDEOS */
+        
+        /* V65 Scrollable Larger Title */
         .card.video-mode h4 { 
-            font-size: 1.1rem; 
+            font-size: 1.25rem; 
             line-height: 1.4; 
             margin: 0 0 5px 0; 
             color: white; 
@@ -273,7 +286,6 @@ PLAYER_HTML = """
         .playing-glow { box-shadow: 0 0 20px #1db954; }
         .mini #ap-cover { width: 65px; height: 65px; margin: 0; animation: none; border-radius:12px !important; box-shadow:none !important;}
         
-        /* V64 MANUAL SWIPE SCROLLING FOR BIG PLAYER */
         .marquee-wrapper { 
             width: 100%; 
             max-width: 400px; 
@@ -520,7 +532,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V64 Anti-Sleep Phantom. Keep-alive pings active.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V65 India Geo-Core. Hindi Regional targeting active.</p>
             </div>
         </div>
     </div>
@@ -546,10 +558,9 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V64: AUTO PING KEEP-ALIVE (Prevents Render Server Sleep)
         setInterval(() => {
             fetch('/api/ping').catch(e => console.log("Ping error ignored."));
-        }, 10 * 60 * 1000); // 10 minutes
+        }, 10 * 60 * 1000);
 
         function requestPushPermissions() {
             if ("Notification" in window) {
@@ -832,7 +843,7 @@ PLAYER_HTML = """
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) });
                 
                 if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
-                    throw new Error("Server returned HTML error (Backend Crash).");
+                    throw new Error("Server returned HTML error (Backend Crash/Timeout).");
                 }
                 
                 const data = await res.json();
@@ -1138,7 +1149,6 @@ PLAYER_HTML = """
             document.getElementById('ap-cover').src = item.thumbnail || "https://via.placeholder.com/150";
             document.getElementById('ap-yt-link').href = item.url || `https://youtube.com/watch?v=${item.id}`;
             
-            // V64 FIX: Audio name immediately injected BEFORE loading to fix the "DOES YOU CANNOT MAKE THE AUDIO NAME SHOW" error
             titleEl.innerText = item.title || "Loading stream..."; 
             artistEl.innerText = item.uploader || "Unknown Artist";
             
@@ -1176,6 +1186,7 @@ PLAYER_HTML = """
                     audioEngine.play().then(() => {
                         startFadeIn();
                         if(isVinylMode) document.getElementById('ap-cover').classList.add('vinyl-mode');
+                        titleEl.innerText = item.title;
                         sendSystemNotification("Now Playing", `${item.title} \nListen ad-free!`);
                     }).catch(e => {
                         audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
@@ -1380,7 +1391,6 @@ def serve_sw():
 def media_player(): 
     return render_template_string(PLAYER_HTML)
 
-# V64: Server Anti-Sleep Keep-Alive Ping
 @app.route('/api/ping', methods=['GET'], strict_slashes=False)
 def ping():
     return jsonify({"status": "alive"})
@@ -1420,7 +1430,12 @@ def get_info():
         'quiet': True, 
         'color': 'no_color', 
         'extract_flat': True if mode in ['playlist', 'search'] else False, 
-        'noplaylist': mode in ['single', 'search']
+        'noplaylist': mode in ['single', 'search'],
+        'geo_bypass': True,
+        'geo_bypass_country': 'IN',
+        'http_headers': {
+            'Accept-Language': 'hi-IN,hi;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
     }
     try:
         fetch_url = f"ytsearch{limit}:{url}" if mode == 'search' else url
@@ -1509,5 +1524,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V64 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V65 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
