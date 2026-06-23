@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V49 - ENGINE BYPASS & ANTI-429)
+# YOUTUBE MEDIA APP (V51 - ZERO-COOKIE GHOST: WEB CLIENT BANNED)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -66,26 +66,35 @@ def get_progress_hook(task_id):
         except: pass
     return progress_hook
 
-# V49: ROBUST FAILOVER EXTRACTION ENGINE (ANTI-429 / ANTI-BOT)
+# V51: ZERO-COOKIE FAILOVER ENGINE
 def run_ydl_with_failover(base_opts, url, download=False):
-    """Bypasses web captchas by spoofing iOS and Smart TV clients."""
+    """STRICTLY bans the web client to completely avoid YouTube Bot Captchas."""
     opts = base_opts.copy()
     
-    # TV/iOS Spoofing to dodge JS bot checks
-    opts['extractor_args'] = {'youtube': ['player_client:ios,tv', 'comment_client:none']}
-    
-    if os.path.exists('cookies.txt'):
-        opts['cookiefile'] = 'cookies.txt'
+    # V51: Force mobile/TV API routing. player_skip:web prevents the "Sign in" page error.
+    opts['extractor_args'] = {
+        'youtube': [
+            'player_client:android,ios,tv', 
+            'player_skip:web',
+            'comment_client:none'
+        ]
+    }
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             return ydl.extract_info(url, download=download)
     except Exception as e:
         err_str = str(e)
-        logger.warning(f"iOS/TV fetch failed ({err_str}). Retrying with Web client...")
+        logger.warning(f"Primary API fetch failed ({err_str}). Retrying with Android Music spoofing...")
         
-        # Fallback to standard web client if TV fails
-        opts['extractor_args'] = {'youtube': ['player_client:web']}
+        # Ultimate Fallback: Pretend to be the YouTube Music Android App
+        opts['extractor_args'] = {
+            'youtube': [
+                'player_client:android_music,ios_music', 
+                'player_skip:web',
+                'comment_client:none'
+            ]
+        }
         with yt_dlp.YoutubeDL(opts) as ydl:
             return ydl.extract_info(url, download=download)
 
@@ -141,7 +150,7 @@ PLAYER_HTML = """
         .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition:0.2s; flex-shrink: 0;}
         .menu-btn:hover { transform: scale(1.1); }
         
-        h2.brand { font-weight: 800; font-size: 1.5rem; margin: 0; background: linear-gradient(90deg, #4facfe, #00f2fe, #4facfe); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-right:auto; animation: textShimmer 3s linear infinite;}
+        h2.brand { font-weight: 800; font-size: 1.3rem; margin: 0; background: linear-gradient(90deg, #4facfe, #00f2fe, #4facfe); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-right:auto; animation: textShimmer 3s linear infinite;}
         @keyframes textShimmer { to { background-position: 200% center; } }
         
         .theme-btn { font-size: 1.2rem; cursor: pointer; color: white; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 8px 15px; display: flex; justify-content: center; align-items: center; transition: 0.3s; flex-shrink:0;}
@@ -281,9 +290,6 @@ PLAYER_HTML = """
         .vid-controls { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 5001; }
         .close-video { background: rgba(255,8,68,0.9); color: white; border: none; padding: 10px; border-radius: 50%; font-weight: 800; cursor: pointer; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; transition: 0.2s; font-size:1.2rem; font-family: monospace;}
         .close-video:hover { transform: scale(1.1); }
-        
-        .yt-fallback-btn { position: absolute; bottom: 30px; background: rgba(255,255,255,0.1); color: white; border: 1px solid white; padding: 10px 20px; border-radius: 20px; font-weight: bold; text-decoration: none; backdrop-filter: blur(5px); z-index: 5001; transition: 0.2s;}
-        .yt-fallback-btn:hover { background: white; color: black; }
 
         .load-more-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.2s; flex-shrink: 0; position: relative; overflow: hidden;}
         .load-more-btn:hover { background: #ff0844; border-color: #ff0844;}
@@ -345,7 +351,6 @@ PLAYER_HTML = """
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
         <h2 style="margin-bottom: 30px; text-align: center; color:white;">MENU</h2>
         
-        <!-- PWA INSTALL BUTTON -->
         <a href="#" id="installAppBtn" style="display:none; background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); color: black;" onclick="installPWA(); toggleMenu()">📲 Install App</a>
         
         <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 My History</a>
@@ -381,7 +386,6 @@ PLAYER_HTML = """
         <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
     </div>
 
-    <!-- AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">—</button>
@@ -429,23 +433,20 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
-    <!-- VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container" id="videoContainer">
             <div class="vid-controls">
                 <button class="close-video" onclick="closeVideo()">✖</button>
             </div>
-            <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-            <a id="ytFallbackLink" class="yt-fallback-btn" href="#" target="_blank" style="display:none;">Watch in YouTube App</a>
+            <iframe id="ytIframe" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         </div>
     </div>
 
-    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
             <img id="fullThumbImg" src="">
-            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844; border-radius:12px;" onclick="playFromLightbox()">▶ PLAY VIDEO</button>
+            <button class="play-action-btn" style="width:100%; padding:15px; font-size:1.2rem; background:#ff0844; border-radius:12px;" onclick="playFromLightbox()">▶ PLAY VIDEO IN LANDSCAPE</button>
         </div>
     </div>
 
@@ -466,7 +467,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
@@ -490,7 +490,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- HISTORY MODAL -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -501,7 +500,6 @@ PLAYER_HTML = """
         </div>
     </div>
 
-    <!-- TASKS MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -513,7 +511,6 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // UI EFFECTS
         function createRipple(event) {
             const button = event.currentTarget;
             const circle = document.createElement("span");
@@ -555,7 +552,6 @@ PLAYER_HTML = """
             }
         }
 
-        // PWA LOGIC
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(err => {});
@@ -584,7 +580,6 @@ PLAYER_HTML = """
             }
         }
 
-        // GLOBAL STATE
         let currentMode = 'audio';
         let currentResults = [];
         let currentSearchLimit = 10;
@@ -818,9 +813,6 @@ PLAYER_HTML = """
             if(currentPlayingVideoId) { startVideo(currentPlayingVideoId); }
         }
 
-        // DOWNLOADER
-        let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
-        
         function triggerDownload(index, type) {
             const item = currentResults[index];
             pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = type;
@@ -942,7 +934,9 @@ PLAYER_HTML = """
             } catch(e) {}
         }, 1000);
 
-        // VIDEO LOGIC
+        // ==========================================
+        // V51 VIDEO LOGIC (STRICTLY OPEN IN MODAL)
+        // ==========================================
         async function startVideo(id) {
             stopAudio(); 
             let itemToSave = currentResults.find(i => (i.id === id || i.url.includes(id))) || {title: "Video Stream", uploader: "Unknown", url: id};
@@ -950,10 +944,6 @@ PLAYER_HTML = """
 
             const modal = document.getElementById('video-modal');
             modal.style.display = 'flex';
-            
-            const ytLink = document.getElementById('ytFallbackLink');
-            ytLink.href = `https://youtube.com/watch?v=${id}`;
-            ytLink.style.display = 'block';
 
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
             
@@ -973,13 +963,14 @@ PLAYER_HTML = """
             } catch(e) {}
         }
 
-        // STRICT QUEUE AUDIO ENGINE
+        // ==========================================
+        // V51 AUDIO PLAYER ENGINE 
+        // ==========================================
         function playSingleAudio(index) { 
             audioEngine.play().catch(e=>{}); 
             isErrorStopped = false;
-            // QUEUE LOGIC: If a single song is clicked, populate queue from there onwards
-            audioQueue = currentResults.slice(index); 
-            currentIndex = 0; 
+            audioQueue = currentResults; 
+            currentIndex = index; 
             loadQueueItem(); 
         }
 
@@ -989,7 +980,6 @@ PLAYER_HTML = """
             const checked = document.querySelectorAll('.song-checkbox:checked');
             if(checked.length === 0) return alert("Select songs first!");
             
-            // QUEUE LOGIC: Strictly ONLY selected items
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
             currentIndex = 0; 
             loadQueueItem();
@@ -1063,7 +1053,7 @@ PLAYER_HTML = """
                         if(isVinylMode) document.getElementById('ap-cover').classList.add('vinyl-mode');
                     }).catch(e => {
                         showToast("Autoplay Blocked. Tap Play.", "error");
-                        audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
+                        audioEngine.volume = document.getElementById('volSlider').value / 100;
                     });
                     
                     setTimeout(() => {
@@ -1390,5 +1380,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V49 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V51 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
