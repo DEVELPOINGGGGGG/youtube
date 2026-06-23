@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V53 - COBALT CORE ENGINE: ABSOLUTE BYPASS)
+# YOUTUBE MEDIA APP (V54 - CORS ASSASSIN: SERVER-SIDE COBALT CORE)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -47,30 +47,70 @@ def cleanup_worker():
 
 threading.Thread(target=cleanup_worker, daemon=True).start()
 
-# V53: THE COBALT API ENGINE (100% Bypass)
-def get_cobalt_url(video_url, is_audio=True):
-    """Hits the Cobalt API to instantly bypass YouTube bot checks."""
-    url = "https://api.cobalt.tools/api/json"
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
-    payload = {
-        "url": video_url,
-        "isAudioOnly": is_audio,
-        "aFormat": "mp3" if is_audio else "best",
-        "vQuality": "1080"
-    }
+def get_progress_hook(task_id):
+    def progress_hook(d):
+        task = active_tasks.get(task_id)
+        if not task: return
+        try:
+            if d['status'] == 'downloading':
+                task['status'] = 'downloading'
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 1)
+                downloaded = d.get('downloaded_bytes', 0)
+                if total > 0: task['percent'] = round((downloaded / total) * 100, 1)
+                task['speed'] = str(d.get('_speed_str', '0 MB/s')).replace('\x1b[0;94m', '').replace('\x1b[0m', '').strip()
+                task['eta'] = str(d.get('_eta_str', '00:00')).replace('\x1b[0;93m', '').replace('\x1b[0m', '').strip()
+            elif d['status'] == 'finished':
+                task['status'] = 'processing'
+                task['percent'] = 100
+                task['speed'] = "Processing"
+                task['eta'] = "--:--"
+        except: pass
+    return progress_hook
+
+# V54: Server-Side API Routing (Bypasses Browser CORS Blocks)
+def fetch_stream_url(url, is_audio=True):
+    # Method 1: Cobalt API Backend Request
     try:
-        res = requests.post(url, json=payload, headers=headers, timeout=15)
+        logger.info(f"Attempting Cobalt API Extraction for: {url}")
+        res = requests.post(
+            "https://api.cobalt.tools/api/json",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            },
+            json={
+                "url": url,
+                "isAudioOnly": is_audio,
+                "aFormat": "mp3"
+            },
+            timeout=10
+        )
         if res.status_code == 200:
             data = res.json()
             if 'url' in data:
+                logger.info("Cobalt Extraction SUCCESS.")
                 return data['url']
-        logger.error(f"Cobalt API Error: {res.text}")
     except Exception as e:
-        logger.error(f"Cobalt connection failed: {e}")
+        logger.error(f"Cobalt Server-Side failed: {e}")
+
+    # Method 2: Internal yt-dlp Fallback with Mobile Spoofing
+    try:
+        logger.info("Cobalt failed. Falling back to internal yt-dlp extraction...")
+        ydl_opts = {
+            'quiet': True,
+            'format': 'bestaudio/best' if is_audio else 'best',
+            'noplaylist': True,
+            'extractor_args': {'youtube': ['player_client:ios,tv', 'player_skip:web', 'comment_client:none']}
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if 'url' in info:
+                logger.info("yt-dlp Extraction SUCCESS.")
+                return info['url']
+    except Exception as e:
+        logger.error(f"yt-dlp fallback failed: {e}")
+
     return None
 
 # ==============================================================================
@@ -447,8 +487,22 @@ PLAYER_HTML = """
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
             <button class="btn-close" onclick="document.getElementById('settingsModal').style.display='none'">X</button>
-            <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">Engine Status</h3>
-            <p style="font-size: 0.9rem; color: #94a3b8;">Running pure Cobalt API core. Proxy and extraction errors bypassed.</p>
+            
+            <h3 style="margin-top:20px; color:#ff0844; font-size:1.1rem;">MP3 Conversion Engine</h3>
+            <div class="radio-group">
+                <label class="radio-item">
+                    <input type="radio" name="convMode" value="full" onchange="saveSettings()">
+                    <div><strong>Full FFmpeg</strong><div class="radio-desc">Perfectly encodes MP3, injects cover art. (Slow)</div></div>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="convMode" value="fast" onchange="saveSettings()">
+                    <div><strong>Fast Metadata</strong><div class="radio-desc">Downloads native M4A, injects cover art. (Fast)</div></div>
+                </label>
+                <label class="radio-item" style="border-color:#ff0844; background:rgba(255,8,68,0.1);">
+                    <input type="radio" name="convMode" value="rename" onchange="saveSettings()">
+                    <div><strong>Rename Only</strong><div class="radio-desc">Raw download, instantly renames to .mp3. (⚡ Instant)</div></div>
+                </label>
+            </div>
         </div>
     </div>
 
@@ -514,6 +568,7 @@ PLAYER_HTML = """
             }
         }
 
+        // PWA LOGIC
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(err => {});
@@ -631,10 +686,35 @@ PLAYER_HTML = """
             }
         }
 
+        function loadSettings() {
+            let mode = localStorage.getItem('audio_conversion_mode') || 'fast';
+            const radios = document.getElementsByName('convMode');
+            for(let i=0; i<radios.length; i++) { if(radios[i].value === mode) radios[i].checked = true; }
+        }
+
+        function saveSettings() {
+            const radios = document.getElementsByName('convMode');
+            for(let i=0; i<radios.length; i++) {
+                if(radios[i].checked) { localStorage.setItem('audio_conversion_mode', radios[i].value); break; }
+            }
+            showToast(`Settings Saved!`, "success");
+        }
+
+        document.getElementById('volSlider').oninput = (e) => {
+            audioEngine.volume = parseInt(e.target.value) / 100;
+        };
+
         window.addEventListener('DOMContentLoaded', () => {
+            loadSettings(); 
             loadHistory();
             attachRipples();
             audioEngine.volume = 1.0; 
+            
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('url')) { 
+                document.getElementById('searchInput').value = params.get('url'); 
+                search(true); 
+            }
         });
 
         window.addEventListener('scroll', () => {
@@ -755,7 +835,21 @@ PLAYER_HTML = """
         function triggerDownload(index, type) {
             const item = currentResults[index];
             pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = type;
-            fireBgTask('best', false);
+            const list = document.getElementById('qualityList'); list.innerHTML = '';
+            document.getElementById('modalTitle').innerText = type === 'mp4' ? "Select MP4 Quality" : "Select MP3 Quality";
+            
+            if(type === 'mp4') {
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('best')"><span>⭐ AUTO BEST</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('1080p')"><span>📽️ 1080p</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('720p')"><span>📽️ 720p</span></div>`;
+            } else {
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320')"><span>⭐ 320 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('256')"><span>🎵 256 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192')"><span>🎵 192 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('128')"><span>📱 128 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('64')"><span>📉 64 kbps</span></div>`;
+            }
+            document.getElementById('qualityModal').style.display = 'flex';
         }
         
         function downloadCurrentSong(e) {
@@ -764,60 +858,35 @@ PLAYER_HTML = """
             if(currentIndex >= 0 && currentIndex < audioQueue.length) {
                 const item = audioQueue[currentIndex];
                 pendingDlUrl = item.url || item.id; pendingDlTitle = item.title; pendingDlType = 'mp3';
-                fireBgTask('best', true);
+                const list = document.getElementById('qualityList'); list.innerHTML = '';
+                document.getElementById('modalTitle').innerText = "Select MP3 Quality";
+                list.innerHTML += `<div class="quality-item best" onclick="fireBgTask('320', true)"><span>⭐ 320 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('256', true)"><span>🎵 256 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('192', true)"><span>🎵 192 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('128', true)"><span>📱 128 kbps</span></div>`;
+                list.innerHTML += `<div class="quality-item" onclick="fireBgTask('64', true)"><span>📉 64 kbps</span></div>`;
+                document.getElementById('qualityModal').style.display = 'flex';
             }
         }
 
         async function fireBgTask(quality, isFromPlayer = false) {
             document.getElementById('qualityModal').style.display = 'none';
-            showToast("Download Started via Cobalt API!", "info");
-            
-            // Generate Task ID
-            const taskId = 'task_' + Math.random().toString(36).substring(7);
-            
-            if (isFromPlayer) {
-                currentAudioDlTaskId = taskId;
-                const btn = document.getElementById('mainPlayerDlBtn');
-                btn.disabled = true; btn.innerText = "⏳ Starting..."; btn.style.background = "#334155";
-            }
+            showToast("Download Started!", "info");
+            let convMode = localStorage.getItem('audio_conversion_mode') || 'fast';
 
             try {
-                // Instantly hit Cobalt endpoint instead of Flask backend
-                const res = await fetch('https://api.cobalt.tools/api/json', {
-                    method: 'POST',
-                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: pendingDlUrl.includes('youtube.com') ? pendingDlUrl : `https://youtube.com/watch?v=${pendingDlUrl}`,
-                        isAudioOnly: pendingDlType === 'mp3',
-                        aFormat: "mp3",
-                        vQuality: "1080"
-                    })
+                // V54: Secure Python Backend Request
+                const res = await fetch('/api/download', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ client_id: clientId, url: pendingDlUrl, title: pendingDlTitle, type: pendingDlType, quality: quality, burn_subs: false, conv_mode: convMode }) 
                 });
-                
                 const data = await res.json();
-                if(data.url) {
-                    showToast(`Download Complete: ${pendingDlTitle}`, "success");
-                    deliveryQueue.push({ url: data.url, title: pendingDlTitle, ext: pendingDlType });
-                    processDeliveryQueue();
-                    
-                    if(isFromPlayer) {
-                        const btn = document.getElementById('mainPlayerDlBtn');
-                        btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
-                        setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; }, 4000);
-                        currentAudioDlTaskId = null;
-                    }
-                } else {
-                    throw new Error("Cobalt returned no URL");
-                }
-            } catch(e) { 
-                showToast("Download failed.", "error");
-                if(isFromPlayer) {
+                if (isFromPlayer && data.task_id) {
+                    currentAudioDlTaskId = data.task_id;
                     const btn = document.getElementById('mainPlayerDlBtn');
-                    btn.innerText = '❌ Error'; btn.style.background = '#ff0844';
-                    setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; }, 3000);
-                    currentAudioDlTaskId = null;
+                    btn.disabled = true; btn.innerText = "⏳ Starting..."; btn.style.background = "#334155";
                 }
-            }
+            } catch(e) { showToast("Download failed to start: " + e.message, "error");}
         }
 
         function triggerFileDownload(fileUrl, title, ext) {
@@ -837,6 +906,53 @@ PLAYER_HTML = """
             triggerFileDownload(item.url, item.title, item.ext);
             setTimeout(() => { isDelivering = false; processDeliveryQueue(); }, 1500); 
         }
+
+        setInterval(async () => {
+            try {
+                const res = await fetch(`/api/tasks?client_id=${clientId}`);
+                const tasks = await res.json();
+                
+                let html = ''; 
+
+                for (const [id, t] of Object.entries(tasks)) {
+                    let sCol = t.status==='completed' ? '#1db954' : (t.status==='error' ? '#ff0844' : '#4facfe');
+                    
+                    let safeTitle = t.title.replace(/'/g, "\\'");
+                    let dlUrl = `/api/serve?file=${encodeURIComponent(t.file)}`;
+                    let saveBtnHtml = `<button class="action-btn btn-mp4" style="width:100%; padding:10px; margin-top:10px; background:#1db954;" onclick="triggerFileDownload('${dlUrl}', '${safeTitle}', '${t.type}')">💾 SAVE</button>`;
+
+                    html += `<div class="task-item" style="background: rgba(255,255,255,0.05); border-color: ${sCol};"><div class="task-header" style="color: white;"><span>${t.type.toUpperCase()}: ${t.title}</span><span style="color:${sCol}">${t.status.toUpperCase()}</span></div>
+                            ${(t.status === 'downloading' || t.status === 'processing') ? `<div class="progress-bar-bg"><div class="progress-fill" style="width: ${t.percent}%"></div></div><div class="progress-stats" style="color:${sCol};"><span>${t.percent}%</span></div>` : ''}
+                            ${t.status === 'error' ? `<div style="font-size:0.85rem; color:#ff0844;">${t.error_msg}</div>` : ''}
+                            ${t.status === 'completed' ? saveBtnHtml : ''}</div>`;
+                            
+                    if (t.status === 'completed' && !handledDownloads.includes(id)) {
+                        markHandled(id); 
+                        showToast(`Download Complete: ${t.title}`, "success");
+                        deliveryQueue.push({ url: dlUrl, title: t.title, ext: t.type }); 
+                        processDeliveryQueue(); 
+                    }
+                }
+                document.getElementById('tasksWrapper').innerHTML = html || '<p style="text-align:center; color:#94a3b8;">No active downloads.</p>';
+                
+                if (currentAudioDlTaskId && tasks[currentAudioDlTaskId]) {
+                    const t = tasks[currentAudioDlTaskId];
+                    const btn = document.getElementById('mainPlayerDlBtn');
+                    if (t.status === 'downloading' || t.status === 'processing') {
+                        btn.innerText = t.status === 'processing' ? '⏳ Merging...' : `⏳ ${t.percent}%`;
+                        btn.style.background = `linear-gradient(90deg, #ff0844 ${t.percent}%, #334155 ${t.percent}%)`;
+                    } else if (t.status === 'completed') {
+                        btn.innerText = '✅ SAVED'; btn.style.background = '#1db954';
+                        currentAudioDlTaskId = null; 
+                        setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; }, 4000);
+                    } else if (t.status === 'error') {
+                        btn.innerText = '❌ Error'; btn.style.background = '#ff0844';
+                        currentAudioDlTaskId = null; 
+                        setTimeout(() => { btn.innerText = '📥 Download MP3'; btn.style.background = ''; btn.disabled = false; }, 3000);
+                    }
+                }
+            } catch(e) {}
+        }, 1000);
 
         async function startVideo(id) {
             stopAudio(); 
@@ -864,6 +980,7 @@ PLAYER_HTML = """
             } catch(e) {}
         }
 
+        // STRICT QUEUE AUDIO ENGINE
         function playSingleAudio(index) { 
             audioEngine.play().catch(e=>{}); 
             isErrorStopped = false;
@@ -877,6 +994,7 @@ PLAYER_HTML = """
             isErrorStopped = false;
             const checked = document.querySelectorAll('.song-checkbox:checked');
             if(checked.length === 0) return alert("Select songs first!");
+            
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
             currentIndex = 0; 
             loadQueueItem();
@@ -936,20 +1054,18 @@ PLAYER_HTML = """
             
             showLoader();
             try {
-                // V53: Hit Cobalt API directly for streaming URL to bypass Server IP Blocks
-                const res = await fetch('https://api.cobalt.tools/api/json', {
+                // V54: Secure Python Backend Request to Bypass Browser CORS
+                const res = await fetch('/api/stream_audio', {
                     method: 'POST',
-                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: item.url || `https://youtube.com/watch?v=${item.id}`,
-                        isAudioOnly: true,
-                        aFormat: "mp3"
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: item.url || item.id })
                 });
                 const data = await res.json();
                 
-                if(data.url) {
-                    audioEngine.src = data.url;
+                if(data.error) throw new Error(data.error);
+                
+                if(data.stream_url) {
+                    audioEngine.src = data.stream_url;
                     audioEngine.playbackRate = currentSpeed;
                     
                     audioEngine.play().then(() => {
@@ -971,7 +1087,7 @@ PLAYER_HTML = """
                         navigator.mediaSession.setActionHandler('previoustrack', () => prevSong()); navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
                     }
                 } else {
-                    throw new Error("Cobalt returned no URL");
+                    throw new Error("No URL returned from backend.");
                 }
             } catch (err) { 
                 isErrorStopped = true;
@@ -1104,7 +1220,6 @@ PLAYER_HTML = """
                     document.getElementById('sleepRing').style.background = 'transparent';
                     
                     audioEngine.pause();
-                    try { document.getElementById('ytIframe').contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*'); } catch(e) {}
                     showToast("Sleep Timer finished. Playback paused.", "info");
                 }
             }, 1000);
@@ -1147,9 +1262,21 @@ def serve_sw():
 def media_player(): 
     return render_template_string(PLAYER_HTML)
 
-# Note: /api/stream_audio and /api/download are no longer used by the frontend.
-# The frontend hits api.cobalt.tools directly to bypass server IP bans completely!
-# However, we keep /api/info for initial search querying, as YT rarely blocks search endpoints.
+@app.route('/api/stream_audio', methods=['POST'], strict_slashes=False)
+def stream_audio():
+    url = request.json.get('url')
+    if not url: return jsonify({'error': 'No URL provided'}), 400
+    
+    stream_url = fetch_stream_url(url, is_audio=True)
+    if stream_url:
+        return jsonify({'stream_url': stream_url})
+    else:
+        return jsonify({'error': 'Stream extraction completely failed. IP may be blocked.'}), 500
+
+@app.route('/api/tasks', methods=['GET'], strict_slashes=False)
+def get_tasks():
+    client_id = request.args.get('client_id')
+    return jsonify({k: v for k, v in active_tasks.items() if v.get('client_id') == client_id})
 
 @app.route('/api/info', methods=['POST'], strict_slashes=False)
 def get_info():
@@ -1182,14 +1309,74 @@ def get_info():
                     else: duration_str = "--:--"
                     entries.append({'id': e.get('id'), 'title': e.get('title', 'Unknown'), 'url': e.get('url'), 'thumbnail': thumb, 'uploader': e.get('uploader') or e.get('channel') or 'Unknown Channel', 'views': e.get('view_count') or 0, 'duration': duration_str})
                 return jsonify({'entries': entries})
+            else:
+                formats = []
+                for f in info.get('formats', []):
+                    if f.get('vcodec') != 'none':
+                        res = f.get('format_note', f.get('resolution', 'Unknown'))
+                        if res in ['2160p', '1440p', '1080p', '1080p60', '720p', '720p60', '480p', '360p']:
+                            formats.append({'format_id': f['format_id'], 'resolution': res, 'filesize': round(f.get('filesize', 0) / 1048576, 1) if f.get('filesize') else None})
+                seen = set(); uniq = [f for f in reversed(formats) if not (f['resolution'] in seen or seen.add(f['resolution']))]
+                uniq.sort(key=lambda f: int(f['resolution'].replace('p60', '').replace('p', '')) if f['resolution'].replace('p60', '').replace('p', '').isdigit() else 0, reverse=True)
+                return jsonify({'id': info.get('id'), 'title': info.get('title'), 'thumbnail': info.get('thumbnail'), 'formats': uniq})
     except Exception as e: 
         logger.warning(f"Search API Error: {e}")
         return jsonify({'error': "Search blocked by YouTube. Try again later."})
+
+def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
+    try:
+        active_tasks[task_id]['status'] = 'processing'
+        active_tasks[task_id]['percent'] = 50
+        active_tasks[task_id]['speed'] = 'Cobalt API...'
+        
+        stream_url = fetch_stream_url(url, is_audio=(dl_type == 'mp3'))
+        if not stream_url:
+            raise Exception("Failed to extract download URL via Cobalt & internal fallback.")
+
+        # V54 Download Engine
+        raw_file = os.path.join(DOWNLOAD_DIR, f"{task_id}_raw.{dl_type}")
+        r = requests.get(stream_url, stream=True, timeout=15)
+        r.raise_for_status()
+        
+        with open(raw_file, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=1024*1024):
+                if chunk: f.write(chunk)
+                
+        final_name = active_tasks[task_id]['title'].replace('/', '_').replace('\\', '_')
+        final_path = os.path.join(DOWNLOAD_DIR, f"{final_name}.{dl_type}")
+        
+        if os.path.exists(final_path): os.remove(final_path)
+        os.replace(raw_file, final_path)
+        
+        active_tasks[task_id]['status'] = 'completed'
+        active_tasks[task_id]['file'] = final_path
+        active_tasks[task_id]['percent'] = 100
+        active_tasks[task_id]['completed_at'] = time.time() 
+    except Exception as e:
+        logger.error(f"Download failed: {e}")
+        active_tasks[task_id]['status'] = 'error'
+        active_tasks[task_id]['error_msg'] = str(e)
+
+@app.route('/api/download', methods=['POST'], strict_slashes=False)
+def trigger_download():
+    task_id = str(uuid.uuid4())
+    conv_mode = request.json.get('conv_mode', 'fast')
+    active_tasks[task_id] = {'client_id': request.json.get('client_id', 'unknown'), 'title': request.json.get('title', 'Unknown Task'), 'type': request.json.get('type'), 'status': 'starting', 'percent': 0, 'speed': '0 MB/s', 'eta': '--:--', 'file': None, 'error_msg': None, 'created_at': time.time()}
+    threading.Thread(target=background_downloader, args=(task_id, request.json.get('url'), request.json.get('type'), request.json.get('quality'), request.json.get('burn_subs', False), conv_mode), daemon=True).start()
+    return jsonify({'task_id': task_id})
+
+@app.route('/api/serve', methods=['GET'], strict_slashes=False)
+def serve_file():
+    file_path = request.args.get('file')
+    if not file_path or not os.path.exists(file_path): return "File not found", 404
+    
+    filename = urllib.parse.unquote(os.path.basename(file_path))
+    return send_file(os.path.abspath(file_path), as_attachment=True, download_name=filename)
 
 @app.errorhandler(404)
 def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V53 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V54 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
