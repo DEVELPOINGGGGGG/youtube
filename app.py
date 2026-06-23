@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V48 - TITANIUM GHOST: ANTI-429 & FAILOVER ENGINE)
+# YOUTUBE MEDIA APP (V49 - ENGINE BYPASS & ANTI-429)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -66,35 +66,31 @@ def get_progress_hook(task_id):
         except: pass
     return progress_hook
 
-# V48: ROBUST FAILOVER EXTRACTION ENGINE (ANTI-429 / ANTI-BOT)
+# V49: ROBUST FAILOVER EXTRACTION ENGINE (ANTI-429 / ANTI-BOT)
 def run_ydl_with_failover(base_opts, url, download=False):
-    """Tries fetching with proxy first. If HTTP 429 or Proxy Reset occurs, instantly drops proxy and retries."""
+    """Bypasses web captchas by spoofing iOS and Smart TV clients."""
     opts = base_opts.copy()
-    opts['extractor_args'] = {'youtube': ['player_client:android,ios', 'comment_client:none']}
+    
+    # TV/iOS Spoofing to dodge JS bot checks
+    opts['extractor_args'] = {'youtube': ['player_client:ios,tv', 'comment_client:none']}
+    
     if os.path.exists('cookies.txt'):
         opts['cookiefile'] = 'cookies.txt'
 
-    proxy_url = 'socks5://127.0.0.1:40000'
-    
-    # Attempt 1: With Proxy
-    opts['proxy'] = proxy_url
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             return ydl.extract_info(url, download=download)
     except Exception as e:
         err_str = str(e)
-        logger.warning(f"Proxy fetch failed ({err_str}). Retrying DIRECTLY without proxy...")
-
-    # Attempt 2: Direct Connection (Failover)
-    if 'proxy' in opts:
-        del opts['proxy']
+        logger.warning(f"iOS/TV fetch failed ({err_str}). Retrying with Web client...")
         
-    opts['extractor_args'] = {'youtube': ['player_client:web']}
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        return ydl.extract_info(url, download=download)
+        # Fallback to standard web client if TV fails
+        opts['extractor_args'] = {'youtube': ['player_client:web']}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(url, download=download)
 
 # ==============================================================================
-# FRONTEND: THE ULTIMATE SOLO PLAYER (PWA & QUEUE FIXED)
+# FRONTEND: THE ULTIMATE SOLO PLAYER 
 # ==============================================================================
 PLAYER_HTML = """
 <!DOCTYPE html>
@@ -108,15 +104,12 @@ PLAYER_HTML = """
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
         
-        /* 1. AMBIENT DRIFT BG ANIMATION */
         body { background: linear-gradient(-45deg, #0f172a, #1e293b, #0f172a, #020617); background-size: 400% 400%; animation: ambientDrift 15s ease infinite; color: white; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-x: hidden; position: relative; }
         @keyframes ambientDrift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         
-        /* THEMES */
         body.theme-cyberpunk { background: linear-gradient(-45deg, #2a0845, #6441A5, #ff0844, #1a0b2e); background-size: 400% 400%; }
         body.theme-sunset { background: linear-gradient(-45deg, #ff7eb3, #ff758c, #ff9a44, #fc6076); background-size: 400% 400%; }
 
-        /* 2. FLOATING ORBS ANIMATION */
         .bg-orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4; z-index: -1; animation: floatOrb 10s ease-in-out infinite alternate; pointer-events: none;}
         .orb-1 { width: 300px; height: 300px; top: -100px; left: -100px; background: #4facfe; }
         .orb-2 { width: 400px; height: 400px; bottom: 10vh; right: -150px; background: #ff0844; animation-delay: -5s; }
@@ -134,7 +127,6 @@ PLAYER_HTML = """
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
         .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; transition: 0.2s;}
         
-        /* 9. BOUNCE HOVER ANIMATION */
         .side-nav a:hover, .search-btn:hover, .play-action-btn:hover, .dl-icon-btn:hover { transform: translateY(-3px) scale(1.02); }
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; backdrop-filter: blur(5px);}
 
@@ -149,8 +141,7 @@ PLAYER_HTML = """
         .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; transition:0.2s; flex-shrink: 0;}
         .menu-btn:hover { transform: scale(1.1); }
         
-        /* 8. TEXT SHIMMER ANIMATION */
-        h2.brand { font-weight: 800; font-size: 1.3rem; margin: 0; background: linear-gradient(90deg, #4facfe, #00f2fe, #4facfe); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-right:auto; animation: textShimmer 3s linear infinite;}
+        h2.brand { font-weight: 800; font-size: 1.5rem; margin: 0; background: linear-gradient(90deg, #4facfe, #00f2fe, #4facfe); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-right:auto; animation: textShimmer 3s linear infinite;}
         @keyframes textShimmer { to { background-position: 200% center; } }
         
         .theme-btn { font-size: 1.2rem; cursor: pointer; color: white; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 12px; padding: 8px 15px; display: flex; justify-content: center; align-items: center; transition: 0.3s; flex-shrink:0;}
@@ -171,7 +162,6 @@ PLAYER_HTML = """
         .play-selected-btn { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); color: black; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: 0.3s;}
         .play-selected-btn:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(29,185,84,0.4); }
 
-        /* 3. CARD STAGGER ANIMATION */
         .card { background: rgba(30, 41, 59, 0.6); border-radius: 16px; display: flex; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; animation: cardStagger 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) backwards; position: relative; overflow: hidden; backdrop-filter: blur(10px); flex-wrap: wrap;}
         .card:hover { border-color: #4facfe; transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.5); }
         @keyframes cardStagger { 0% { opacity: 0; transform: translateY(40px) scale(0.9); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
@@ -194,7 +184,6 @@ PLAYER_HTML = """
         .thumb-container:hover img { transform: scale(1.05); }
         .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none; backdrop-filter: blur(5px);}
         
-        /* 10. CHECKMARK POP ANIMATION */
         .video-cb, .audio-cb { accent-color: #ff0844; cursor: pointer; transition: 0.2s;}
         .video-cb:checked, .audio-cb:checked { animation: checkPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes checkPop { 0% { transform: scale(1); } 50% { transform: scale(1.5); } 100% { transform: scale(1); } }
@@ -212,11 +201,10 @@ PLAYER_HTML = """
         .dl-btn-full { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 12px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.95rem; flex-shrink:0; white-space:nowrap; position: relative; overflow: hidden;}
         .dl-btn-full:hover { background: #4facfe; border-color: #4facfe; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(79,172,254,0.4); }
 
-        /* 3 NEW FEATURES: RIPPLE EFFECT */
         .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 0.6s linear; background: rgba(255, 255, 255, 0.4); pointer-events: none;}
         @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 
-        /* 7. SLIDE UP PLAYER ANIMATION */
+        /* FULLSCREEN AUDIO PLAYER */
         #audio-player-bar { position: fixed; top: 100vh; left: 0; width: 100%; height: 100vh; background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(30px); padding: 25px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 2000; overflow-y: auto;}
         #audio-player-bar.active { top: 0; }
         #audio-player-bar.mini { top: auto; bottom: 0; height: 95px; flex-direction: row; padding: 10px 20px; justify-content: space-between; border-radius: 24px 24px 0 0; background: rgba(15, 23, 42, 0.95); border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -10px 40px rgba(0,0,0,0.8);}
@@ -230,12 +218,10 @@ PLAYER_HTML = """
         .mini-close { display: none; }
         .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto; font-family: monospace; font-weight:bold;}
 
-        /* 3 NEW FEATURES: VINYL ZEN MODE ANIMATION */
         #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 20px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; box-shadow: 0 20px 50px rgba(0,0,0,0.6);}
         .vinyl-mode { border-radius: 50% !important; animation: recordSpin 10s linear infinite; box-shadow: 0 0 0 10px rgba(0,0,0,0.8), 0 0 30px #1db954 !important;}
         @keyframes recordSpin { 100% { transform: rotate(360deg); } }
         
-        /* 6. PULSE GLOW ANIMATION */
         .playing-glow { animation: pulseGlow 2s infinite alternate; }
         @keyframes pulseGlow { 0% { box-shadow: 0 0 20px #1db954; } 100% { box-shadow: 0 0 50px #4facfe, 0 0 80px #1db954; } }
         .mini #ap-cover { width: 65px; height: 65px; margin: 0; animation: none; border-radius:12px !important; box-shadow:none !important;}
@@ -302,7 +288,7 @@ PLAYER_HTML = """
         .load-more-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 15px; border-radius: 12px; width: 100%; font-weight: 800; cursor: pointer; margin-top: 15px; transition: 0.2s; flex-shrink: 0; position: relative; overflow: hidden;}
         .load-more-btn:hover { background: #ff0844; border-color: #ff0844;}
 
-        /* 10. MODAL DROP ANIMATION */
+        /* MODALS */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 4000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(10px);}
         .modal-box { background: #1e293b; width: 100%; max-width: 600px; border-radius: 24px; padding: 30px; position: relative; color: white; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.8); animation: modalDrop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);}
         @keyframes modalDrop { 0% { opacity: 0; transform: translateY(-50px) scale(0.9); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
@@ -359,6 +345,7 @@ PLAYER_HTML = """
         <button class="side-nav-close" onclick="toggleMenu()">×</button>
         <h2 style="margin-bottom: 30px; text-align: center; color:white;">MENU</h2>
         
+        <!-- PWA INSTALL BUTTON -->
         <a href="#" id="installAppBtn" style="display:none; background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); color: black;" onclick="installPWA(); toggleMenu()">📲 Install App</a>
         
         <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 My History</a>
@@ -394,6 +381,7 @@ PLAYER_HTML = """
         <button id="loadMoreBtn" class="load-more-btn" style="display:none;" onclick="loadMore()">🔄 LOAD 20 MORE</button>
     </div>
 
+    <!-- AUDIO PLAYER -->
     <div id="audio-player-bar">
         <div class="full-only">
             <button class="top-ctrl-btn" onclick="toggleMiniPlayer(event)" title="Minimize">—</button>
@@ -441,6 +429,7 @@ PLAYER_HTML = """
         <audio id="audioEngine" autoplay></audio>
     </div>
 
+    <!-- VIDEO MODAL -->
     <div id="video-modal">
         <div class="video-container" id="videoContainer">
             <div class="vid-controls">
@@ -451,6 +440,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- THUMB LIGHTBOX -->
     <div class="modal-overlay" id="thumbModal" style="z-index: 6000;" onclick="this.style.display='none'">
         <div class="modal-box" onclick="event.stopPropagation()">
             <button class="btn-close" style="top:-15px; right:-15px; z-index: 6001;" onclick="document.getElementById('thumbModal').style.display='none'">X</button>
@@ -476,6 +466,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- SETTINGS MODAL -->
     <div class="modal-overlay" id="settingsModal" style="z-index: 3500;">
         <div class="modal-box">
             <h2 style="font-size:1.5rem; margin-bottom:5px; color:white;">App Settings</h2>
@@ -499,6 +490,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- HISTORY MODAL -->
     <div class="modal-overlay" id="historyModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -509,6 +501,7 @@ PLAYER_HTML = """
         </div>
     </div>
 
+    <!-- TASKS MODAL -->
     <div class="modal-overlay" id="taskModal" style="z-index: 4000;">
         <div class="modal-box">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -520,7 +513,7 @@ PLAYER_HTML = """
     </div>
 
     <script>
-        // V48 NEW FEATURE: MATERIAL RIPPLE EFFECT
+        // UI EFFECTS
         function createRipple(event) {
             const button = event.currentTarget;
             const circle = document.createElement("span");
@@ -543,7 +536,6 @@ PLAYER_HTML = """
             }
         }
 
-        // V48 NEW FEATURE: DYNAMIC THEMES
         let themes = ['', 'theme-cyberpunk', 'theme-sunset'];
         let themeIndex = 0;
         function cycleTheme() {
@@ -552,7 +544,6 @@ PLAYER_HTML = """
             if(themes[themeIndex] !== '') document.body.classList.add(themes[themeIndex]);
         }
 
-        // V48 NEW FEATURE: VINYL ZEN MODE
         let isVinylMode = false;
         function toggleVinylMode() {
             isVinylMode = !isVinylMode;
@@ -564,7 +555,7 @@ PLAYER_HTML = """
             }
         }
 
-        // V48 SERVICE WORKER & PWA REGISTRATION
+        // PWA LOGIC
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js').catch(err => {});
@@ -612,7 +603,7 @@ PLAYER_HTML = """
         
         let isFadingOut = false;
         let fadeInterval = null;
-        let isErrorStopped = false; // V48 CRITICAL FIX: Halts queue on error
+        let isErrorStopped = false; 
         
         let sleepTimer = null;
         let sleepTimeLeft = 0;
@@ -623,7 +614,6 @@ PLAYER_HTML = """
 
         const audioEngine = document.getElementById('audioEngine');
 
-        // UTILS
         function showToast(msg, type='info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -640,7 +630,6 @@ PLAYER_HTML = """
         let handledDownloads = JSON.parse(localStorage.getItem('yt_dl_handled') || '[]');
         function markHandled(id) { if (!handledDownloads.includes(id)) { handledDownloads.push(id); localStorage.setItem('yt_dl_handled', JSON.stringify(handledDownloads.slice(-50))); } }
 
-        // HISTORY
         function saveToHistory(item, mode='audio') {
             let hist = JSON.parse(localStorage.getItem('yt_dl_history') || '[]');
             const date = new Date().toLocaleDateString();
@@ -829,9 +818,7 @@ PLAYER_HTML = """
             if(currentPlayingVideoId) { startVideo(currentPlayingVideoId); }
         }
 
-        // ==========================================
         // DOWNLOADER
-        // ==========================================
         let pendingDlUrl = ""; let pendingDlTitle = ""; let pendingDlType = "";
         
         function triggerDownload(index, type) {
@@ -955,9 +942,7 @@ PLAYER_HTML = """
             } catch(e) {}
         }, 1000);
 
-        // ==========================================
         // VIDEO LOGIC
-        // ==========================================
         async function startVideo(id) {
             stopAudio(); 
             let itemToSave = currentResults.find(i => (i.id === id || i.url.includes(id))) || {title: "Video Stream", uploader: "Unknown", url: id};
@@ -971,22 +956,30 @@ PLAYER_HTML = """
             ytLink.style.display = 'block';
 
             document.getElementById('ytIframe').src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+            
+            try {
+                const container = document.getElementById('videoContainer');
+                if (container.requestFullscreen) { await container.requestFullscreen(); }
+                if (screen.orientation && screen.orientation.lock) { await screen.orientation.lock("landscape"); }
+            } catch(e) {}
         }
         
         async function closeVideo() {
             document.getElementById('video-modal').style.display = 'none';
             document.getElementById('ytIframe').src = "";
+            try { 
+                if (document.exitFullscreen) { await document.exitFullscreen(); }
+                if (screen.orientation && screen.orientation.unlock) { screen.orientation.unlock(); }
+            } catch(e) {}
         }
 
-        // ==========================================
-        // V48 STRICT AUTOPLAY & ERROR STOP LOGIC
-        // ==========================================
+        // STRICT QUEUE AUDIO ENGINE
         function playSingleAudio(index) { 
             audioEngine.play().catch(e=>{}); 
             isErrorStopped = false;
-            // V48 FEATURE: Queues entire list, starting at clicked item
-            audioQueue = currentResults; 
-            currentIndex = index; 
+            // QUEUE LOGIC: If a single song is clicked, populate queue from there onwards
+            audioQueue = currentResults.slice(index); 
+            currentIndex = 0; 
             loadQueueItem(); 
         }
 
@@ -995,7 +988,8 @@ PLAYER_HTML = """
             isErrorStopped = false;
             const checked = document.querySelectorAll('.song-checkbox:checked');
             if(checked.length === 0) return alert("Select songs first!");
-            // V48 FEATURE: Queues ONLY checked items
+            
+            // QUEUE LOGIC: Strictly ONLY selected items
             audioQueue = Array.from(checked).map(cb => currentResults[parseInt(cb.value)]);
             currentIndex = 0; 
             loadQueueItem();
@@ -1005,7 +999,7 @@ PLAYER_HTML = """
             clearInterval(fadeInterval);
             isFadingOut = false;
             audioEngine.volume = 0;
-            let targetVol = parseInt(document.getElementById('volSlider').value) / 100;
+            let targetVol = document.getElementById('volSlider').value / 100;
             let step = targetVol / 30; 
             fadeInterval = setInterval(() => {
                 if (audioEngine.volume + step < targetVol) { audioEngine.volume += step; } 
@@ -1084,7 +1078,6 @@ PLAYER_HTML = """
                     }
                 }
             } catch (err) { 
-                // V48 CRITICAL FIX: Explicitly stop skipping on error
                 isErrorStopped = true;
                 showToast("Stream Error. Playback stopped.", "error"); 
                 stopAudio(); 
@@ -1097,7 +1090,7 @@ PLAYER_HTML = """
         function togglePlay(e) { 
             if(e) e.stopPropagation(); 
             if(audioEngine.paused) {
-                audioEngine.volume = parseInt(document.getElementById('volSlider').value) / 100;
+                audioEngine.volume = document.getElementById('volSlider').value / 100;
                 audioEngine.play().catch(e => showToast("Playback error.", "error"));
             } else {
                 audioEngine.pause(); 
@@ -1106,7 +1099,7 @@ PLAYER_HTML = """
         
         function nextSong(e) { 
             if(e) e.stopPropagation(); 
-            if(isErrorStopped) return; // CRITICAL V48 FIX
+            if(isErrorStopped) return; 
             clearInterval(fadeInterval); isFadingOut = false; 
             if (loopMode === 2) { audioEngine.currentTime = 0; audioEngine.play(); return; }
             if (currentIndex < audioQueue.length - 1) { currentIndex++; loadQueueItem(); }
@@ -1264,10 +1257,7 @@ def stream_audio():
     ydl_opts = { 
         'quiet': True, 
         'format': 'bestaudio/best', 
-        'noplaylist': True, 
-        'proxy': 'socks5://127.0.0.1:40000', 
-        'geo_bypass': True, 
-        'geo_bypass_country': 'US'
+        'noplaylist': True
     }
     try:
         info = run_ydl_with_failover(ydl_opts, url, download=False)
@@ -1292,7 +1282,7 @@ def get_info():
     if mode != 'search' and 'list=RD' in url: 
         return jsonify({'error': 'Infinite loop detected.'})
 
-    ydl_opts = {'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search'], 'geo_bypass': True, 'geo_bypass_country': 'US'}
+    ydl_opts = {'quiet': True, 'color': 'no_color', 'extract_flat': True if mode in ['playlist', 'search'] else False, 'noplaylist': mode in ['single', 'search']}
     try:
         fetch_url = f"ytsearch{limit}:{url}" if mode == 'search' else url
         info = run_ydl_with_failover(ydl_opts, fetch_url, download=False)
@@ -1324,8 +1314,8 @@ def get_info():
 
 def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
     ydl_opts = {
-        'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s', 'quiet': True, 'color': 'no_color', 'proxy': 'socks5://127.0.0.1:40000', 
-        'geo_bypass': True, 'geo_bypass_country': 'US', 'nocheckcertificate': True, 'restrictfilenames': True,
+        'outtmpl': f'{DOWNLOAD_DIR}/%(title)s.%(ext)s', 'quiet': True, 'color': 'no_color', 
+        'nocheckcertificate': True, 'restrictfilenames': True,
         'progress_hooks': [get_progress_hook(task_id)], 'noplaylist': True, 'ffmpeg_location': '/usr/bin/ffmpeg', 
         'external_downloader': 'aria2c', 'external_downloader_args': ['-j', '16', '-x', '16', '-s', '16', '-k', '1M'],
         'postprocessor_args': ['-threads', '0', '-preset', 'ultrafast', '-strict', 'experimental'],
@@ -1354,7 +1344,6 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
     try:
         run_ydl_with_failover(ydl_opts, url, download=True)
         
-        # Resolve final filename
         name_without_ext = os.path.join(DOWNLOAD_DIR, active_tasks[task_id]['title'])
         actual_file = None
         for possible_ext in ['.mp3', '.m4a', '.webm', '.opus', '.mp4', '.mkv']:
@@ -1363,7 +1352,6 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
                 break
         
         if not actual_file:
-            # Fallback search in directory
             for fn in os.listdir(DOWNLOAD_DIR):
                 if active_tasks[task_id]['title'][:10] in fn:
                     actual_file = os.path.join(DOWNLOAD_DIR, fn)
@@ -1402,5 +1390,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V48 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V49 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
