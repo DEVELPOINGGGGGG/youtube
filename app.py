@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V59 - ZERO-LAG PHANTOM: RACE-CONDITION FIX)
+# YOUTUBE MEDIA APP (V60 - PYTUBE VANGUARD: PYTUBE -> YTDLP -> COBALT)
 # ==============================================================================
 
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
@@ -21,9 +21,9 @@ if pytube_tokens_env:
     try:
         with open('tokens.json', 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info("✅ V59: Tokens injected successfully.")
+        logger.info("✅ V60: Tokens injected successfully.")
     except Exception as e:
-        logger.error(f"❌ V59: Token injection failed: {e}")
+        logger.error(f"❌ V60: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -77,11 +77,26 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# V59: THE TRINITY FALLBACK ENGINE (FASTEST FIRST, DATA SAVER MODE)
+# V60: THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
+    # --- TIER 1: PYTUBE (FASTEST, OAUTH TOKEN SHIELD) ---
     try:
-        logger.info(f"Tier 1: Attempting yt-dlp extraction for {url}")
+        logger.info("Tier 1: Attempting Pytube extraction...")
+        yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, token_file='tokens.json')
+        if is_audio:
+            # Grabs the absolute smallest file size stream for zero-lag loading
+            stream = yt.streams.filter(only_audio=True).order_by('abr').first()
+        else:
+            stream = yt.streams.get_lowest_resolution()
+            
+        if stream and stream.url: return stream.url
+    except Exception as e:
+        logger.error(f"Pytube failed: {e}")
+
+    # --- TIER 2: YT-DLP (MAXIMUM DATA SAVER) ---
+    try:
+        logger.info(f"Tier 2: Attempting yt-dlp fallback for {url}")
         ydl_opts = {
             'quiet': True,
             'format': 'bestaudio[abr<=64]/worstaudio/best' if is_audio else 'best',
@@ -97,18 +112,7 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"yt-dlp failed: {e}")
 
-    try:
-        logger.info("Tier 2: Attempting Pytube fallback...")
-        yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, token_file='tokens.json')
-        if is_audio:
-            stream = yt.streams.filter(only_audio=True).order_by('abr').first()
-        else:
-            stream = yt.streams.get_lowest_resolution()
-            
-        if stream and stream.url: return stream.url
-    except Exception as e:
-        logger.error(f"Pytube failed: {e}")
-
+    # --- TIER 3: COBALT API (SLOWEST, LAST RESORT) ---
     try:
         logger.info("Tier 3: Attempting Cobalt API fallback...")
         res = requests.post(
@@ -146,20 +150,20 @@ PLAYER_HTML = """
         body.theme-cyberpunk { background: linear-gradient(-45deg, #2a0845, #6441A5, #ff0844, #1a0b2e); background-size: 400% 400%; }
         body.theme-sunset { background: linear-gradient(-45deg, #ff7eb3, #ff758c, #ff9a44, #fc6076); background-size: 400% 400%; }
 
-        /* V59 PERFORMANCE FIX: Removed GPU-killing filter: blur(). Replaced with native radial-gradients */
-        .bg-orb { position: absolute; border-radius: 50%; z-index: -1; animation: floatOrb 10s ease-in-out infinite alternate; pointer-events: none;}
+        /* V60 PERFORMANCE FIX: Radial-gradients instead of blur() */
+        .bg-orb { position: absolute; border-radius: 50%; z-index: -1; animation: floatOrb 10s ease-in-out infinite alternate; pointer-events: none; transform: translateZ(0); will-change: transform;}
         .orb-1 { width: 300px; height: 300px; top: -100px; left: -100px; background: radial-gradient(circle, rgba(79,172,254,0.4) 0%, rgba(79,172,254,0) 70%); }
         .orb-2 { width: 400px; height: 400px; bottom: 10vh; right: -150px; background: radial-gradient(circle, rgba(255,8,68,0.4) 0%, rgba(255,8,68,0) 70%); animation-delay: -5s; }
         @keyframes floatOrb { 0% { transform: translateY(0); } 100% { transform: translateY(50px); } }
 
-        .container { width: 100%; max-width: 800px; padding-bottom: 150px; position: relative; z-index: 10;}
+        .container { width: 100%; max-width: 800px; padding-bottom: 150px; position: relative; z-index: 10; transform: translateZ(0);}
         
-        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.3s ease; display: flex; align-items: center; gap: 10px;}
+        #global-loader { position: fixed; top: -100px; left: 50%; transform: translateX(-50%) translateZ(0); background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); color: white; padding: 10px 25px; border-radius: 50px; font-weight: 800; box-shadow: 0 10px 30px rgba(255,8,68,0.5); z-index: 10000; transition: top 0.3s ease; display: flex; align-items: center; gap: 10px; will-change: top;}
         #global-loader.active { top: 20px; }
         .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #1e293b; box-shadow: 5px 0 25px rgba(0,0,0,0.8); z-index: 9999; transition: left 0.3s ease; display: flex; flex-direction: column; padding: 30px 20px; border-right: 1px solid rgba(255,255,255,0.1); }
+        .side-nav { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: #1e293b; box-shadow: 5px 0 25px rgba(0,0,0,0.8); z-index: 9999; transition: left 0.3s ease; display: flex; flex-direction: column; padding: 30px 20px; border-right: 1px solid rgba(255,255,255,0.1); transform: translateZ(0); will-change: left;}
         .side-nav.open { left: 0; }
         .side-nav-close { align-self: flex-end; font-size: 2rem; cursor: pointer; border: none; background: none; color: #ff0844; margin-bottom: 20px; }
         .side-nav a { text-decoration: none; color: white; font-weight: 800; font-size: 1.1rem; padding: 15px; border-radius: 12px; margin-bottom: 10px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; transition: 0.2s;}
@@ -168,9 +172,9 @@ PLAYER_HTML = """
         .nav-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; }
 
         #toast-container { position: fixed; top: 80px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
-        .toast { background: #0f172a; border: 1px solid #334155; color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.3s ease forwards; }
+        .toast { background: #0f172a; border: 1px solid #334155; color: white; padding: 15px 25px; border-radius: 12px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 5px solid #ff0844; animation: slideIn 0.3s ease forwards; transform: translateZ(0);}
         .toast.success { border-left-color: #1db954; }
-        .toast.error { border-left-color: #ff0844; }
+        .toast.error { border-left-color: #ff0844; background: rgba(40,10,10,0.95);}
         @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(120%); opacity: 0; } }
 
@@ -242,12 +246,12 @@ PLAYER_HTML = """
         .full-only { display: flex; width: 100%; justify-content: space-between; position: absolute; top: 20px; padding: 0 25px; z-index: 3000; pointer-events: auto;}
         .mini .full-only { display: none !important; }
         
-        .top-ctrl-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: 0.2s; font-family: monospace; font-weight:bold;}
+        .top-ctrl-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px); transition: 0.2s; font-family: monospace; font-weight:bold;}
         
         .mini-close { display: none; }
         .mini .mini-close { display: block; font-size: 1.5rem; background:none; border:none; color:white; margin-left:10px; cursor:pointer; z-index: 3000; position:relative; pointer-events:auto; font-family: monospace; font-weight:bold;}
 
-        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 20px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: all 0.5s ease; cursor: pointer; box-shadow: 0 10px 30px rgba(0,0,0,0.6);}
+        #ap-cover { width: 75%; max-width: 380px; aspect-ratio: 1; border-radius: 20px; object-fit: cover; margin-top: 30px; margin-bottom: 30px; transition: all 0.5s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6); transform: translateZ(0);}
         .vinyl-mode { border-radius: 50% !important; animation: recordSpin 10s linear infinite; box-shadow: 0 0 0 10px #111, 0 0 20px #1db954 !important;}
         @keyframes recordSpin { 100% { transform: rotate(360deg); } }
         
@@ -259,7 +263,6 @@ PLAYER_HTML = """
         .marquee-text { font-size: 1.5rem; font-weight: 800; white-space: nowrap; display: inline-block; color: white;}
         .mini .marquee-text { font-size: 1.1rem; }
         .marquee-text.scroll { animation: marquee 12s linear infinite; padding-left: 100%; }
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
         
         #ap-artist { color: #94a3b8; font-size: 1rem; margin-bottom: 20px; display: block;}
         .mini #ap-artist { display: none; }
@@ -495,7 +498,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V59 Data-Saver Phantom running perfectly.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V60 Vanguard active. Routing: Pytube -> yt-dlp -> Cobalt.</p>
             </div>
         </div>
     </div>
@@ -608,8 +611,8 @@ PLAYER_HTML = """
         
         let isFadingOut = false;
         let fadeInterval = null;
-        let hasFiredErrorForCurrentSong = false; // V59: Anti-Spam Error Shield
-        let currentPlaySession = 0; // V59: Race Condition / Ghost Audio Fix
+        let hasFiredErrorForCurrentSong = false;
+        let currentPlaySession = 0;
         
         let sleepTimer = null;
         let sleepTimeLeft = 0;
@@ -620,7 +623,6 @@ PLAYER_HTML = """
 
         const audioEngine = document.getElementById('audioEngine');
 
-        // V59: SILENT AUDIO ERROR LISTENER - Anti Spam
         audioEngine.onerror = (e) => {
             if(!hasFiredErrorForCurrentSong && audioEngine.src && audioEngine.src !== window.location.href) {
                 hasFiredErrorForCurrentSong = true;
@@ -772,7 +774,6 @@ PLAYER_HTML = """
             try {
                 const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) });
                 
-                // V59 JSON DOCTYPE Error Prevention
                 if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
                     throw new Error("Server returned HTML error (Backend Crash/Timeout).");
                 }
@@ -1061,7 +1062,6 @@ PLAYER_HTML = """
                 return;
             }
             
-            // V59 GHOST AUDIO FIX: Track the exact session ID
             currentPlaySession = Date.now();
             let mySession = currentPlaySession;
 
@@ -1095,14 +1095,12 @@ PLAYER_HTML = """
                     body: JSON.stringify({ url: item.url || item.id })
                 });
                 
-                // V59: Anti DOCTYPE Parse Error
                 if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
-                    throw new Error("Server returned non-JSON error (Backend Crash/Timeout).");
+                    throw new Error("Server returned non-JSON error.");
                 }
                 
                 const data = await res.json();
                 
-                // V59 GHOST AUDIO FIX: Abort if user closed player or skipped song while we were fetching
                 if (currentPlaySession !== mySession) {
                     hideLoader();
                     return; 
@@ -1182,7 +1180,6 @@ PLAYER_HTML = """
             if(e) e.stopPropagation();
             clearInterval(fadeInterval); isFadingOut = false;
             
-            // V59 GHOST AUDIO FIX: Invalidate session immediately
             currentPlaySession = 0; 
             hideLoader();
             
@@ -1318,7 +1315,6 @@ def serve_sw():
 def media_player(): 
     return render_template_string(PLAYER_HTML)
 
-# V59 JSON ENFORCEMENT SHIELD: Ensures all /api/ errors return strict JSON, never HTML.
 @app.errorhandler(Exception)
 def handle_exception(e):
     if request.path.startswith('/api/'):
@@ -1395,7 +1391,7 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
         
         stream_url = fetch_stream_url(url, is_audio=(dl_type == 'mp3'))
         if not stream_url:
-            raise Exception("Failed to extract download URL via Trinity Fallback (yt-dlp -> Pytube -> Cobalt).")
+            raise Exception("Failed to extract download URL via Trinity Fallback (Pytube -> yt-dlp -> Cobalt).")
 
         raw_file = os.path.join(DOWNLOAD_DIR, f"{task_id}_raw.{dl_type}")
         r = requests.get(stream_url, stream=True, timeout=15)
@@ -1438,11 +1434,10 @@ def serve_file():
 
 @app.errorhandler(404)
 def page_not_found(e):
-    # Only redirect non-API traffic
     if request.path.startswith('/api/'):
         return jsonify(error="Not found"), 404
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V59 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V60 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
