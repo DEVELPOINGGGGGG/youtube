@@ -1,10 +1,8 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V65 - INDIA GEO-CORE: HINDI REGION & UI SCALING)
+# YOUTUBE MEDIA APP (V66 - GOD-MODE SENTINEL: SYSTEM-LEVEL LOCALE INJECTION)
 # ==============================================================================
 
-from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
-import yt_dlp
-from pytubefix import YouTube
+import urllib.request
 import os
 import time
 import threading
@@ -12,7 +10,26 @@ import uuid
 import logging
 import urllib.parse
 import requests
+from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
+import yt_dlp
+from pytubefix import YouTube
 
+# ==============================================================================
+# V66: THE DEEP SYSTEM-LEVEL OVERRIDE (FORCES HINDI/INDIA ON PYTUBE)
+# ==============================================================================
+_original_request_init = urllib.request.Request.__init__
+
+def _patched_request_init(self, url, data=None, headers={}, *args, **kwargs):
+    headers = headers or {}
+    # Force YouTube to see every request as coming from an Indian locale
+    headers['Accept-Language'] = 'hi-IN,hi;q=0.9,en-US;q=0.8,en;q=0.7'
+    _original_request_init(self, url, data=data, headers=headers, *args, **kwargs)
+
+urllib.request.Request.__init__ = _patched_request_init
+
+# ==============================================================================
+# SYSTEM CONFIG & OAUTH INJECTION
+# ==============================================================================
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
 
@@ -21,9 +38,9 @@ if pytube_tokens_env:
     try:
         with open('tokens.json', 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info("✅ V65: Tokens injected successfully.")
+        logger.info("✅ V66: OAuth Tokens injected successfully.")
     except Exception as e:
-        logger.error(f"❌ V65: Token injection failed: {e}")
+        logger.error(f"❌ V66: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -56,30 +73,11 @@ def cleanup_worker():
 
 threading.Thread(target=cleanup_worker, daemon=True).start()
 
-def get_progress_hook(task_id):
-    def progress_hook(d):
-        task = active_tasks.get(task_id)
-        if not task: return
-        try:
-            if d['status'] == 'downloading':
-                task['status'] = 'downloading'
-                total = d.get('total_bytes') or d.get('total_bytes_estimate', 1)
-                downloaded = d.get('downloaded_bytes', 0)
-                if total > 0: task['percent'] = round((downloaded / total) * 100, 1)
-                task['speed'] = str(d.get('_speed_str', '0 MB/s')).replace('\x1b[0;94m', '').replace('\x1b[0m', '').strip()
-                task['eta'] = str(d.get('_eta_str', '00:00')).replace('\x1b[0;93m', '').replace('\x1b[0m', '').strip()
-            elif d['status'] == 'finished':
-                task['status'] = 'processing'
-                task['percent'] = 100
-                task['speed'] = "Processing"
-                task['eta'] = "--:--"
-        except: pass
-    return progress_hook
-
 # ==============================================================================
-# V65: THE TRINITY FALLBACK ENGINE (INDIA GEO-SPOOFED)
+# THE TRINITY FALLBACK ENGINE (PYTUBE -> YTDLP -> COBALT)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
+    # --- TIER 1: PYTUBE (WITH DEEP HINDI OVERRIDE) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         yt = YouTube(url, use_oauth=True, allow_oauth_cache=True, token_file='tokens.json')
@@ -92,9 +90,9 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.error(f"Pytube failed: {e}")
 
+    # --- TIER 2: YT-DLP (GEO-SPOOFED) ---
     try:
         logger.info(f"Tier 2: Attempting yt-dlp fallback for {url}")
-        # V65 FIX: Injected India Geo-Bypass & Hindi Language priority headers
         ydl_opts = {
             'quiet': True,
             'format': 'bestaudio[abr<=64]/worstaudio/best' if is_audio else 'best',
@@ -115,6 +113,7 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"yt-dlp failed: {e}")
 
+    # --- TIER 3: COBALT API ---
     try:
         logger.info("Tier 3: Attempting Cobalt API fallback...")
         res = requests.post(
@@ -126,7 +125,7 @@ def fetch_stream_url(url, is_audio=True):
                 "Accept-Language": "hi-IN,hi;q=0.9"
             },
             json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"},
-            timeout=10
+            timeout=15
         )
         if res.status_code == 200:
             data = res.json()
@@ -210,9 +209,10 @@ PLAYER_HTML = """
         .card:hover { border-color: #4facfe; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
         @keyframes cardStagger { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
 
-        .card.audio-mode { display: flex; flex-direction: row; padding: 15px; gap: 15px; align-items: flex-start; }
-        .card.audio-mode img { width: 80px; height: 80px; min-width: 80px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.5); margin-top: 5px;}
-        .card.audio-mode .info { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+        .card.audio-mode { display: flex; flex-direction: column; padding: 15px; gap: 10px; align-items: stretch; }
+        .audio-top-row { display: flex; flex-direction: row; gap: 15px; align-items: flex-start; }
+        .audio-top-row img { width: 80px; height: 80px; min-width: 80px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.5);}
+        .audio-top-row .info { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
         
         .card.audio-mode h4 { 
             font-size: 1.05rem; 
@@ -224,17 +224,15 @@ PLAYER_HTML = """
         }
         .card.audio-mode h4::-webkit-scrollbar { display: none; }
         
-        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0 0 12px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .card.audio-mode .action-row-audio { display: flex; gap: 10px; align-items: center; }
-        .play-btn { background: #ff0844; color: white; border: none; padding: 8px 20px; border-radius: 8px; font-size: 0.9rem; font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex: 1;}
-        .dl-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 8px; font-size: 1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
-        .play-btn:hover { transform: scale(1.05); }
-        .dl-btn:hover { background: #4facfe; border-color: #4facfe; }
+        .card.audio-mode p { font-size: 0.8rem; color: #94a3b8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card.audio-mode .action-row-audio { display: flex; gap: 10px; align-items: center; width: 100%; margin-top: 5px;}
+        .play-btn { background: #ff0844; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 0.95rem; font-weight: bold; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; box-shadow: 0 5px 15px rgba(255,8,68,0.4); flex: 1;}
+        .dl-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 10px 20px; border-radius: 8px; font-size: 1rem; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;}
+        .play-btn:hover { transform: scale(1.02); }
+        .dl-btn:hover { background: #4facfe; border-color: #4facfe; transform: scale(1.02); }
 
-        /* V65 VIDEO CARD OVERHAUL - Strict Contain & Scrollable Title */
         .card.video-mode { display: flex; flex-direction: column; padding: 0; align-items: center; justify-content: flex-start; width: 100%; }
         .thumb-container { width: 100%; aspect-ratio: 16/9; position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #0b1120; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        /* V65: object-fit contain guarantees full uncropped thumbnail display */
         .thumb-container img { width: 100%; height: 100%; object-fit: contain; object-position: center; cursor: pointer; transition: transform 0.3s ease; }
         .thumb-container:hover img { transform: scale(1.03); }
         .duration-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; pointer-events: none; z-index: 10; }
@@ -245,7 +243,6 @@ PLAYER_HTML = """
 
         .card.video-mode .info-container { padding: 15px; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: stretch; }
         
-        /* V65 Scrollable Larger Title */
         .card.video-mode h4 { 
             font-size: 1.25rem; 
             line-height: 1.4; 
@@ -532,7 +529,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V65 India Geo-Core. Hindi Regional targeting active.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V66 Sentinel Active. System-level India locale forced.</p>
             </div>
         </div>
     </div>
@@ -854,7 +851,11 @@ PLAYER_HTML = """
                 renderResults();
                 document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
                 document.getElementById('loadMoreBtn').style.display = 'block';
-            } catch (err) { showToast("Search Error: " + err.message, "error"); document.getElementById('status').innerText = 'Network Error.'; }
+            } catch (err) { 
+                # Silent failure on Network Error to prevent ugly popups as requested
+                logger.warning(f"Search Network Error: {err}")
+                document.getElementById('status').innerText = 'Network Error / Blocked.'; 
+            }
             finally { hideLoader(); isFetchingMore = false; attachRipples(); } 
         }
 
@@ -868,15 +869,17 @@ PLAYER_HTML = """
                 if(currentMode === 'audio') {
                     container.innerHTML += `
                         <div class="card audio-mode" style="animation-delay: ${delay}s;">
-                            <input type="checkbox" class="song-checkbox audio-cb" value="${index}">
-                            <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" title="View Art">
-                            <div class="info">
-                                <h4 title="${item.title}">${item.title}</h4>
-                                <p>${uploader} • ${item.duration}</p>
-                                <div class="action-row-audio">
-                                    <button class="play-btn" onclick="playSingleAudio(${index})" title="Play">▶ Play</button>
-                                    <button class="dl-btn" onclick="triggerDownload(${index}, 'mp3')" title="Download MP3">📥</button>
+                            <div class="audio-top-row">
+                                <input type="checkbox" class="song-checkbox audio-cb" value="${index}">
+                                <img src="${item.thumbnail}" onclick="openFullThumbList('${item.thumbnail}', '${videoId}')" title="View Art">
+                                <div class="info">
+                                    <h4 title="${item.title}">${item.title}</h4>
+                                    <p>${uploader} • ${item.duration}</p>
                                 </div>
+                            </div>
+                            <div class="action-row-audio">
+                                <button class="play-btn" onclick="playSingleAudio(${index})" title="Play">▶ Play</button>
+                                <button class="dl-btn" onclick="triggerDownload(${index}, 'mp3')" title="Download MP3">📥</button>
                             </div>
                         </div>`;
                 } else {
@@ -1167,7 +1170,7 @@ PLAYER_HTML = """
                 });
                 
                 if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
-                    throw new Error("Server returned HTML error.");
+                    throw new Error("Server error.");
                 }
                 
                 const data = await res.json();
@@ -1203,7 +1206,8 @@ PLAYER_HTML = """
             } catch (err) { 
                 if (currentPlaySession === mySession) {
                     hasFiredErrorForCurrentSong = true;
-                    showToast("Stream Error: Backend blocked or failed to extract.", "error"); 
+                    // Suppressed ugly network error as requested
+                    logger.warning(f"Audio Fetch Network Error: {err}")
                     stopAudio(); 
                 }
             }
@@ -1524,5 +1528,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V65 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V66 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
