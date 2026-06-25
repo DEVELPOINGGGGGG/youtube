@@ -42,10 +42,10 @@ if pytube_tokens_env:
         logger.error(f"❌ V67: Token injection failed: {e}")
 
 app = Flask(__name__)
-DOWNLOAD_DIR = 'downloads'
+DOWNLOAD_DIR = os.path.join(os.getcwd(), 'downloads')
 
 if not os.path.exists(DOWNLOAD_DIR):
-    os.makedirs(DOWNLOAD_DIR)
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 active_tasks = {}
 
