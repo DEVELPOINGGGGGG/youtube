@@ -821,39 +821,43 @@ PLAYER_HTML = """
 
         function loadMore() { currentSearchLimit += 20; search(false); }
 
-        async function search(isNew = true) {
-            const query = document.getElementById('searchInput').value.trim();
-            if(!query) { isFetchingMore = false; return; }
-            
-            document.getElementById('status').innerText = 'Searching YouTube...';
-            if(isNew) {
-                currentSearchLimit = 10;
-                document.getElementById('results').innerHTML = '';
-                document.getElementById('loadMoreBtn').style.display = 'none';
-            }
+async function search(isNew = true) {
+    const query = document.getElementById('searchInput').value.trim();
+    if(!query) { isFetchingMore = false; return; }
+    
+    document.getElementById('status').innerText = 'Searching YouTube...';
+    if(isNew) {
+        currentSearchLimit = 10;
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('loadMoreBtn').style.display = 'none';
+    }
 
-            showLoader();
-            try {
-                const res = await fetch('/api/info', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) });
-                
-                if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
-                    throw new Error("Server returned HTML error.");
-                }
-                
-                const data = await res.json();
-                
-                if(data.error) { throw new Error(data.error); }
-                
-                currentResults = data.entries;
-                renderResults();
-                document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
-                document.getElementById('loadMoreBtn').style.display = 'block';
-            } catch (err) { 
-                logger.warning(f"Search Network Error: {err}")
-                document.getElementById('status').innerText = 'Network Error / Blocked.'; 
-            }
-            finally { hideLoader(); isFetchingMore = false; attachRipples(); } 
+    showLoader();
+    try {
+        const res = await fetch('/api/info', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({url: query, mode: 'search', limit: currentSearchLimit}) 
+        });
+        
+        if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
+            throw new Error("Server returned HTML error.");
         }
+        
+        const data = await res.json();
+        
+        if(data.error) { throw new Error(data.error); }
+        
+        currentResults = data.entries;
+        renderResults();
+        document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
+        document.getElementById('loadMoreBtn').style.display = 'block';
+    } catch (err) { 
+        console.warn(`Search Network Error: ${err}`); 
+        document.getElementById('status').innerText = 'Network Error / Blocked.'; 
+    }
+    finally { hideLoader(); isFetchingMore = false; attachRipples(); } 
+}
 
         function renderResults() {
             const container = document.getElementById('results'); container.innerHTML = '';
