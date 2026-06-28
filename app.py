@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V71 - CLOUDFLARE PO-TOKEN & ZERO-COOKIE CORE)
+# YOUTUBE MEDIA APP (V72 - AUTOMATED SENTINEL: NON-INTERACTIVE PO-TOKEN LOCK)
 # ==============================================================================
 
 import urllib.request
@@ -28,12 +28,11 @@ def _patched_request_init(self, url, data=None, headers={}, *args, **kwargs):
 urllib.request.Request.__init__ = _patched_request_init
 
 # ==============================================================================
-# 2. SYSTEM CONFIG & ABSOLUTE TOKEN INJECTION (FIXES [Errno 2])
+# 2. SYSTEM CONFIG & ABSOLUTE TOKEN INJECTION
 # ==============================================================================
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
 
-# Force the token file into the absolute /tmp/ directory so Render cannot lose the path
 TOKEN_PATH = os.path.join(tempfile.gettempdir(), 'youtube_tokens.json')
 pytube_tokens_env = os.environ.get('PYTUBE_TOKENS')
 
@@ -41,9 +40,9 @@ if pytube_tokens_env:
     try:
         with open(TOKEN_PATH, 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info(f"✅ V71: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
+        logger.info(f"✅ V72: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
     except Exception as e:
-        logger.error(f"❌ V71: Token injection failed: {e}")
+        logger.error(f"❌ V72: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -97,17 +96,29 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# 3. V71 ENGINE: PO-TOKENS, CLOUDFLARE PROXY, ZERO-COOKIES
+# 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBE (WITH PO-TOKEN BOT BYPASS & ABSOLUTE PATH) ---
+    # --- TIER 1: PYTUBE (NON-INTERACTIVE OVERRIDE) ---
     try:
-        logger.info("Tier 1: Attempting Pytube (PO-Token) extraction...")
+        logger.info("Tier 1: Attempting Pytube extraction...")
         kwargs = {
             'use_oauth': True, 
-            'allow_oauth_cache': True,
-            'use_po_token': True # Bypasses YouTube Bot Checks
+            'allow_oauth_cache': True
         }
+        
+        # Pull standalone po_token values if you have them inside Render Environment
+        po_token = os.environ.get('YT_PO_TOKEN')
+        visitor_data = os.environ.get('YT_VISITOR_DATA')
+        
+        if po_token and visitor_data:
+            kwargs['use_po_token'] = True
+            kwargs['po_token'] = po_token
+            kwargs['visitor_data'] = visitor_data
+        else:
+            # Explicitly turn off interactive tracking to kill "EOF when reading a line" crash
+            kwargs['use_po_token'] = False
+
         if os.path.exists(TOKEN_PATH):
             kwargs['token_file'] = TOKEN_PATH
 
@@ -119,9 +130,9 @@ def fetch_stream_url(url, is_audio=True):
             
         if stream and stream.url: return stream.url
     except Exception as e:
-        logger.error(f"Pytube failed: {e}")
+        logger.error(f"Pytube failed cleanly: {e}")
 
-    # --- TIER 2: COBALT API (CLOUDFLARE PROXY BYPASS) ---
+    # --- TIER 2: COBALT API (CLOUDFLARE PROXY PASS) ---
     try:
         logger.info("Tier 2: Attempting Cobalt (Cloudflare) fallback...")
         res = requests.post(
@@ -155,7 +166,6 @@ def fetch_stream_url(url, is_audio=True):
             },
             'extractor_args': {'youtube': ['player_client:ios,tv', 'player_skip:web', 'comment_client:none', 'lang:hi']}
         }
-        # Notice: No cookies.txt passed here at all.
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if 'url' in info: return info['url']
@@ -165,7 +175,7 @@ def fetch_stream_url(url, is_audio=True):
     return None
 
 # ==============================================================================
-# FRONTEND: THE ULTIMATE SOLO PLAYER (100% SANITIZED HTML/JS)
+# FRONTEND: THE ULTIMATE SOLO PLAYER
 # ==============================================================================
 PLAYER_HTML = """
 <!DOCTYPE html>
@@ -239,7 +249,7 @@ PLAYER_HTML = """
 
         .card.audio-mode { display: flex; flex-direction: column; padding: 15px; gap: 10px; align-items: stretch; }
         .audio-top-row { display: flex; flex-direction: row; gap: 15px; align-items: flex-start; }
-        .audio-top-row img { width: 80px; height: 80px; min-width: 80px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.5);}
+        .audio-top-row img { width: 80px; height: 80px; min-width: 80px; border-radius: 10px; object-fit: cover; cursor:pointer; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0,0,0,0.5); margin-top: 5px;}
         .audio-top-row .info { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
         
         .card.audio-mode h4 { 
@@ -557,7 +567,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V71 Active. Zero-Cookie & Cloudflare PO-Token Bypass Running.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V72 Sentinel Active. Non-interactive loop protection locked.</p>
             </div>
         </div>
     </div>
@@ -880,7 +890,7 @@ PLAYER_HTML = """
                 document.getElementById('status').innerText = `Found ${currentResults.length} results.`;
                 document.getElementById('loadMoreBtn').style.display = 'block';
             } catch (err) { 
-                logger.warning("Search Error: " + err.message);
+                console.warn("Search Error: " + err.message);
                 document.getElementById('status').innerText = 'Network Error / Blocked.'; 
             }
             finally { hideLoader(); isFetchingMore = false; attachRipples(); } 
@@ -1197,7 +1207,7 @@ PLAYER_HTML = """
                 });
                 
                 if (!res.ok && res.headers.get("content-type").indexOf("application/json") === -1) {
-                    throw new Error("Server returned HTML error.");
+                    throw new Error("Server error.");
                 }
                 
                 const data = await res.json();
@@ -1233,7 +1243,6 @@ PLAYER_HTML = """
             } catch (err) { 
                 if (currentPlaySession === mySession) {
                     hasFiredErrorForCurrentSong = true;
-                    showToast("Stream Error: Backend blocked or failed to extract.", "error"); 
                     stopAudio(); 
                 }
             }
@@ -1554,5 +1563,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V71 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V72 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
