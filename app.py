@@ -99,19 +99,25 @@ def get_progress_hook(task_id):
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (AUTOMATED ENGINE BINDING WITH PO-TOKEN GENERATION) ---
+    # --- TIER 1: PYTUBEFIX (MANUAL PO-TOKEN BINDING OVERRIDE) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
-        # Configure pytubefix to automatically manage signatures via Node
+        # 🎯 SLAM YOUR EXACT STRINGS FROM YOUR BROWSERS IMAGES RIGHT HERE:
+        MANUAL_PO_TOKEN = "MlRBjbgttbr-WEGwT2l1BFwlhOXReegoSR-43k7f3xCy9C30A6hxRdb-FLzBhGQOBSfdU2c1sjzjxaIJzhPsE1R8xveKhw2W3B-9CTTPtESAkd9lgZA="
+        MANUAL_VISITOR_DATA = "gtaOGNrcDA2VVE3USi0us3SBjIKCgJJThIEGgAgZGLfAgrcAjIwLllUPW1CSDBGLU43V2t3WkczbFhrRlZHM0ZqVzRjMVhyRkZsUUxCRDlDRHEtY2hrMGlRNHZLUUNXa1ZLM24xMTBqWGd1N3d0QTZGWWk5WXoxeVNxeS1xMHhWdHdRZEc4NmJoWmZWa1RHTWNvX1poS0NjVFdXTG92VEtzdVhqd09QNWFqNjk3aGRUTmM4V2JCWlNUWlRmUUUxZ3lrci1TNFRtY3ZpelAycURrdkp2Y1NCUHpsR3JPQUJfbzItUXM4WjhzQXRHc001Q19ZRUlQU3pZa0VHaGNsNThrTUhuZjdPYktlOURIUVI0SW1GRjVLMFdiUzJYUXh4ZE5RQm01MDd5QzJCOG1FZUl3MjduYUtlQVJ3WjBsdDhDcEpEcEJZMThBeldUUThhZUtmaEV4Z0J3a25uN3pSTDROUENuSWxJcmdiSEZFcFNDdC1JRmRNSlNlODRiTl9iQQ%3D%3D"
+        
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'WEB'  # 'WEB' triggers the internal automated BotGuard engine
+            'client': 'WEB',
+            'use_po_token': True,
+            'po_token': MANUAL_PO_TOKEN,
+            'visitor_data': MANUAL_VISITOR_DATA
         }
 
         if os.path.exists(TOKEN_PATH):
-            kwargs['token_file'] = TOKEN_PATH
+            kwargs['token_file'] = TOKEN_PATH[cite: 3]
 
         yt = YouTube(url, **kwargs)
 
