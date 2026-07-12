@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V72 - AUTOMATED SENTINEL: NON-INTERACTIVE PO-TOKEN LOCK)
+# YOUTUBE MEDIA APP (V73 - THE ULTIMATE ANTI-CRASH & BOTGUARD BYPASS)
 # ==============================================================================
 
 import urllib.request
@@ -14,6 +14,7 @@ import requests
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
 import yt_dlp
 from pytubefix import YouTube
+
 # ==============================================================================
 # 1. DEEP SYSTEM-LEVEL OVERRIDE (FORCES HINDI/INDIA)
 # ==============================================================================
@@ -39,9 +40,9 @@ if pytube_tokens_env:
     try:
         with open(TOKEN_PATH, 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info(f"✅ V72: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
+        logger.info(f"✅ V73: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
     except Exception as e:
-        logger.error(f"❌ V72: Token injection failed: {e}")
+        logger.error(f"❌ V73: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -95,33 +96,34 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
-# ==============================================================================
-# ==============================================================================
-# 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
+# 3. V73 ENGINE: SAFE EXTRACTION, ZERO KEYWORD CRASHES
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (CORRECTED PARAMS INJECTION) ---
+    MANUAL_PO_TOKEN = "MlRBjbgttbr-WEGwT2l1BFwlhOXReegoSR-43k7f3xCy9C30A6hxRdb-FLzBhGQOBSfdU2c1sjzjxaIJzhPsE1R8xveKhw2W3B-9CTTPtESAkd9lgZA="
+    MANUAL_VISITOR_DATA = "CgtaOGNrcDA2VVE3USi0us3SBjIKCgJJThIEGgAgZGLfAgrcAjIwLllUPW1CSDBGLU43V2t3WkczbFhrRlZHM0ZqVzRjMVhyRkZsUUxCRDlDRHEtY2hrMGlRNHZLUUNXa1ZLM24xMTBqWGd1N3d0QTZGWWk5WXoxeVNxeS1xMHhWdHdRZEc4NmJoWmZWa1RHTWNvX1poS0NjVFdXTG92VEtzdVhqd09QNWFqNjk3aGRUTmM4V2JCWlNUWlRmUUUxZ3lrci1TNFRtY3ZpelAycURrdkp2Y1NCUHpsR3JPQUJfbzItUXM4WjhzQXRHc001Q19ZRUlQU3pZa0VHaGNsNThrTUhuZjdPYktlOURIUVI0SW1GRjVLMFdiUzJYUXh4ZE5RQm01MDd5QzJCOG1FZUl3MjduYUtlQVJ3WjBsdDhDcEpEcEJZMThBeldUUThhZUtmaEV4Z0J3a25uN3pSTDROUENuSWxJcmdiSEZFcFNDdC1JRmRNSlNlODRiTl9iQQ%3D%3D"
+    
+    # --- TIER 1: PYTUBEFIX (SAFE MOBILE BYPASS) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
-        # Valid browser tokens
-        MANUAL_PO_TOKEN = "MlRBjbgttbr-WEGwT2l1BFwlhOXReegoSR-43k7f3xCy9C30A6hxRdb-FLzBhGQOBSfdU2c1sjzjxaIJzhPsE1R8xveKhw2W3B-9CTTPtESAkd9lgZA="
-        MANUAL_VISITOR_DATA = "CgtaOGNrcDA2VVE3USi0us3SBjIKCgJJThIEGgAgZGLfAgrcAjIwLllUPW1CSDBGLU43V2t3WkczbFhrRlZHM0ZqVzRjMVhyRkZsUUxCRDlDRHEtY2hrMGlRNHZLUUNXa1ZLM24xMTBqWGd1N3d0QTZGWWk5WXoxeVNxeS1xMHhWdHdRZEc4NmJoWmZWa1RHTWNvX1poS0NjVFdXTG92VEtzdVhqd09QNWFqNjk3aGRUTmM4V2JCWlNUWlRmUUUxZ3lrci1TNFRtY3ZpelAycURrdkp2Y1NCUHpsR3JPQUJfbzItUXM4WjhzQXRHc001Q19ZRUlQU3pZa0VHaGNsNThrTUhuZjdPYktlOURIUVI0SW1GRjVLMFdiUzJYUXh4ZE5RQm01MDd5QzJCOG1FZUl3MjduYUtlQVJ3WjBsdDhDcEpEcEJZMThBeldUUThhZUtmaEV4Z0J3a25uN3pSTDROUENuSWxJcmdiSEZFcFNDdC1JRmRNSlNlODRiTl9iQQ%3D%3D"
-        
+        # We use ANDROID client to bypass the need for po_token kwargs completely
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'WEB',
-            'use_po_token': True,
-            'po_token': MANUAL_PO_TOKEN,
-            'visitor_data': MANUAL_VISITOR_DATA
+            'client': 'ANDROID' 
         }
 
         if os.path.exists(TOKEN_PATH):
             kwargs['token_file'] = TOKEN_PATH
 
         yt = YouTube(url, **kwargs)
+
+        # Silent attribute assignment fallback if supported by internal versions
+        try:
+            yt.innertube.po_token = MANUAL_PO_TOKEN
+            yt.innertube.visitor_data = MANUAL_VISITOR_DATA
+        except:
+            pass
 
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
@@ -154,11 +156,10 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"Cobalt failed: {e}")
 
-    # --- TIER 3: YT-DLP (DYNAMIC ENV COOKIE FALLBACK) ---
+    # --- TIER 3: YT-DLP (JS CHALLENGE BYPASS & ENV COOKIES) ---
     try:
         logger.info(f"Tier 3: Attempting yt-dlp fallback for {url}")
         
-        # Pull text raw cookies straight from the Render Environment panel
         cookie_data = os.environ.get('YOUTUBE_COOKIES')
         temp_cookie_file = None
         
@@ -171,10 +172,19 @@ def fetch_stream_url(url, is_audio=True):
             'http_headers': {
                 'Accept-Language': 'hi-IN,hi;q=0.9,en-US;q=0.8,en;q=0.7'
             },
-            'extractor_args': {'youtube': ['player_client:ios,tv', 'player_skip:web', 'comment_client:none', 'lang:hi']}
+            # Bypasses web JS challenge formats completely so extraction doesn't fail
+            'extractor_args': {
+                'youtube': [
+                    f'po_token=web+{MANUAL_PO_TOKEN}', 
+                    'player_client:android,ios', 
+                    'player_skip:web,tv', 
+                    'comment_client:none', 
+                    'lang:hi'
+                ]
+            }
         }
         
-        # Write environment variable cookies into a temporary runtime path for yt-dlp
+        # Write environment variable cookies into a temporary runtime path
         if cookie_data:
             with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as tf:
                 tf.write(cookie_data)
@@ -184,7 +194,6 @@ def fetch_stream_url(url, is_audio=True):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            # Clean up the file off the disk immediately after checking stream url
             if temp_cookie_file and os.path.exists(temp_cookie_file):
                 try: os.remove(temp_cookie_file)
                 except: pass
@@ -198,6 +207,7 @@ def fetch_stream_url(url, is_audio=True):
             except: pass
 
     return None
+
 # ==============================================================================
 # FRONTEND: THE ULTIMATE SOLO PLAYER
 # ==============================================================================
@@ -591,7 +601,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V72 Sentinel Active. Non-interactive loop protection locked.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V73 Sentinel Active. Non-interactive loop protection locked.</p>
             </div>
         </div>
     </div>
@@ -1587,5 +1597,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V72 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V73 ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
