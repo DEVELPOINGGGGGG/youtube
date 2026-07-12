@@ -99,15 +99,15 @@ def get_progress_hook(task_id):
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (STABLE ANDROID MOBILE OVERRIDE) ---
+    # --- TIER 1: PYTUBEFIX (AUTOMATED ENGINE BINDING WITH PO-TOKEN GENERATION) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
+        # Configure pytubefix to automatically manage signatures via Node
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'TVHTML5',       
-            'use_po_token': False      
+            'client': 'WEB'  # 'WEB' triggers the internal automated BotGuard engine
         }
 
         if os.path.exists(TOKEN_PATH):
@@ -146,7 +146,7 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"Cobalt failed: {e}")
 
-    # --- TIER 3: YT-DLP (FALLBACK WITH COMPATIBILITY UTILS) ---
+    # --- TIER 3: YT-DLP (ZERO COOKIES CLEAN FALLBACK) ---
     try:
         logger.info(f"Tier 3: Attempting yt-dlp fallback for {url}")
         ydl_opts = {
