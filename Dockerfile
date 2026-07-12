@@ -3,7 +3,8 @@ FROM python:3.10-slim
 
 # 1. Install system utilities, FFmpeg, DBus, and UNZIP (required for Deno)
 RUN apt-get update && apt-get install -y curl gnupg lsb-release ffmpeg dbus unzip
-
+# Add this to your Dockerfile right before installing pip requirements
+RUN apt-get update && apt-get install -y nodejs npm
 # 2. Install DENO (VITAL: The ONLY JS engine yt-dlp uses by default to bypass YouTube Bot Checks)
 RUN curl -fsSL https://deno.land/x/install/install.sh | sh && \
     mv /root/.deno/bin/deno /usr/local/bin/deno
