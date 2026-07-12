@@ -106,7 +106,7 @@ def fetch_stream_url(url, is_audio=True):
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'ANDROID',       
+            'client': 'TVHTML5',       
             'use_po_token': False      
         }
 
