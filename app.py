@@ -99,37 +99,26 @@ def get_progress_hook(task_id):
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (NON-INTERACTIVE OVERRIDE WITH CORRECT TOKEN MOUNT) ---
+    # --- TIER 1: PYTUBEFIX (AUTOMATED REFRESH LOOP) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
-        # Pull standalone tokens if using PO-Token strategy
-        po_token = os.environ.get('YT_PO_TOKEN')
-        visitor_data = os.environ.get('YT_VISITOR_DATA')
-        
-        # Core configuration parameters
+        # 1. Force the 'WEB' client so it triggers the background Node engine
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'WEB' # Force WEB client to match browser-based oauth tokens
+            'client': 'WEB' 
         }
-        
-        if po_token and visitor_data:
-            kwargs['use_po_token'] = True
-            kwargs['po_token'] = po_token
-            kwargs['visitor_data'] = visitor_data
-        else:
-            kwargs['use_po_token'] = False
 
-        # CORRECT WAY TO INITIALIZE PYTUBEFIX WITH A CASHED TOKEN FILE
+        # 2. Point to your injected token file containing the refresh_token
+        if os.path.exists(TOKEN_PATH):
+            kwargs['token_file'] = TOKEN_PATH
+
         yt = YouTube(url, **kwargs)
         
-        # Mount token file down to the target inner tube client manually if file exists
+        # 3. Double check the binding down to the internal network wrapper
         if os.path.exists(TOKEN_PATH):
-            try:
-                yt.inner_tube.token_file = TOKEN_PATH
-            except Exception as e:
-                logger.warning(f"Could not bind token file explicitly: {e}")
+            yt.inner_tube.token_file = TOKEN_PATH
 
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
