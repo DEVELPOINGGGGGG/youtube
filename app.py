@@ -14,6 +14,7 @@ import requests
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
 import yt_dlp
 from pytubefix import YouTube
+from pytubefix.innertube import InnerTube
 
 # ==============================================================================
 # 1. DEEP SYSTEM-LEVEL OVERRIDE (FORCES HINDI/INDIA)
@@ -99,27 +100,32 @@ def get_progress_hook(task_id):
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (MANUAL PO-TOKEN BINDING OVERRIDE) ---
+    # --- TIER 1: PYTUBEFIX (CORRECTED PO-TOKEN INJECTION) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
-        # The true, uncut browser tokens
+        # Valid browser tokens
         MANUAL_PO_TOKEN = "MlRBjbgttbr-WEGwT2l1BFwlhOXReegoSR-43k7f3xCy9C30A6hxRdb-FLzBhGQOBSfdU2c1sjzjxaIJzhPsE1R8xveKhw2W3B-9CTTPtESAkd9lgZA="
         MANUAL_VISITOR_DATA = "CgtaOGNrcDA2VVE3USi0us3SBjIKCgJJThIEGgAgZGLfAgrcAjIwLllUPW1CSDBGLU43V2t3WkczbFhrRlZHM0ZqVzRjMVhyRkZsUUxCRDlDRHEtY2hrMGlRNHZLUUNXa1ZLM24xMTBqWGd1N3d0QTZGWWk5WXoxeVNxeS1xMHhWdHdRZEc4NmJoWmZWa1RHTWNvX1poS0NjVFdXTG92VEtzdVhqd09QNWFqNjk3aGRUTmM4V2JCWlNUWlRmUUUxZ3lrci1TNFRtY3ZpelAycURrdkp2Y1NCUHpsR3JPQUJfbzItUXM4WjhzQXRHc001Q19ZRUlQU3pZa0VHaGNsNThrTUhuZjdPYktlOURIUVI0SW1GRjVLMFdiUzJYUXh4ZE5RQm01MDd5QzJCOG1FZUl3MjduYUtlQVJ3WjBsdDhDcEpEcEJZMThBeldUUThhZUtmaEV4Z0J3a25uN3pSTDROUENuSWxJcmdiSEZFcFNDdC1JRmRNSlNlODRiTl9iQQ%3D%3D"
         
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'WEB',
-            'use_po_token': True,
-            'po_token': MANUAL_PO_TOKEN,
-            'visitor_data': MANUAL_VISITOR_DATA
+            'client': 'WEB'
         }
 
         if os.path.exists(TOKEN_PATH):
             kwargs['token_file'] = TOKEN_PATH
 
         yt = YouTube(url, **kwargs)
+
+        # Correct way to inject tokens into pytubefix without constructor errors
+        yt.innertube = InnerTube(
+            client='WEB',
+            use_po_token=True,
+            po_token=MANUAL_PO_TOKEN,
+            visitor_data=MANUAL_VISITOR_DATA
+        )
 
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
@@ -152,9 +158,14 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"Cobalt failed: {e}")
 
-    # --- TIER 3: YT-DLP (ZERO COOKIES CLEAN FALLBACK) ---
+    # --- TIER 3: YT-DLP (DYNAMIC ENV COOKIE FALLBACK) ---
     try:
         logger.info(f"Tier 3: Attempting yt-dlp fallback for {url}")
+        
+        # Pull text raw cookies straight from the Render Environment panel
+        cookie_data = os.environ.get('YOUTUBE_COOKIES')
+        temp_cookie_file = None
+        
         ydl_opts = {
             'quiet': True,
             'format': 'bestaudio[abr<=64]/worstaudio/best' if is_audio else 'best',
@@ -166,11 +177,29 @@ def fetch_stream_url(url, is_audio=True):
             },
             'extractor_args': {'youtube': ['player_client:ios,tv', 'player_skip:web', 'comment_client:none', 'lang:hi']}
         }
+        
+        # Write environment variable cookies into a temporary runtime path for yt-dlp
+        if cookie_data:
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as tf:
+                tf.write(cookie_data)
+                temp_cookie_file = tf.name
+            ydl_opts['cookiefile'] = temp_cookie_file
+        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
+            
+            # Clean up the file off the disk immediately after checking stream url
+            if temp_cookie_file and os.path.exists(temp_cookie_file):
+                try: os.remove(temp_cookie_file)
+                except: pass
+                
             if 'url' in info: return info['url']
+            
     except Exception as e:
         logger.warning(f"yt-dlp failed: {e}")
+        if temp_cookie_file and os.path.exists(temp_cookie_file):
+            try: os.remove(temp_cookie_file)
+            except: pass
 
     return None
 # ==============================================================================
