@@ -14,8 +14,6 @@ import requests
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
 import yt_dlp
 from pytubefix import YouTube
-from pytubefix.innertube import InnerTube
-
 # ==============================================================================
 # 1. DEEP SYSTEM-LEVEL OVERRIDE (FORCES HINDI/INDIA)
 # ==============================================================================
@@ -99,8 +97,11 @@ def get_progress_hook(task_id):
 # ==============================================================================
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
+# ==============================================================================
+# 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
+# ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (CORRECTED PO-TOKEN INJECTION) ---
+    # --- TIER 1: PYTUBEFIX (CORRECTED PARAMS INJECTION) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
@@ -111,21 +112,16 @@ def fetch_stream_url(url, is_audio=True):
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'WEB'
+            'client': 'WEB',
+            'use_po_token': True,
+            'po_token': MANUAL_PO_TOKEN,
+            'visitor_data': MANUAL_VISITOR_DATA
         }
 
         if os.path.exists(TOKEN_PATH):
             kwargs['token_file'] = TOKEN_PATH
 
         yt = YouTube(url, **kwargs)
-
-        # Correct way to inject tokens into pytubefix without constructor errors
-        yt.innertube = InnerTube(
-            client='WEB',
-            use_po_token=True,
-            po_token=MANUAL_PO_TOKEN,
-            visitor_data=MANUAL_VISITOR_DATA
-        )
 
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
