@@ -99,24 +99,21 @@ def get_progress_hook(task_id):
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (STABLE OAUTH OVERRIDE) ---
+    # --- TIER 1: PYTUBEFIX (STABLE ANDROID MOBILE OVERRIDE) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'WEB',
-            'use_po_token': False
+            'client': 'ANDROID',       
+            'use_po_token': False      
         }
 
-        # The stable way to pass the token data directly into the constructor
         if os.path.exists(TOKEN_PATH):
-            kwargs['token_file'] = TOKEN_PATH[cite: 3]
+            kwargs['token_file'] = TOKEN_PATH
 
         yt = YouTube(url, **kwargs)
-        
-        # ❌ REMOVED: yt.inner_tube.token_file line that caused the error crash!
 
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
@@ -128,8 +125,6 @@ def fetch_stream_url(url, is_audio=True):
             
     except Exception as e:
         logger.error(f"Pytube failed cleanly: {e}")
-
-    # ... Tier 2 and Tier 3 logic remains untouched below ...
 
     # --- TIER 2: COBALT API (CLOUDFLARE PROXY PASS) ---
     try:
