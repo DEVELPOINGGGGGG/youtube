@@ -99,36 +99,46 @@ def get_progress_hook(task_id):
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBE (NON-INTERACTIVE OVERRIDE) ---
+    # --- TIER 1: PYTUBEFIX (NON-INTERACTIVE OVERRIDE WITH CORRECT TOKEN MOUNT) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
-        kwargs = {
-            'use_oauth': True, 
-            'allow_oauth_cache': True
-        }
         
-        # Pull standalone po_token values if you have them inside Render Environment
+        # Pull standalone tokens if using PO-Token strategy
         po_token = os.environ.get('YT_PO_TOKEN')
         visitor_data = os.environ.get('YT_VISITOR_DATA')
+        
+        # Core configuration parameters
+        kwargs = {
+            'use_oauth': True, 
+            'allow_oauth_cache': True,
+            'client': 'WEB' # Force WEB client to match browser-based oauth tokens
+        }
         
         if po_token and visitor_data:
             kwargs['use_po_token'] = True
             kwargs['po_token'] = po_token
             kwargs['visitor_data'] = visitor_data
         else:
-            # Explicitly turn off interactive tracking to kill "EOF when reading a line" crash
             kwargs['use_po_token'] = False
 
-        if os.path.exists(TOKEN_PATH):
-            kwargs['token_file'] = TOKEN_PATH
-
+        # CORRECT WAY TO INITIALIZE PYTUBEFIX WITH A CASHED TOKEN FILE
         yt = YouTube(url, **kwargs)
+        
+        # Mount token file down to the target inner tube client manually if file exists
+        if os.path.exists(TOKEN_PATH):
+            try:
+                yt.inner_tube.token_file = TOKEN_PATH
+            except Exception as e:
+                logger.warning(f"Could not bind token file explicitly: {e}")
+
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
         else:
             stream = yt.streams.get_lowest_resolution()
             
-        if stream and stream.url: return stream.url
+        if stream and stream.url: 
+            return stream.url
+            
     except Exception as e:
         logger.error(f"Pytube failed cleanly: {e}")
 
@@ -152,7 +162,7 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e:
         logger.warning(f"Cobalt failed: {e}")
 
-    # --- TIER 3: YT-DLP (ZERO COOKIES REQUIRED) ---
+    # --- TIER 3: YT-DLP (FALLBACK WITH COMPATIBILITY UTILS) ---
     try:
         logger.info(f"Tier 3: Attempting yt-dlp fallback for {url}")
         ydl_opts = {
@@ -173,7 +183,6 @@ def fetch_stream_url(url, is_audio=True):
         logger.warning(f"yt-dlp failed: {e}")
 
     return None
-
 # ==============================================================================
 # FRONTEND: THE ULTIMATE SOLO PLAYER
 # ==============================================================================
