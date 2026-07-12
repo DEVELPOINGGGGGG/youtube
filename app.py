@@ -99,26 +99,24 @@ def get_progress_hook(task_id):
 # 3. V72 ENGINE: AUTO PO-TOKEN OR PASSTHROUGH TO COBALT CLOUDFLARE
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # --- TIER 1: PYTUBEFIX (AUTOMATED REFRESH LOOP) ---
+    # --- TIER 1: PYTUBEFIX (STABLE OAUTH OVERRIDE) ---
     try:
         logger.info("Tier 1: Attempting Pytube extraction...")
         
-        # 1. Force the 'WEB' client so it triggers the background Node engine
         kwargs = {
             'use_oauth': True, 
             'allow_oauth_cache': True,
-            'client': 'WEB' 
+            'client': 'WEB',
+            'use_po_token': False
         }
 
-        # 2. Point to your injected token file containing the refresh_token
+        # The stable way to pass the token data directly into the constructor
         if os.path.exists(TOKEN_PATH):
-            kwargs['token_file'] = TOKEN_PATH
+            kwargs['token_file'] = TOKEN_PATH[cite: 3]
 
         yt = YouTube(url, **kwargs)
         
-        # 3. Double check the binding down to the internal network wrapper
-        if os.path.exists(TOKEN_PATH):
-            yt.inner_tube.token_file = TOKEN_PATH
+        # ❌ REMOVED: yt.inner_tube.token_file line that caused the error crash!
 
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
@@ -130,6 +128,8 @@ def fetch_stream_url(url, is_audio=True):
             
     except Exception as e:
         logger.error(f"Pytube failed cleanly: {e}")
+
+    # ... Tier 2 and Tier 3 logic remains untouched below ...
 
     # --- TIER 2: COBALT API (CLOUDFLARE PROXY PASS) ---
     try:
