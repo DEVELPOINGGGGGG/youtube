@@ -98,33 +98,56 @@ def get_progress_hook(task_id):
 # ==============================================================================
 # 3. V73 ENGINE: SAFE EXTRACTION, ZERO KEYWORD CRASHES
 # ==============================================================================
+# ==============================================================================
+# 3. V74 ENGINE: THE ZERO-COOKIE PIPED API PROXY BYPASS
+# ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    MANUAL_PO_TOKEN = "MlRBjbgttbr-WEGwT2l1BFwlhOXReegoSR-43k7f3xCy9C30A6hxRdb-FLzBhGQOBSfdU2c1sjzjxaIJzhPsE1R8xveKhw2W3B-9CTTPtESAkd9lgZA="
-    MANUAL_VISITOR_DATA = "CgtaOGNrcDA2VVE3USi0us3SBjIKCgJJThIEGgAgZGLfAgrcAjIwLllUPW1CSDBGLU43V2t3WkczbFhrRlZHM0ZqVzRjMVhyRkZsUUxCRDlDRHEtY2hrMGlRNHZLUUNXa1ZLM24xMTBqWGd1N3d0QTZGWWk5WXoxeVNxeS1xMHhWdHdRZEc4NmJoWmZWa1RHTWNvX1poS0NjVFdXTG92VEtzdVhqd09QNWFqNjk3aGRUTmM4V2JCWlNUWlRmUUUxZ3lrci1TNFRtY3ZpelAycURrdkp2Y1NCUHpsR3JPQUJfbzItUXM4WjhzQXRHc001Q19ZRUlQU3pZa0VHaGNsNThrTUhuZjdPYktlOURIUVI0SW1GRjVLMFdiUzJYUXh4ZE5RQm01MDd5QzJCOG1FZUl3MjduYUtlQVJ3WjBsdDhDcEpEcEJZMThBeldUUThhZUtmaEV4Z0J3a25uN3pSTDROUENuSWxJcmdiSEZFcFNDdC1JRmRNSlNlODRiTl9iQQ%3D%3D"
+    import re
+    import requests
     
-    # --- TIER 1: PYTUBEFIX (SAFE MOBILE BYPASS) ---
-    try:
-        logger.info("Tier 1: Attempting Pytube extraction...")
-        
-        # We use ANDROID client to bypass the need for po_token kwargs completely
-        kwargs = {
-            'use_oauth': True, 
-            'allow_oauth_cache': True,
-            'client': 'ANDROID' 
-        }
+    # Extract the raw Video ID from the URL
+    vid_id = None
+    match = re.search(r"(?:v=|/|youtu\.be/)([^&?]{11})", url)
+    if match:
+        vid_id = match.group(1)
 
-        if os.path.exists(TOKEN_PATH):
-            kwargs['token_file'] = TOKEN_PATH
-
-        yt = YouTube(url, **kwargs)
-
-        # Silent attribute assignment fallback if supported by internal versions
+    # --- TIER 1: PIPED API (100% COOKIELESS / NO IP BLOCKS) ---
+    if vid_id:
         try:
-            yt.innertube.po_token = MANUAL_PO_TOKEN
-            yt.innertube.visitor_data = MANUAL_VISITOR_DATA
-        except:
-            pass
+            logger.info(f"Tier 1: Attempting Piped API Proxy extraction for {vid_id}...")
+            # Decentralized fallback proxy instances
+            instances = [
+                "https://pipedapi.kavin.rocks",
+                "https://pipedapi.tokhmi.xyz",
+                "https://pipedapi.smnz.de",
+                "https://piped-api.lunar.icu"
+            ]
+            for api_url in instances:
+                try:
+                    res = requests.get(f"{api_url}/streams/{vid_id}", timeout=6)
+                    if res.status_code == 200:
+                        data = res.json()
+                        if is_audio:
+                            streams = data.get('audioStreams', [])
+                            if streams:
+                                # Grab the highest quality audio stream available
+                                streams = sorted(streams, key=lambda x: x.get('bitrate', 0), reverse=True)
+                                logger.info(f"✅ Piped API Success via {api_url}")
+                                return streams[0]['url']
+                        else:
+                            streams = data.get('videoStreams', [])
+                            if streams:
+                                return streams[0]['url']
+                except Exception:
+                    continue # Try the next proxy node if one is offline
+        except Exception as e:
+            logger.error(f"Piped API failed: {e}")
 
+    # --- TIER 2: PYTUBEFIX (MOBILE CLIENT FALLBACK - NO COOKIES) ---
+    try:
+        logger.info("Tier 2: Attempting Pytube Android extraction...")
+        # Mobile clients bypass strict Web BotGuard checks
+        yt = YouTube(url, client='ANDROID_MUSIC')
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
         else:
@@ -132,82 +155,28 @@ def fetch_stream_url(url, is_audio=True):
             
         if stream and stream.url: 
             return stream.url
-            
     except Exception as e:
         logger.error(f"Pytube failed cleanly: {e}")
 
-    # --- TIER 2: COBALT API (CLOUDFLARE PROXY PASS) ---
-    try:
-        logger.info("Tier 2: Attempting Cobalt (Cloudflare) fallback...")
-        res = requests.post(
-            "https://api.cobalt.tools/api/json",
-            headers={
-                "Accept": "application/json", 
-                "Content-Type": "application/json", 
-                "User-Agent": "Mozilla/5.0",
-                "Accept-Language": "hi-IN,hi;q=0.9"
-            },
-            json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"},
-            timeout=10
-        )
-        if res.status_code == 200:
-            data = res.json()
-            if 'url' in data: return data['url']
-    except Exception as e:
-        logger.warning(f"Cobalt failed: {e}")
-
-    # --- TIER 3: YT-DLP (JS CHALLENGE BYPASS & ENV COOKIES) ---
+    # --- TIER 3: YT-DLP (MOBILE API FALLBACK - NO COOKIES) ---
     try:
         logger.info(f"Tier 3: Attempting yt-dlp fallback for {url}")
-        
-        cookie_data = os.environ.get('YOUTUBE_COOKIES')
-        temp_cookie_file = None
-        
         ydl_opts = {
             'quiet': True,
             'format': 'bestaudio[abr<=64]/worstaudio/best' if is_audio else 'best',
             'noplaylist': True,
             'geo_bypass': True,
             'geo_bypass_country': 'IN',
-            'http_headers': {
-                'Accept-Language': 'hi-IN,hi;q=0.9,en-US;q=0.8,en;q=0.7'
-            },
-            # Bypasses web JS challenge formats completely so extraction doesn't fail
-            'extractor_args': {
-                'youtube': [
-                    f'po_token=web+{MANUAL_PO_TOKEN}', 
-                    'player_client:android,ios', 
-                    'player_skip:web,tv', 
-                    'comment_client:none', 
-                    'lang:hi'
-                ]
-            }
+            # Force mobile clients to stop JS format crashes
+            'extractor_args': {'youtube': ['player_client:android,ios', 'player_skip:web,tv', 'comment_client:none']}
         }
-        
-        # Write environment variable cookies into a temporary runtime path
-        if cookie_data:
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as tf:
-                tf.write(cookie_data)
-                temp_cookie_file = tf.name
-            ydl_opts['cookiefile'] = temp_cookie_file
-        
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            
-            if temp_cookie_file and os.path.exists(temp_cookie_file):
-                try: os.remove(temp_cookie_file)
-                except: pass
-                
             if 'url' in info: return info['url']
-            
     except Exception as e:
         logger.warning(f"yt-dlp failed: {e}")
-        if temp_cookie_file and os.path.exists(temp_cookie_file):
-            try: os.remove(temp_cookie_file)
-            except: pass
 
     return None
-
 # ==============================================================================
 # FRONTEND: THE ULTIMATE SOLO PLAYER
 # ==============================================================================
