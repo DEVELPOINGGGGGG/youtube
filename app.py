@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V73 - THE ULTIMATE ANTI-CRASH & BOTGUARD BYPASS)
+# YOUTUBE MEDIA APP (V77 - THE HYDRA ENGINE: 14 APIs + TOKENS + COOKIES)
 # ==============================================================================
 
 import urllib.request
@@ -11,6 +11,8 @@ import uuid
 import logging
 import urllib.parse
 import requests
+import re
+import random
 from flask import Flask, request, jsonify, render_template_string, send_file, Response, redirect
 import yt_dlp
 from pytubefix import YouTube
@@ -40,9 +42,9 @@ if pytube_tokens_env:
     try:
         with open(TOKEN_PATH, 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info(f"✅ V73: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
+        logger.info(f"✅ V77: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
     except Exception as e:
-        logger.error(f"❌ V73: Token injection failed: {e}")
+        logger.error(f"❌ V77: Token injection failed: {e}")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -96,19 +98,15 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# 3. V76 ENGINE: THE 10-TIER APOCALYPSE ENGINE (PO-TOKEN + COOKIES + 8 APIs)
+# 3. V77 ENGINE: THE HYDRA (PYTUBE + YTDLP + 14 PROXY CLUSTERS)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    import re
-    import requests
-    import random
-    
+    # Fix 1: The correct Regex that grabs the 11-char ID, not the domain name
     vid_id = None
-    match = re.search(r"(?:v=|/|youtu\.be/)([^&?]{11})", url)
+    match = re.search(r"(?:v=|youtu\.be/|embed/|shorts/)([\w-]{11})", url)
     if match:
         vid_id = match.group(1)
 
-    # You earned these. They go first.
     MANUAL_PO_TOKEN = "MlRBjbgttbr-WEGwT2l1BFwlhOXReegoSR-43k7f3xCy9C30A6hxRdb-FLzBhGQOBSfdU2c1sjzjxaIJzhPsE1R8xveKhw2W3B-9CTTPtESAkd9lgZA="
     MANUAL_VISITOR_DATA = "CgtaOGNrcDA2VVE3USi0us3SBjIKCgJJThIEGgAgZGLfAgrcAjIwLllUPW1CSDBGLU43V2t3WkczbFhrRlZHM0ZqVzRjMVhyRkZsUUxCRDlDRHEtY2hrMGlRNHZLUUNXa1ZLM24xMTBqWGd1N3d0QTZGWWk5WXoxeVNxeS1xMHhWdHdRZEc4NmJoWmZWa1RHTWNvX1poS0NjVFdXTG92VEtzdVhqd09QNWFqNjk3aGRUTmM4V2JCWlNUWlRmUUUxZ3lrci1TNFRtY3ZpelAycURrdkp2Y1NCUHpsR3JPQUJfbzItUXM4WjhzQXRHc001Q19ZRUlQU3pZa0VHaGNsNThrTUhuZjdPYktlOURIUVI0SW1GRjVLMFdiUzJYUXh4ZE5RQm01MDd5QzJCOG1FZUl3MjduYUtlQVJ3WjBsdDhDcEpEcEJZMThBeldUUThhZUtmaEV4Z0J3a25uN3pSTDROUENuSWxJcmdiSEZFcFNDdC1JRmRNSlNlODRiTl9iQQ%3D%3D"
     
@@ -117,27 +115,27 @@ def fetch_stream_url(url, is_audio=True):
         "Accept": "application/json"
     }
 
-    # --- TIER 1: PYTUBEFIX WEB WITH MANUAL PO-TOKEN (YOUR 2-HOUR EFFORT) ---
+    # --- METHOD 1: PYTUBEFIX (WEB) WITH FAILSAFES ---
     try:
-        logger.info("Tier 1: PytubeFix (WEB) with Manual PO-Token...")
+        logger.info("Hydra 1: PytubeFix (WEB) with Manual Tokens...")
         yt = YouTube(url, client='WEB')
         
-        # Injecting via class attributes completely avoids the unexpected kwarg crash
-        yt.innertube.po_token = MANUAL_PO_TOKEN
-        yt.innertube.visitor_data = MANUAL_VISITOR_DATA
-        
+        # Safe assignment: Prevents the 'innertube' attribute crash if version differs
+        if hasattr(yt, 'innertube'):
+            yt.innertube.po_token = MANUAL_PO_TOKEN
+            yt.innertube.visitor_data = MANUAL_VISITOR_DATA
+            
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
         else:
             stream = yt.streams.get_lowest_resolution()
-            
         if stream and stream.url: return stream.url
     except Exception as e: 
-        logger.warning(f"Tier 1 Failed: {e}")
+        logger.warning(f"Hydra 1 Failed: {e}")
 
-    # --- TIER 2: YT-DLP WITH ENVIRONMENT COOKIES & PO-TOKEN PARAMS ---
+    # --- METHOD 2: YT-DLP WITH ENVIRONMENT COOKIES & PO-TOKEN ---
     try:
-        logger.info("Tier 2: yt-dlp with Environment Cookies & PO-Token...")
+        logger.info("Hydra 2: yt-dlp with Environment Cookies & PO-Token...")
         cookie_data = os.environ.get('YOUTUBE_COOKIES')
         temp_cookie_file = None
         
@@ -158,12 +156,12 @@ def fetch_stream_url(url, is_audio=True):
             if temp_cookie_file and os.path.exists(temp_cookie_file): os.remove(temp_cookie_file)
             if 'url' in info: return info['url']
     except Exception as e: 
-        logger.warning(f"Tier 2 Failed: {e}")
+        logger.warning(f"Hydra 2 Failed: {e}")
         if temp_cookie_file and os.path.exists(temp_cookie_file): os.remove(temp_cookie_file)
 
-    # --- TIER 3: PYTUBEFIX ANDROID MUSIC (NO BOTGUARD / NO COOKIES) ---
+    # --- METHOD 3: PYTUBEFIX (ANDROID_MUSIC NO-BOTGUARD CLIENT) ---
     try:
-        logger.info("Tier 3: PytubeFix (ANDROID_MUSIC) Fallback...")
+        logger.info("Hydra 3: PytubeFix (ANDROID_MUSIC)...")
         yt = YouTube(url, client='ANDROID_MUSIC')
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
@@ -171,11 +169,11 @@ def fetch_stream_url(url, is_audio=True):
             stream = yt.streams.get_lowest_resolution()
         if stream and stream.url: return stream.url
     except Exception as e: 
-        logger.warning(f"Tier 3 Failed: {e}")
+        logger.warning(f"Hydra 3 Failed: {e}")
 
-    # --- TIER 4: YT-DLP MOBILE API (NO COOKIES) ---
+    # --- METHOD 4: YT-DLP MOBILE API (BYPASSES JS CHALLENGES) ---
     try:
-        logger.info("Tier 4: yt-dlp Mobile Client Fallback...")
+        logger.info("Hydra 4: yt-dlp Mobile API...")
         ydl_opts = {
             'quiet': True, 
             'format': 'bestaudio/best' if is_audio else 'best', 
@@ -186,69 +184,64 @@ def fetch_stream_url(url, is_audio=True):
             info = ydl.extract_info(url, download=False)
             if 'url' in info: return info['url']
     except Exception as e: 
-        logger.warning(f"Tier 4 Failed: {e}")
+        logger.warning(f"Hydra 4 Failed: {e}")
 
-    # --- TIER 5: COBALT API MAIN ---
-    try:
-        logger.info("Tier 5: Cobalt API Main...")
-        res = requests.post("https://api.cobalt.tools/api/json", headers=headers, json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"}, timeout=5)
-        if res.status_code == 200 and 'url' in res.json(): return res.json()['url']
-    except Exception as e: 
-        logger.warning(f"Tier 5 Failed: {e}")
+    # --- HYDRA CLUSTERS (EXTERNAL DECENTRALIZED APIS) ---
+    if not vid_id: return None
 
-    # --- TIER 6: PIPED API (KAVIN) ---
-    if vid_id:
+    # COBALT CLUSTER
+    cobalt_nodes = [
+        "https://api.cobalt.tools",
+        "https://cobalt.qwyh.dev",
+        "https://cobalt.canine.cloud"
+    ]
+    random.shuffle(cobalt_nodes)
+    for node in cobalt_nodes:
         try:
-            logger.info("Tier 6: Piped API (Kavin)...")
-            res = requests.get(f"https://pipedapi.kavin.rocks/streams/{vid_id}", headers=headers, timeout=5)
+            logger.info(f"Hydra Cluster: Cobalt via {node}...")
+            res = requests.post(f"{node}/api/json", headers=headers, json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"}, timeout=5)
+            if res.status_code == 200 and 'url' in res.json(): return res.json()['url']
+        except Exception: continue
+
+    # PIPED CLUSTER
+    piped_nodes = [
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.tokhmi.xyz",
+        "https://pipedapi.smnz.de",
+        "https://api.piped.projectsegfau.lt",
+        "https://piped-api.lunar.icu"
+    ]
+    random.shuffle(piped_nodes)
+    for node in piped_nodes:
+        try:
+            logger.info(f"Hydra Cluster: Piped via {node}...")
+            res = requests.get(f"{node}/streams/{vid_id}", headers=headers, timeout=5)
             if res.status_code == 200:
                 streams = res.json().get('audioStreams' if is_audio else 'videoStreams', [])
                 if streams: return sorted(streams, key=lambda x: x.get('bitrate', 0), reverse=True)[0]['url']
-        except Exception as e: 
-            logger.warning(f"Tier 6 Failed: {e}")
+        except Exception: continue
 
-    # --- TIER 7: INVIDIOUS API (TUX.PIZZA) ---
-    if vid_id:
+    # INVIDIOUS CLUSTER
+    invidious_nodes = [
+        "https://vid.puffyan.us",
+        "https://inv.tux.pizza",
+        "https://invidious.nerdvpn.de",
+        "https://inv.nadeko.net",
+        "https://invidious.slipfox.xyz"
+    ]
+    random.shuffle(invidious_nodes)
+    for node in invidious_nodes:
         try:
-            logger.info("Tier 7: Invidious API (Tux.Pizza)...")
-            res = requests.get(f"https://inv.tux.pizza/api/v1/videos/{vid_id}", headers=headers, timeout=5)
+            logger.info(f"Hydra Cluster: Invidious via {node}...")
+            res = requests.get(f"{node}/api/v1/videos/{vid_id}", headers=headers, timeout=5)
             if res.status_code == 200:
                 streams = [s for s in res.json().get('adaptiveFormats', []) if s.get('type', '').startswith('audio')] if is_audio else res.json().get('formatStreams', [])
                 if streams: return sorted(streams, key=lambda x: int(x.get('bitrate', 0)), reverse=True)[0]['url']
-        except Exception as e: 
-            logger.warning(f"Tier 7 Failed: {e}")
+        except Exception: continue
 
-    # --- TIER 8: PIPED API (SMNZ) ---
-    if vid_id:
-        try:
-            logger.info("Tier 8: Piped API (Smnz)...")
-            res = requests.get(f"https://pipedapi.smnz.de/streams/{vid_id}", headers=headers, timeout=5)
-            if res.status_code == 200:
-                streams = res.json().get('audioStreams' if is_audio else 'videoStreams', [])
-                if streams: return sorted(streams, key=lambda x: x.get('bitrate', 0), reverse=True)[0]['url']
-        except Exception as e: 
-            logger.warning(f"Tier 8 Failed: {e}")
-
-    # --- TIER 9: INVIDIOUS API (PUFFYAN) ---
-    if vid_id:
-        try:
-            logger.info("Tier 9: Invidious API (Puffyan)...")
-            res = requests.get(f"https://vid.puffyan.us/api/v1/videos/{vid_id}", headers=headers, timeout=5)
-            if res.status_code == 200:
-                streams = [s for s in res.json().get('adaptiveFormats', []) if s.get('type', '').startswith('audio')] if is_audio else res.json().get('formatStreams', [])
-                if streams: return sorted(streams, key=lambda x: int(x.get('bitrate', 0)), reverse=True)[0]['url']
-        except Exception as e: 
-            logger.warning(f"Tier 9 Failed: {e}")
-
-    # --- TIER 10: COBALT API BACKUP INSTANCE ---
-    try:
-        logger.info("Tier 10: Cobalt API Backup (co.wuk.sh)...")
-        res = requests.post("https://co.wuk.sh/api/json", headers=headers, json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"}, timeout=5)
-        if res.status_code == 200 and 'url' in res.json(): return res.json()['url']
-    except Exception as e: 
-        logger.warning(f"Tier 10 Failed: {e}")
-
+    logger.error("ALL 14 HYDRA HEADS FAILED.")
     return None
+
 # ==============================================================================
 # FRONTEND: THE ULTIMATE SOLO PLAYER
 # ==============================================================================
@@ -642,7 +635,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V73 Sentinel Active. Non-interactive loop protection locked.</p>
+                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V77 Hydra Active. (Tokens + Cookies + 14 Proxy Clusters)</p>
             </div>
         </div>
     </div>
@@ -1525,7 +1518,7 @@ def stream_audio():
     if stream_url:
         return jsonify({'stream_url': stream_url})
     else:
-        return jsonify({'error': 'Stream extraction completely failed. All 3 methods blocked.'}), 500
+        return jsonify({'error': 'Stream extraction completely failed. All methods blocked.'}), 500
 
 @app.route('/api/tasks', methods=['GET'], strict_slashes=False)
 def get_tasks():
@@ -1590,7 +1583,7 @@ def background_downloader(task_id, url, dl_type, quality, burn_subs, conv_mode):
         
         stream_url = fetch_stream_url(url, is_audio=(dl_type == 'mp3'))
         if not stream_url:
-            raise Exception("Failed to extract download URL via Trinity Fallback.")
+            raise Exception("Failed to extract download URL via Hydra Fallbacks.")
 
         raw_file = os.path.join(DOWNLOAD_DIR, f"{task_id}_raw.{dl_type}")
         r = requests.get(stream_url, stream=True, timeout=15)
@@ -1638,5 +1631,5 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V73 ONLINE 🔥\n" + "="*50 + "\n")
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V77 (HYDRA) ONLINE 🔥\n" + "="*50 + "\n")
     app.run(host="0.0.0.0", port=5000)
