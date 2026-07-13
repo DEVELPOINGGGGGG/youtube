@@ -96,85 +96,157 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# 3. V73 ENGINE: SAFE EXTRACTION, ZERO KEYWORD CRASHES
-# ==============================================================================
-# ==============================================================================
-# 3. V74 ENGINE: THE ZERO-COOKIE PIPED API PROXY BYPASS
+# 3. V76 ENGINE: THE 10-TIER APOCALYPSE ENGINE (PO-TOKEN + COOKIES + 8 APIs)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
     import re
     import requests
+    import random
     
-    # Extract the raw Video ID from the URL
     vid_id = None
     match = re.search(r"(?:v=|/|youtu\.be/)([^&?]{11})", url)
     if match:
         vid_id = match.group(1)
 
-    # --- TIER 1: PIPED API (100% COOKIELESS / NO IP BLOCKS) ---
-    if vid_id:
-        try:
-            logger.info(f"Tier 1: Attempting Piped API Proxy extraction for {vid_id}...")
-            # Decentralized fallback proxy instances
-            instances = [
-                "https://pipedapi.kavin.rocks",
-                "https://pipedapi.tokhmi.xyz",
-                "https://pipedapi.smnz.de",
-                "https://piped-api.lunar.icu"
-            ]
-            for api_url in instances:
-                try:
-                    res = requests.get(f"{api_url}/streams/{vid_id}", timeout=6)
-                    if res.status_code == 200:
-                        data = res.json()
-                        if is_audio:
-                            streams = data.get('audioStreams', [])
-                            if streams:
-                                # Grab the highest quality audio stream available
-                                streams = sorted(streams, key=lambda x: x.get('bitrate', 0), reverse=True)
-                                logger.info(f"✅ Piped API Success via {api_url}")
-                                return streams[0]['url']
-                        else:
-                            streams = data.get('videoStreams', [])
-                            if streams:
-                                return streams[0]['url']
-                except Exception:
-                    continue # Try the next proxy node if one is offline
-        except Exception as e:
-            logger.error(f"Piped API failed: {e}")
+    # You earned these. They go first.
+    MANUAL_PO_TOKEN = "MlRBjbgttbr-WEGwT2l1BFwlhOXReegoSR-43k7f3xCy9C30A6hxRdb-FLzBhGQOBSfdU2c1sjzjxaIJzhPsE1R8xveKhw2W3B-9CTTPtESAkd9lgZA="
+    MANUAL_VISITOR_DATA = "CgtaOGNrcDA2VVE3USi0us3SBjIKCgJJThIEGgAgZGLfAgrcAjIwLllUPW1CSDBGLU43V2t3WkczbFhrRlZHM0ZqVzRjMVhyRkZsUUxCRDlDRHEtY2hrMGlRNHZLUUNXa1ZLM24xMTBqWGd1N3d0QTZGWWk5WXoxeVNxeS1xMHhWdHdRZEc4NmJoWmZWa1RHTWNvX1poS0NjVFdXTG92VEtzdVhqd09QNWFqNjk3aGRUTmM4V2JCWlNUWlRmUUUxZ3lrci1TNFRtY3ZpelAycURrdkp2Y1NCUHpsR3JPQUJfbzItUXM4WjhzQXRHc001Q19ZRUlQU3pZa0VHaGNsNThrTUhuZjdPYktlOURIUVI0SW1GRjVLMFdiUzJYUXh4ZE5RQm01MDd5QzJCOG1FZUl3MjduYUtlQVJ3WjBsdDhDcEpEcEJZMThBeldUUThhZUtmaEV4Z0J3a25uN3pSTDROUENuSWxJcmdiSEZFcFNDdC1JRmRNSlNlODRiTl9iQQ%3D%3D"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json"
+    }
 
-    # --- TIER 2: PYTUBEFIX (MOBILE CLIENT FALLBACK - NO COOKIES) ---
+    # --- TIER 1: PYTUBEFIX WEB WITH MANUAL PO-TOKEN (YOUR 2-HOUR EFFORT) ---
     try:
-        logger.info("Tier 2: Attempting Pytube Android extraction...")
-        # Mobile clients bypass strict Web BotGuard checks
-        yt = YouTube(url, client='ANDROID_MUSIC')
+        logger.info("Tier 1: PytubeFix (WEB) with Manual PO-Token...")
+        yt = YouTube(url, client='WEB')
+        
+        # Injecting via class attributes completely avoids the unexpected kwarg crash
+        yt.innertube.po_token = MANUAL_PO_TOKEN
+        yt.innertube.visitor_data = MANUAL_VISITOR_DATA
+        
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
         else:
             stream = yt.streams.get_lowest_resolution()
             
-        if stream and stream.url: 
-            return stream.url
-    except Exception as e:
-        logger.error(f"Pytube failed cleanly: {e}")
+        if stream and stream.url: return stream.url
+    except Exception as e: 
+        logger.warning(f"Tier 1 Failed: {e}")
 
-    # --- TIER 3: YT-DLP (MOBILE API FALLBACK - NO COOKIES) ---
+    # --- TIER 2: YT-DLP WITH ENVIRONMENT COOKIES & PO-TOKEN PARAMS ---
     try:
-        logger.info(f"Tier 3: Attempting yt-dlp fallback for {url}")
+        logger.info("Tier 2: yt-dlp with Environment Cookies & PO-Token...")
+        cookie_data = os.environ.get('YOUTUBE_COOKIES')
+        temp_cookie_file = None
+        
         ydl_opts = {
             'quiet': True,
-            'format': 'bestaudio[abr<=64]/worstaudio/best' if is_audio else 'best',
+            'format': 'bestaudio/best' if is_audio else 'best',
             'noplaylist': True,
-            'geo_bypass': True,
-            'geo_bypass_country': 'IN',
-            # Force mobile clients to stop JS format crashes
-            'extractor_args': {'youtube': ['player_client:android,ios', 'player_skip:web,tv', 'comment_client:none']}
+            'extractor_args': {'youtube': [f'po_token=web+{MANUAL_PO_TOKEN}']}
+        }
+        if cookie_data:
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as tf:
+                tf.write(cookie_data)
+                temp_cookie_file = tf.name
+            ydl_opts['cookiefile'] = temp_cookie_file
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if temp_cookie_file and os.path.exists(temp_cookie_file): os.remove(temp_cookie_file)
+            if 'url' in info: return info['url']
+    except Exception as e: 
+        logger.warning(f"Tier 2 Failed: {e}")
+        if temp_cookie_file and os.path.exists(temp_cookie_file): os.remove(temp_cookie_file)
+
+    # --- TIER 3: PYTUBEFIX ANDROID MUSIC (NO BOTGUARD / NO COOKIES) ---
+    try:
+        logger.info("Tier 3: PytubeFix (ANDROID_MUSIC) Fallback...")
+        yt = YouTube(url, client='ANDROID_MUSIC')
+        if is_audio:
+            stream = yt.streams.filter(only_audio=True).order_by('abr').first()
+        else:
+            stream = yt.streams.get_lowest_resolution()
+        if stream and stream.url: return stream.url
+    except Exception as e: 
+        logger.warning(f"Tier 3 Failed: {e}")
+
+    # --- TIER 4: YT-DLP MOBILE API (NO COOKIES) ---
+    try:
+        logger.info("Tier 4: yt-dlp Mobile Client Fallback...")
+        ydl_opts = {
+            'quiet': True, 
+            'format': 'bestaudio/best' if is_audio else 'best', 
+            'noplaylist': True, 
+            'extractor_args': {'youtube': ['player_client:android,ios', 'player_skip:web,tv']}
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if 'url' in info: return info['url']
-    except Exception as e:
-        logger.warning(f"yt-dlp failed: {e}")
+    except Exception as e: 
+        logger.warning(f"Tier 4 Failed: {e}")
+
+    # --- TIER 5: COBALT API MAIN ---
+    try:
+        logger.info("Tier 5: Cobalt API Main...")
+        res = requests.post("https://api.cobalt.tools/api/json", headers=headers, json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"}, timeout=5)
+        if res.status_code == 200 and 'url' in res.json(): return res.json()['url']
+    except Exception as e: 
+        logger.warning(f"Tier 5 Failed: {e}")
+
+    # --- TIER 6: PIPED API (KAVIN) ---
+    if vid_id:
+        try:
+            logger.info("Tier 6: Piped API (Kavin)...")
+            res = requests.get(f"https://pipedapi.kavin.rocks/streams/{vid_id}", headers=headers, timeout=5)
+            if res.status_code == 200:
+                streams = res.json().get('audioStreams' if is_audio else 'videoStreams', [])
+                if streams: return sorted(streams, key=lambda x: x.get('bitrate', 0), reverse=True)[0]['url']
+        except Exception as e: 
+            logger.warning(f"Tier 6 Failed: {e}")
+
+    # --- TIER 7: INVIDIOUS API (TUX.PIZZA) ---
+    if vid_id:
+        try:
+            logger.info("Tier 7: Invidious API (Tux.Pizza)...")
+            res = requests.get(f"https://inv.tux.pizza/api/v1/videos/{vid_id}", headers=headers, timeout=5)
+            if res.status_code == 200:
+                streams = [s for s in res.json().get('adaptiveFormats', []) if s.get('type', '').startswith('audio')] if is_audio else res.json().get('formatStreams', [])
+                if streams: return sorted(streams, key=lambda x: int(x.get('bitrate', 0)), reverse=True)[0]['url']
+        except Exception as e: 
+            logger.warning(f"Tier 7 Failed: {e}")
+
+    # --- TIER 8: PIPED API (SMNZ) ---
+    if vid_id:
+        try:
+            logger.info("Tier 8: Piped API (Smnz)...")
+            res = requests.get(f"https://pipedapi.smnz.de/streams/{vid_id}", headers=headers, timeout=5)
+            if res.status_code == 200:
+                streams = res.json().get('audioStreams' if is_audio else 'videoStreams', [])
+                if streams: return sorted(streams, key=lambda x: x.get('bitrate', 0), reverse=True)[0]['url']
+        except Exception as e: 
+            logger.warning(f"Tier 8 Failed: {e}")
+
+    # --- TIER 9: INVIDIOUS API (PUFFYAN) ---
+    if vid_id:
+        try:
+            logger.info("Tier 9: Invidious API (Puffyan)...")
+            res = requests.get(f"https://vid.puffyan.us/api/v1/videos/{vid_id}", headers=headers, timeout=5)
+            if res.status_code == 200:
+                streams = [s for s in res.json().get('adaptiveFormats', []) if s.get('type', '').startswith('audio')] if is_audio else res.json().get('formatStreams', [])
+                if streams: return sorted(streams, key=lambda x: int(x.get('bitrate', 0)), reverse=True)[0]['url']
+        except Exception as e: 
+            logger.warning(f"Tier 9 Failed: {e}")
+
+    # --- TIER 10: COBALT API BACKUP INSTANCE ---
+    try:
+        logger.info("Tier 10: Cobalt API Backup (co.wuk.sh)...")
+        res = requests.post("https://co.wuk.sh/api/json", headers=headers, json={"url": url, "isAudioOnly": is_audio, "aFormat": "mp3"}, timeout=5)
+        if res.status_code == 200 and 'url' in res.json(): return res.json()['url']
+    except Exception as e: 
+        logger.warning(f"Tier 10 Failed: {e}")
 
     return None
 # ==============================================================================
