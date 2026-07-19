@@ -252,6 +252,7 @@ PLAYER_HTML = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Music Player and Downloader</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -500,6 +501,7 @@ PLAYER_HTML = """
         <a href="#" onclick="requestPushPermissions(); toggleMenu()">🔔 Enable Notifications</a>
         <a href="#" onclick="document.getElementById('historyModal').style.display='flex'; toggleMenu()">🕒 My History</a>
         <a href="#" onclick="document.getElementById('taskModal').style.display='flex'; toggleMenu()">📥 Downloads Queue</a>
+        <div id="googleBtnContainer" style="margin: 10px 0;"></div>
         <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 15px 0;"></div>
         <a href="#" onclick="document.getElementById('settingsModal').style.display='flex'; toggleMenu()">⚙️ Settings</a>
     </div>
@@ -1468,6 +1470,27 @@ PLAYER_HTML = """
                 else { navigator.clipboard.writeText(item.url || `https://youtube.com/watch?v=${item.id}`); showToast("Link copied!"); }
             }
         }
+        function handleCredentialResponse(response) {
+    // This logs the secure token showing the authentication worked
+    console.log("Google JWT Token received:", response.credential);
+    showToast("Successfully authenticated with Google!", "success");
+}
+
+// Target the existing window.onload or add to your DOMContentLoaded listener
+window.addEventListener('DOMContentLoaded', () => {
+    if (typeof google !== 'undefined') {
+        google.accounts.id.initialize({
+            client_id: "643137404159-46t051grks1omr7g4s1c24pghohvr551.apps.googleusercontent.com",
+            callback: handleCredentialResponse,
+            allowed_parent_origin: "https://youtube-rdef.onrender.com"
+        });
+        
+        google.accounts.id.renderButton(
+            document.getElementById("googleBtnContainer"),
+            { theme: "dark", size: "large", shape: "pill" }
+        );
+    }
+});
     </script>
 </body>
 </html>
