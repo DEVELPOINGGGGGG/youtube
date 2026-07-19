@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V77 - THE HYDRA ENGINE: 14 APIs + TOKENS + COOKIES)
+# YOUTUBE MEDIA APP (V80 - THE AUTHENTICATOR: COOKIES + TOKENS + HYDRA)
 # ==============================================================================
 
 import urllib.request
@@ -30,11 +30,12 @@ def _patched_request_init(self, url, data=None, headers={}, *args, **kwargs):
 urllib.request.Request.__init__ = _patched_request_init
 
 # ==============================================================================
-# 2. SYSTEM CONFIG & ABSOLUTE TOKEN INJECTION
+# 2. SYSTEM CONFIG & ABSOLUTE TOKEN/COOKIE INJECTION
 # ==============================================================================
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s - %(message)s')
 logger = logging.getLogger("YouTubeDownloader")
 
+# --- TOKEN INJECTION ---
 TOKEN_PATH = os.path.join(tempfile.gettempdir(), 'youtube_tokens.json')
 pytube_tokens_env = os.environ.get('PYTUBE_TOKENS')
 
@@ -42,9 +43,25 @@ if pytube_tokens_env:
     try:
         with open(TOKEN_PATH, 'w', encoding='utf-8') as f:
             f.write(pytube_tokens_env)
-        logger.info(f"✅ V77: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
+        logger.info(f"✅ V80: OAuth Tokens safely hard-linked to {TOKEN_PATH}")
     except Exception as e:
-        logger.error(f"❌ V77: Token injection failed: {e}")
+        logger.error(f"❌ V80: Token injection failed: {e}")
+
+# --- COOKIE INJECTION (THE REAL IP BAN BYPASS) ---
+COOKIE_PATH = os.path.join(tempfile.gettempdir(), 'youtube_cookies.txt')
+youtube_cookies_env = os.environ.get('YOUTUBE_COOKIES')
+
+if youtube_cookies_env:
+    try:
+        with open(COOKIE_PATH, 'w', encoding='utf-8') as f:
+            f.write(youtube_cookies_env)
+        logger.info(f"✅ V80: Chrome Netscape Cookies securely loaded to {COOKIE_PATH}")
+    except Exception as e:
+        logger.error(f"❌ V80: Cookie injection failed: {e}")
+        COOKIE_PATH = None
+else:
+    COOKIE_PATH = None
+    logger.warning("⚠️ V80: No YOUTUBE_COOKIES secret found in environment!")
 
 app = Flask(__name__)
 DOWNLOAD_DIR = 'downloads'
@@ -98,10 +115,9 @@ def get_progress_hook(task_id):
     return progress_hook
 
 # ==============================================================================
-# 3. V77 ENGINE: THE HYDRA (PYTUBE + YTDLP + 14 PROXY CLUSTERS)
+# 3. V80 ENGINE: THE HYDRA (PYTUBE + YTDLP + COOKIES + 14 PROXY CLUSTERS)
 # ==============================================================================
 def fetch_stream_url(url, is_audio=True):
-    # Fix 1: The correct Regex that grabs the 11-char ID, not the domain name
     vid_id = None
     match = re.search(r"(?:v=|youtu\.be/|embed/|shorts/)([\w-]{11})", url)
     if match:
@@ -115,12 +131,17 @@ def fetch_stream_url(url, is_audio=True):
         "Accept": "application/json"
     }
 
-    # --- METHOD 1: PYTUBEFIX (WEB) WITH FAILSAFES ---
+    # --- METHOD 1: PYTUBEFIX (WEB) WITH OAUTH TOKENS ---
     try:
         logger.info("Hydra 1: PytubeFix (WEB) with Manual Tokens...")
-        yt = YouTube(url, client='WEB')
+        kwargs = {'client': 'WEB'}
+        if os.path.exists(TOKEN_PATH):
+            kwargs['use_oauth'] = True
+            kwargs['allow_oauth_cache'] = True
+            kwargs['token_file'] = TOKEN_PATH
+
+        yt = YouTube(url, **kwargs)
         
-        # Safe assignment: Prevents the 'innertube' attribute crash if version differs
         if hasattr(yt, 'innertube'):
             yt.innertube.po_token = MANUAL_PO_TOKEN
             yt.innertube.visitor_data = MANUAL_VISITOR_DATA
@@ -133,36 +154,37 @@ def fetch_stream_url(url, is_audio=True):
     except Exception as e: 
         logger.warning(f"Hydra 1 Failed: {e}")
 
-    # --- METHOD 2: YT-DLP WITH ENVIRONMENT COOKIES & PO-TOKEN ---
+    # --- METHOD 2: YT-DLP WITH INJECTED CHROME COOKIES ---
     try:
-        logger.info("Hydra 2: yt-dlp with Environment Cookies & PO-Token...")
-        cookie_data = os.environ.get('YOUTUBE_COOKIES')
-        temp_cookie_file = None
-        
+        logger.info("Hydra 2: yt-dlp with Netscape Cookies & PO-Token...")
         ydl_opts = {
             'quiet': True,
             'format': 'bestaudio/best' if is_audio else 'best',
             'noplaylist': True,
             'extractor_args': {'youtube': [f'po_token=web+{MANUAL_PO_TOKEN}']}
         }
-        if cookie_data:
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as tf:
-                tf.write(cookie_data)
-                temp_cookie_file = tf.name
-            ydl_opts['cookiefile'] = temp_cookie_file
+        
+        # INJECTING COOKIES HERE
+        if COOKIE_PATH and os.path.exists(COOKIE_PATH):
+            ydl_opts['cookiefile'] = COOKIE_PATH
+            logger.info("Hydra 2: Actively using YOUTUBE_COOKIES file!")
         
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            if temp_cookie_file and os.path.exists(temp_cookie_file): os.remove(temp_cookie_file)
             if 'url' in info: return info['url']
     except Exception as e: 
         logger.warning(f"Hydra 2 Failed: {e}")
-        if temp_cookie_file and os.path.exists(temp_cookie_file): os.remove(temp_cookie_file)
 
     # --- METHOD 3: PYTUBEFIX (ANDROID_MUSIC NO-BOTGUARD CLIENT) ---
     try:
         logger.info("Hydra 3: PytubeFix (ANDROID_MUSIC)...")
-        yt = YouTube(url, client='ANDROID_MUSIC')
+        kwargs = {'client': 'ANDROID_MUSIC'}
+        if os.path.exists(TOKEN_PATH):
+            kwargs['use_oauth'] = True
+            kwargs['allow_oauth_cache'] = True
+            kwargs['token_file'] = TOKEN_PATH
+
+        yt = YouTube(url, **kwargs)
         if is_audio:
             stream = yt.streams.filter(only_audio=True).order_by('abr').first()
         else:
@@ -180,6 +202,9 @@ def fetch_stream_url(url, is_audio=True):
             'noplaylist': True, 
             'extractor_args': {'youtube': ['player_client:android,ios', 'player_skip:web,tv']}
         }
+        if COOKIE_PATH and os.path.exists(COOKIE_PATH):
+            ydl_opts['cookiefile'] = COOKIE_PATH
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             if 'url' in info: return info['url']
@@ -637,7 +662,7 @@ PLAYER_HTML = """
                 </label>
             </div>
             <div style="margin-top:20px; padding:15px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px;">
-                <p style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V77 Hydra Active. (Tokens + Cookies + 14 Proxy Clusters)</p>
+                <p id="engineStatusTxt" style="font-size:0.85rem; color:#94a3b8; margin:0;"><strong>Engine Status:</strong> V80 Hydra Active. (Cookies + Tokens + 14 Proxy Clusters)</p>
             </div>
         </div>
     </div>
@@ -1473,6 +1498,7 @@ PLAYER_HTML = """
         function handleCredentialResponse(response) {
     // This logs the secure token showing the authentication worked
     console.log("Google JWT Token received:", response.credential);
+    document.getElementById("engineStatusTxt").innerHTML = "<strong>Engine Status:</strong> Logged into Google Secure Identity API ✅";
     showToast("Successfully authenticated with Google!", "success");
 }
 
@@ -1567,6 +1593,11 @@ def get_info():
             'Accept-Language': 'hi-IN,hi;q=0.9,en-US;q=0.8,en;q=0.7'
         }
     }
+    
+    # INJECT NETSCAPE COOKIE FILE INTO SEARCH REQUEST IF AVAILABLE
+    if COOKIE_PATH and os.path.exists(COOKIE_PATH):
+        ydl_opts['cookiefile'] = COOKIE_PATH
+
     try:
         fetch_url = f"ytsearch{limit}:{url}" if mode == 'search' else url
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -1654,5 +1685,6 @@ def page_not_found(e):
     return redirect('/')
 
 if __name__ == '__main__':
-    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V77 (HYDRA) ONLINE 🔥\n" + "="*50 + "\n")
-    app.run(host="0.0.0.0", port=5000)
+    print("\n" + "="*50 + "\n 🔥 MUSIC PLAYER AND DOWNLOADER V80 (COOKIE AUTH) ONLINE 🔥\n" + "="*50 + "\n")
+    port = int(os.environ.get('PORT', 7860))
+    app.run(host="0.0.0.0", port=port)
