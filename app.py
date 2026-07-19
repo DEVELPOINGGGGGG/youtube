@@ -1,5 +1,5 @@
 # ==============================================================================
-# YOUTUBE MEDIA APP (V80 - THE AUTHENTICATOR: COOKIES + TOKENS + HYDRA)
+# YOUTUBE MEDIA APP (V81 - THE AUTHENTICATOR: COOKIES + TOKENS + HYDRA)
 # ==============================================================================
 
 import urllib.request
